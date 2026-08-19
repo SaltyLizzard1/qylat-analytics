@@ -33,6 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="cursor-not-allowed" title="Coming in Phase 6">Themes</span>
           <span className="cursor-not-allowed" title="Coming in Phase 6">CTAs</span>
           <span className="cursor-not-allowed" title="Coming in Phase 6">Funnel</span>
+          <a href="/admin/links" style={{ color: '#E8C84A' }}>Links</a>
         </nav>
 
         <form action={logout}>
