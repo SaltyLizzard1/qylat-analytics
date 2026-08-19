@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand colours */
+  --color-espresso: #3A281A;
+  --color-espresso-deep: #2D1A00;
+  --color-cream: #FBF6E3;
+  --color-sage: #92A882;
+  --color-slate: #2C3340;
+  --color-gold-start: #8B6914;
+  --color-gold-mid: #E8C84A;
+  --color-gold-light: #F5E070;
+  --color-gold-end: #C9A030;
+
+  /* Dashboard dark palette */
+  --color-dash-bg: #0F0A05;
+  --color-dash-surface: #1A1008;
+  --color-dash-card: #231409;
+  --color-dash-border: #3A2210;
+  --color-dash-text: #FBF6E3;
+  --color-dash-muted: #8A7A60;
+  --color-dash-subtle: #4A3820;
+
+  /* Platform colours */
+  --color-instagram: #E1306C;
+  --color-facebook: #1877F2;
+  --color-tiktok: #69C9D0;
+  --color-youtube: #FF0000;
+
+  --font-heading: 'Cormorant Garamond', Georgia, serif;
+  --font-body: Inter, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--color-dash-bg);
+  color: var(--color-dash-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
