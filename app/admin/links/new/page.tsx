@@ -9,11 +9,12 @@ import { severityGood, severityBad } from '@/lib/severity';
 
 const PLATFORMS = ['instagram', 'facebook', 'tiktok', 'youtube'] as const;
 const FORMATS: Record<string, string[]> = {
-  instagram: ['reel', 'carousel', 'story', 'bio'],
-  facebook: ['reel', 'carousel', 'story', 'bio'],
-  tiktok: ['short', 'bio'],
-  youtube: ['short', 'bio'],
+  instagram: ['reel', 'carousel', 'story', 'short', 'bio', 'other'],
+  facebook: ['reel', 'carousel', 'story', 'short', 'bio', 'other'],
+  tiktok: ['short', 'bio', 'other'],
+  youtube: ['short', 'bio', 'other'],
 };
+const FORMAT_LABELS: Record<string, string> = { other: 'Post' };
 const CTAS = [
   { value: 'leap-log', label: 'Leap Log' },
   { value: 'quiz', label: 'Readiness Quiz' },
@@ -117,7 +118,7 @@ export default function NewLinkPage() {
                   checked={format === f}
                   onChange={() => setFormat(f)}
                 />
-                {f.charAt(0).toUpperCase() + f.slice(1)}
+                {FORMAT_LABELS[f] ?? f.charAt(0).toUpperCase() + f.slice(1)}
               </label>
             ))}
           </div>
