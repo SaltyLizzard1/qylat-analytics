@@ -3,16 +3,16 @@ import { logout } from '@/app/login/actions';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#0F0A05' }}>
+    <div style={{ minHeight: '100vh', background: '#FFFFFF' }}>
       <header
         className="sticky top-0 z-10 flex items-center justify-between px-4 py-3"
-        style={{ background: '#1A1008', borderBottom: '1px solid #3A2210' }}
+        style={{ background: '#FFFFFF', borderBottom: '1px solid #D0D0D0' }}
       >
         <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/dashboard"
-            className="text-lg font-bold tracking-wide flex-shrink-0"
-            style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", color: '#FBF6E3' }}
+            className="text-lg tracking-wide flex-shrink-0"
+            style={{ fontWeight: 600, color: '#111111', textDecoration: 'none' }}
           >
             QYLAT
           </Link>
@@ -22,17 +22,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href="/admin/links/new"
               className="px-3 py-1.5 rounded text-xs font-semibold flex-shrink-0"
               style={{
-                background: 'linear-gradient(135deg, #8B6914, #E8C84A)',
-                color: '#2D1A00',
-                border: '1.5px solid #2D1A00',
+                background: '#111111',
+                color: '#FFFFFF',
+                border: '1px solid #111111',
+                textDecoration: 'none',
               }}
             >
               + New Link
             </Link>
-            <Link href="/admin/links" className="text-xs px-2 py-1.5 hidden sm:block" style={{ color: '#8A7A60' }}>
+            <Link
+              href="/admin/links"
+              className="text-xs px-2 py-1.5 hidden sm:block"
+              style={{ color: '#111111', textDecoration: 'underline' }}
+            >
               All Links
             </Link>
-            <Link href="/admin/clicks" className="text-xs px-2 py-1.5 hidden sm:block" style={{ color: '#8A7A60' }}>
+            <Link
+              href="/admin/clicks"
+              className="text-xs px-2 py-1.5 hidden sm:block"
+              style={{ color: '#111111', textDecoration: 'underline' }}
+            >
               Click Log
             </Link>
           </nav>
@@ -42,7 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button
             type="submit"
             className="text-xs px-3 py-1.5 rounded"
-            style={{ border: '1px solid #3A2210', color: '#8A7A60' }}
+            style={{ border: '1px solid #D0D0D0', color: '#555555', background: '#FFFFFF' }}
           >
             Sign out
           </button>

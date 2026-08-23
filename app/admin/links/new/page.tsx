@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createLink, CreateLinkState } from './actions';
 import { CopyButton } from '@/components/CopyButton';
 import { generateSlug } from '@/lib/utm';
+import { severityGood, severityBad } from '@/lib/severity';
 
 const PLATFORMS = ['instagram', 'facebook', 'tiktok', 'youtube'] as const;
 const FORMATS: Record<string, string[]> = {
@@ -21,10 +22,10 @@ const CTAS = [
 ];
 
 const FIELD = {
-  background: '#1A1008',
-  border: '1px solid #3A2210',
-  color: '#FBF6E3',
-  borderRadius: '0.5rem',
+  background: '#FFFFFF',
+  border: '1px solid #D0D0D0',
+  color: '#111111',
+  borderRadius: '0.375rem',
   padding: '0.75rem 1rem',
   width: '100%',
   fontSize: '0.9rem',
@@ -51,32 +52,28 @@ export default function NewLinkPage() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-7">
-        <Link href="/admin/links" className="text-sm" style={{ color: '#8A7A60' }}>
-          ← All links
+        <Link href="/admin/links" style={{ color: '#111111', textDecoration: 'underline', fontSize: '0.875rem' }}>
+          Back to All Links
         </Link>
-        <h1
-          className="text-2xl font-bold"
-          style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", color: '#FBF6E3' }}
-        >
+        <h1 className="text-2xl" style={{ fontWeight: 600, color: '#111111' }}>
           New Link
         </h1>
       </div>
 
       <form action={formAction} className="space-y-5">
-        {/* Platform */}
         <div>
-          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#8A7A60' }}>
+          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#555555' }}>
             Platform
           </label>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {PLATFORMS.map((p) => (
               <label
                 key={p}
-                className="flex items-center justify-center py-3 rounded-lg cursor-pointer text-sm font-medium transition-colors"
+                className="flex items-center justify-center py-3 rounded-lg cursor-pointer text-sm font-medium"
                 style={
                   platform === p
-                    ? { background: '#3A2210', color: '#E8C84A', border: '1.5px solid #E8C84A' }
-                    : { background: '#1A1008', color: '#8A7A60', border: '1px solid #3A2210' }
+                    ? { background: '#111111', color: '#FFFFFF', border: '1px solid #111111' }
+                    : { background: '#FFFFFF', color: '#555555', border: '1px solid #D0D0D0' }
                 }
               >
                 <input
@@ -97,20 +94,19 @@ export default function NewLinkPage() {
           </div>
         </div>
 
-        {/* Format */}
         <div>
-          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#8A7A60' }}>
+          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#555555' }}>
             Format
           </label>
           <div className="flex flex-wrap gap-2">
             {formats.map((f) => (
               <label
                 key={f}
-                className="flex items-center justify-center px-4 py-2 rounded-lg cursor-pointer text-sm font-medium transition-colors"
+                className="flex items-center justify-center px-4 py-2 rounded-lg cursor-pointer text-sm font-medium"
                 style={
                   format === f
-                    ? { background: '#3A2210', color: '#E8C84A', border: '1.5px solid #E8C84A' }
-                    : { background: '#1A1008', color: '#8A7A60', border: '1px solid #3A2210' }
+                    ? { background: '#111111', color: '#FFFFFF', border: '1px solid #111111' }
+                    : { background: '#FFFFFF', color: '#555555', border: '1px solid #D0D0D0' }
                 }
               >
                 <input
@@ -127,9 +123,8 @@ export default function NewLinkPage() {
           </div>
         </div>
 
-        {/* CTA */}
         <div>
-          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#8A7A60' }}>
+          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#555555' }}>
             CTA Destination
           </label>
           <select name="cta_type" style={FIELD}>
@@ -140,11 +135,10 @@ export default function NewLinkPage() {
           </select>
         </div>
 
-        {/* Content theme */}
         <div>
-          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#8A7A60' }}>
+          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#555555' }}>
             Content Theme
-            <span className="ml-2 normal-case" style={{ color: '#5A4A30' }}>
+            <span className="ml-2 normal-case" style={{ color: '#555555' }}>
               (optional, e.g. "thailand-60-days")
             </span>
           </label>
@@ -156,9 +150,8 @@ export default function NewLinkPage() {
           />
         </div>
 
-        {/* Destination URL */}
         <div>
-          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#8A7A60' }}>
+          <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#555555' }}>
             Destination URL
           </label>
           <input
@@ -170,21 +163,20 @@ export default function NewLinkPage() {
           />
         </div>
 
-        {/* Slug preview + optional override */}
         <div
-          className="rounded-xl p-4 space-y-3"
-          style={{ background: '#0F0A05', border: '1px solid #3A2210' }}
+          className="rounded-lg p-4 space-y-3"
+          style={{ background: '#F2F2F2', border: '1px solid #D0D0D0' }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs uppercase tracking-widest" style={{ color: '#8A7A60' }}>
+            <span className="text-xs uppercase tracking-widest" style={{ color: '#555555' }}>
               Your short link
             </span>
-            <code className="text-sm" style={{ color: '#E8C84A' }}>
+            <code className="text-sm" style={{ color: '#111111' }}>
               /go/{previewSlug}
             </code>
           </div>
           <div>
-            <label className="block text-xs mb-1" style={{ color: '#5A4A30' }}>
+            <label className="block text-xs mb-1" style={{ color: '#555555' }}>
               Custom slug (leave blank to auto-generate)
             </label>
             <input
@@ -199,7 +191,7 @@ export default function NewLinkPage() {
         </div>
 
         {state.status === 'error' && (
-          <p className="text-sm" style={{ color: '#E8A87C' }}>
+          <p className="text-sm px-3 py-2 rounded-lg" style={severityBad}>
             {state.message}
           </p>
         )}
@@ -209,9 +201,9 @@ export default function NewLinkPage() {
           disabled={isPending}
           className="w-full py-3.5 rounded-lg font-semibold tracking-wide transition-opacity disabled:opacity-50"
           style={{
-            background: 'linear-gradient(135deg, #8B6914 0%, #E8C84A 35%, #F5E070 55%, #C9A030 75%, #8B6914 100%)',
-            border: '1.5px solid #2D1A00',
-            color: '#2D1A00',
+            background: '#111111',
+            border: '1px solid #111111',
+            color: '#FFFFFF',
             fontSize: '0.95rem',
           }}
         >
@@ -236,61 +228,56 @@ function SuccessView({ shortUrl, utmUrl, slug }: { shortUrl: string; utmUrl: str
       <div className="mb-7">
         <div
           className="inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full mb-4"
-          style={{ background: '#1A3A1A', color: '#90E890', border: '1px solid #2A5A2A' }}
+          style={severityGood}
         >
           Link created
         </div>
-        <h1
-          className="text-2xl font-bold"
-          style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", color: '#FBF6E3' }}
-        >
+        <h1 className="text-2xl" style={{ fontWeight: 600, color: '#111111' }}>
           Ready to post
         </h1>
       </div>
 
-      {/* The short link */}
       <div
-        className="rounded-xl p-5 mb-4"
-        style={{ background: '#1A1008', border: '1px solid #3A2210' }}
+        className="rounded-lg p-5 mb-4"
+        style={{ background: '#FFFFFF', border: '1px solid #D0D0D0' }}
       >
-        <p className="text-xs uppercase tracking-widest mb-3" style={{ color: '#8A7A60' }}>
+        <p className="text-xs uppercase tracking-widest mb-3" style={{ color: '#555555' }}>
           Your short link
         </p>
         <div className="flex items-center gap-3">
-          <code className="text-base flex-1 min-w-0 break-all" style={{ color: '#E8C84A' }}>
+          <code className="text-base flex-1 min-w-0 break-all" style={{ color: '#111111' }}>
             {shortUrl}
           </code>
           <CopyButton text={shortUrl} label="Copy" />
         </div>
       </div>
 
-      {/* UTMs applied */}
       <div
-        className="rounded-xl p-5 mb-6"
-        style={{ background: '#0F0A05', border: '1px solid #3A2210' }}
+        className="rounded-lg p-5 mb-6"
+        style={{ background: '#F2F2F2', border: '1px solid #D0D0D0' }}
       >
-        <p className="text-xs uppercase tracking-widest mb-3" style={{ color: '#8A7A60' }}>
+        <p className="text-xs uppercase tracking-widest mb-3" style={{ color: '#555555' }}>
           UTMs applied automatically
         </p>
         <div className="space-y-1.5">
           {Object.entries(utmParams).map(([key, val]) => (
             <div key={key} className="flex gap-3 text-sm">
-              <code className="flex-shrink-0" style={{ color: '#5A4A30' }}>{key}</code>
-              <code style={{ color: '#FBF6E3' }}>{val}</code>
+              <code className="flex-shrink-0" style={{ color: '#555555' }}>{key}</code>
+              <code style={{ color: '#111111' }}>{val}</code>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-3">
         <Link
           href="/admin/links/new"
           className="flex-1 py-3 text-center rounded-lg text-sm font-semibold"
           style={{
-            background: 'linear-gradient(135deg, #8B6914, #E8C84A)',
-            color: '#2D1A00',
-            border: '1.5px solid #2D1A00',
+            background: '#111111',
+            color: '#FFFFFF',
+            border: '1px solid #111111',
+            textDecoration: 'none',
           }}
         >
           Create another
@@ -298,7 +285,7 @@ function SuccessView({ shortUrl, utmUrl, slug }: { shortUrl: string; utmUrl: str
         <Link
           href="/admin/links"
           className="flex-1 py-3 text-center rounded-lg text-sm"
-          style={{ border: '1px solid #3A2210', color: '#8A7A60' }}
+          style={{ border: '1px solid #D0D0D0', color: '#111111', textDecoration: 'none' }}
         >
           View all links
         </Link>

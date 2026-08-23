@@ -30,19 +30,17 @@ export default async function LinksPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-7">
-        <h1
-          className="text-2xl font-bold"
-          style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", color: '#FBF6E3' }}
-        >
+        <h1 className="text-2xl" style={{ fontWeight: 600, color: '#111111' }}>
           Short Links
         </h1>
         <Link
           href="/admin/links/new"
           className="px-4 py-2 rounded-lg text-sm font-semibold"
           style={{
-            background: 'linear-gradient(135deg, #8B6914, #E8C84A)',
-            color: '#2D1A00',
-            border: '1.5px solid #2D1A00',
+            background: '#111111',
+            color: '#FFFFFF',
+            border: '1px solid #111111',
+            textDecoration: 'none',
           }}
         >
           + New Link
@@ -65,25 +63,23 @@ export default async function LinksPage() {
 function EmptyState() {
   return (
     <div
-      className="text-center py-16 rounded-xl"
-      style={{ background: '#1A1008', border: '1px dashed #3A2210' }}
+      className="text-center py-16 rounded-lg"
+      style={{ background: '#F2F2F2', border: '1px dashed #D0D0D0' }}
     >
-      <p
-        className="text-xl mb-2"
-        style={{ color: '#FBF6E3', fontFamily: "'Cormorant Garamond', Georgia, serif" }}
-      >
+      <p className="text-xl mb-2" style={{ fontWeight: 600, color: '#111111' }}>
         No links yet
       </p>
-      <p className="text-sm mb-6 max-w-xs mx-auto" style={{ color: '#8A7A60' }}>
+      <p className="text-sm mb-6 max-w-xs mx-auto" style={{ color: '#555555' }}>
         Create a link before your next post. Every click on that link will be logged here with platform, country, and referrer.
       </p>
       <Link
         href="/admin/links/new"
         className="px-5 py-2.5 rounded-lg text-sm font-semibold"
         style={{
-          background: 'linear-gradient(135deg, #8B6914, #E8C84A)',
-          color: '#2D1A00',
-          border: '1.5px solid #2D1A00',
+          background: '#111111',
+          color: '#FFFFFF',
+          border: '1px solid #111111',
+          textDecoration: 'none',
         }}
       >
         Create your first link
@@ -103,26 +99,23 @@ function LinkCard({ link }: { link: Record<string, unknown> }) {
 
   return (
     <div
-      className="rounded-xl p-4"
-      style={{ background: '#1A1008', border: '1px solid #3A2210' }}
+      className="rounded-lg p-4"
+      style={{ background: '#FFFFFF', border: '1px solid #D0D0D0' }}
     >
       <div className="flex items-start gap-3">
-        {/* Platform dot */}
         <div
           className="w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0"
-          style={{ background: PLATFORM_COLOR[platform] ?? '#8A7A60' }}
+          style={{ background: PLATFORM_COLOR[platform] ?? '#555555' }}
         />
 
         <div className="flex-1 min-w-0">
-          {/* Slug + copy */}
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <code className="text-sm font-mono" style={{ color: '#E8C84A' }}>
+            <code className="text-sm font-mono" style={{ color: '#111111' }}>
               /go/{slug}
             </code>
             <CopyButton text={`/go/${slug}`} label="Copy slug" />
           </div>
 
-          {/* Tags */}
           <div className="flex flex-wrap gap-1.5 mb-2">
             <Tag>{platform}</Tag>
             {format && <Tag>{format}</Tag>}
@@ -130,18 +123,16 @@ function LinkCard({ link }: { link: Record<string, unknown> }) {
             {contentTheme && <Tag>{contentTheme}</Tag>}
           </div>
 
-          {/* Meta */}
-          <p className="text-xs" style={{ color: '#5A4A30' }}>
+          <p className="text-xs" style={{ color: '#555555' }}>
             Created {createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
 
-        {/* Click count */}
         <div className="text-right flex-shrink-0">
-          <p className="text-2xl font-bold" style={{ color: '#FBF6E3' }}>
+          <p className="text-2xl font-bold" style={{ color: '#111111' }}>
             {clickCount}
           </p>
-          <p className="text-xs" style={{ color: '#8A7A60' }}>clicks</p>
+          <p className="text-xs" style={{ color: '#555555' }}>clicks</p>
         </div>
       </div>
     </div>
@@ -152,7 +143,7 @@ function Tag({ children }: { children: React.ReactNode }) {
   return (
     <span
       className="text-xs px-2 py-0.5 rounded-full"
-      style={{ background: '#3A2210', color: '#8A7A60' }}
+      style={{ background: '#F2F2F2', color: '#555555' }}
     >
       {children}
     </span>

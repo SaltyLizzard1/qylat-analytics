@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { severityGood } from '@/lib/severity';
 
 export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -17,8 +18,8 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
       className="text-xs px-3 py-1.5 rounded font-medium transition-colors flex-shrink-0"
       style={
         copied
-          ? { background: '#2D5A2D', color: '#90E890', border: '1px solid #3A7A3A' }
-          : { background: '#3A2210', color: '#E8C84A', border: '1px solid #5A3820' }
+          ? severityGood
+          : { background: '#F2F2F2', color: '#111111', border: '1px solid #D0D0D0' }
       }
     >
       {copied ? 'Copied!' : label}

@@ -1,16 +1,18 @@
+import { severityWarning } from '@/lib/severity';
+
 const PLANNED_VIEWS = [
   {
     number: '01',
     title: 'Post Leaderboard',
     description: 'Every post ranked by clicks per impression, not by reach. The posts actually driving traffic, front and center.',
-    emptyAction: 'Create your first /go/ link before your next post. That\'s what starts the data.',
+    emptyAction: 'Create your first /go/ link before your next post. That is what starts the data.',
     phase: 2,
   },
   {
     number: '02',
     title: 'Platform Comparison',
     description: 'Instagram vs Facebook vs TikTok vs YouTube: which platform produces the most site visits per post published.',
-    emptyAction: 'Data appears here after you\'ve used /go/ links across at least two platforms.',
+    emptyAction: 'Data appears here after you have used /go/ links across at least two platforms.',
     phase: 2,
   },
   {
@@ -53,31 +55,29 @@ const PLANNED_VIEWS = [
 export default function DashboardPage() {
   return (
     <div>
-      {/* Phase 1 status banner */}
       <div
-        className="mb-8 px-5 py-4 rounded-xl flex items-start gap-4"
-        style={{ background: '#1A1008', border: '1px solid #3A2210' }}
+        className="mb-8 px-5 py-4 rounded-lg flex items-start gap-4"
+        style={severityWarning}
       >
         <div
           className="mt-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-          style={{ background: 'linear-gradient(135deg, #8B6914, #E8C84A)', color: '#2D1A00' }}
+          style={{ background: '#8A5A00', color: '#FFFFFF' }}
         >
-          1
+          2
         </div>
         <div>
-          <p className="font-semibold text-sm" style={{ color: '#FBF6E3' }}>
-            Phase 1 complete: skeleton deployed
+          <p className="font-semibold text-sm" style={{ color: '#8A5A00' }}>
+            Phase 2 complete: link tracker live
           </p>
-          <p className="text-sm mt-1" style={{ color: '#8A7A60' }}>
-            Database schema is ready. Next up: Phase 2 builds the /go/ click tracker so you can
-            start generating real data with your very next post.
+          <p className="text-sm mt-1" style={{ color: '#8A5A00' }}>
+            Create a /go/ link for each post. Clicks appear under Links and Clicks.
           </p>
         </div>
       </div>
 
       <h2
-        className="text-2xl font-bold mb-6"
-        style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", color: '#FBF6E3' }}
+        className="text-2xl mb-6"
+        style={{ fontWeight: 600, color: '#111111' }}
       >
         Coming views
       </h2>
@@ -86,40 +86,34 @@ export default function DashboardPage() {
         {PLANNED_VIEWS.map((view) => (
           <div
             key={view.number}
-            className="rounded-xl p-5"
-            style={{ background: '#231409', border: '1px solid #3A2210' }}
+            className="rounded-lg p-5"
+            style={{ background: '#FFFFFF', border: '1px solid #D0D0D0' }}
           >
             <div className="flex items-start justify-between mb-3">
               <span
-                className="text-3xl font-bold"
-                style={{
-                  fontFamily: "'Cormorant Garamond', Georgia, serif",
-                  background:
-                    'linear-gradient(135deg, #8B6914 0%, #E8C84A 35%, #F5E070 55%, #C9A030 75%, #8B6914 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
+                className="text-3xl"
+                style={{ fontWeight: 600, color: '#111111' }}
               >
                 {view.number}
               </span>
               <span
                 className="text-xs px-2 py-0.5 rounded-full"
-                style={{ background: '#3A2210', color: '#8A7A60' }}
+                style={{ background: '#F2F2F2', color: '#555555' }}
               >
                 Phase {view.phase}
               </span>
             </div>
 
-            <h3 className="font-semibold text-sm mb-2" style={{ color: '#FBF6E3' }}>
+            <h3 className="text-sm mb-2" style={{ fontWeight: 600, color: '#111111' }}>
               {view.title}
             </h3>
-            <p className="text-xs leading-relaxed mb-4" style={{ color: '#8A7A60' }}>
+            <p className="text-xs leading-relaxed mb-4" style={{ color: '#555555' }}>
               {view.description}
             </p>
 
             <div
-              className="text-xs px-3 py-2 rounded-lg leading-relaxed"
-              style={{ background: '#0F0A05', color: '#6A5A40', borderLeft: '2px solid #3A2210' }}
+              className="text-xs px-3 py-2 rounded"
+              style={{ background: '#F2F2F2', color: '#555555' }}
             >
               To populate: {view.emptyAction}
             </div>
