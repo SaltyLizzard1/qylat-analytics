@@ -44,6 +44,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               Click Log
             </Link>
+            <Link
+              href="/admin/posts"
+              className="text-xs px-2 py-1.5 hidden sm:block"
+              style={{ color: '#111111', textDecoration: 'underline' }}
+            >
+              Posts
+            </Link>
           </nav>
         </div>
 
@@ -58,7 +65,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </form>
       </header>
 
-      <main className="px-4 py-6 max-w-3xl mx-auto">{children}</main>
+      <main className="px-4 py-6 max-w-5xl mx-auto">{children}</main>
     </div>
   );
 }

@@ -1,125 +1,94 @@
-import { severityWarning } from '@/lib/severity';
+import Link from 'next/link';
+import { getOverview, getWeeklyViews, getWeeklyClicks } from '@/lib/queries';
+import { StatTile, TrendChart, Panel, Note } from '@/components/charts';
+import { C, compact, shortDate } from '@/lib/theme';
 
-const PLANNED_VIEWS = [
-  {
-    number: '01',
-    title: 'Post Leaderboard',
-    description: 'Every post ranked by clicks per impression, not by reach. The posts actually driving traffic, front and center.',
-    emptyAction: 'Create your first /go/ link before your next post. That is what starts the data.',
-    phase: 2,
-  },
-  {
-    number: '02',
-    title: 'Platform Comparison',
-    description: 'Instagram vs Facebook vs TikTok vs YouTube: which platform produces the most site visits per post published.',
-    emptyAction: 'Data appears here after you have used /go/ links across at least two platforms.',
-    phase: 2,
-  },
-  {
-    number: '03',
-    title: 'Format Comparison',
-    description: 'Reels vs carousels vs Stories vs Shorts, measured on click-through rate, not raw reach.',
-    emptyAction: 'Needs click data from multiple post formats.',
-    phase: 2,
-  },
-  {
-    number: '04',
-    title: 'Content Theme Performance',
-    description: 'Which topics actually drive traffic. Groups posts by source blog theme so you know what to write next.',
-    emptyAction: 'Tag posts with a content theme when you create the /go/ link.',
-    phase: 4,
-  },
-  {
-    number: '05',
-    title: 'CTA Destination',
-    description: 'Leap Log vs readiness quiz vs 60-Day Leap Kit. Which call to action actually converts, by platform.',
-    emptyAction: 'Select a CTA type when creating each /go/ link.',
-    phase: 2,
-  },
-  {
-    number: '06',
-    title: 'QYLAT to IdeaToPlan Funnel',
-    description: 'How many social-driven sessions on QYLAT go on to reach IdeaToPlan. The full top-of-funnel picture.',
-    emptyAction: 'This view requires the Vercel Analytics integration (Phase 3).',
-    phase: 3,
-  },
-  {
-    number: '07',
-    title: 'Weekly Trend',
-    description: 'Social-driven sessions per week. The one chart that tells you whether the whole effort is compounding.',
-    emptyAction: 'Needs a few weeks of /go/ link data to be meaningful.',
-    phase: 2,
-  },
-];
+export const dynamic = 'force-dynamic';
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const [overview, weeklyViews, weeklyClicks] = await Promise.all([
+    getOverview(),
+    getWeeklyViews(),
+    getWeeklyClicks(),
+  ]);
+
+  const viewPoints = weeklyViews.map((r) => ({
+    label: shortDate(r.week as string),
+    value: (r.views as number) ?? 0,
+  }));
+  const clickPoints = weeklyClicks.map((r) => ({
+    label: shortDate(r.week as string),
+    value: (r.clicks as number) ?? 0,
+  }));
+
   return (
-    <div>
-      <div
-        className="mb-8 px-5 py-4 rounded-lg flex items-start gap-4"
-        style={severityWarning}
-      >
-        <div
-          className="mt-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-          style={{ background: '#8A5A00', color: '#FFFFFF' }}
-        >
-          2
-        </div>
-        <div>
-          <p className="font-semibold text-sm" style={{ color: '#8A5A00' }}>
-            Phase 2 complete: link tracker live
-          </p>
-          <p className="text-sm mt-1" style={{ color: '#8A5A00' }}>
-            Create a /go/ link for each post. Clicks appear under Links and Clicks.
-          </p>
-        </div>
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl mb-1" style={{ fontWeight: 600, color: C.text }}>
+          Overview
+        </h1>
+        <p className="text-sm" style={{ color: C.muted }}>
+          {overview.posts > 0
+            ? `${overview.posts} posts from ${shortDate(overview.earliest)} to ${shortDate(overview.latestPost)}.`
+            : 'No posts synced yet.'}
+          {overview.lastSyncedAt
+            ? ` Last sync ${new Date(overview.lastSyncedAt).toLocaleString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                hour: 'numeric',
+                minute: '2-digit',
+              })}.`
+            : ''}
+        </p>
       </div>
 
-      <h2
-        className="text-2xl mb-6"
-        style={{ fontWeight: 600, color: '#111111' }}
-      >
-        Coming views
-      </h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {PLANNED_VIEWS.map((view) => (
-          <div
-            key={view.number}
-            className="rounded-lg p-5"
-            style={{ background: '#FFFFFF', border: '1px solid #D0D0D0' }}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <span
-                className="text-3xl"
-                style={{ fontWeight: 600, color: '#111111' }}
-              >
-                {view.number}
-              </span>
-              <span
-                className="text-xs px-2 py-0.5 rounded-full"
-                style={{ background: '#F2F2F2', color: '#555555' }}
-              >
-                Phase {view.phase}
-              </span>
-            </div>
-
-            <h3 className="text-sm mb-2" style={{ fontWeight: 600, color: '#111111' }}>
-              {view.title}
-            </h3>
-            <p className="text-xs leading-relaxed mb-4" style={{ color: '#555555' }}>
-              {view.description}
-            </p>
-
-            <div
-              className="text-xs px-3 py-2 rounded"
-              style={{ background: '#F2F2F2', color: '#555555' }}
-            >
-              To populate: {view.emptyAction}
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatTile label="Posts" value={compact(overview.posts)} sub="Facebook and Instagram" />
+        <StatTile label="Views" value={compact(overview.views)} sub="latest snapshot per post" />
+        <StatTile label="Engagement" value={compact(overview.engagement)} sub="likes, comments, saves, shares" />
+        <StatTile label="Link clicks" value={compact(overview.clicks)} sub={`across ${overview.links} /go/ links`} />
       </div>
+
+      <Panel
+        title="Views per week"
+        description="Total views of everything published that week, from the latest snapshot of each post."
+      >
+        <TrendChart points={viewPoints} valueLabel="Views" />
+      </Panel>
+
+      <Panel
+        title="Link clicks per week"
+        description="First party clicks on your /go/ links. This is the number that says whether social is actually sending people to the site."
+      >
+        <TrendChart
+          points={clickPoints}
+          valueLabel="Clicks"
+          emptyMessage="Needs at least two weeks of click data."
+        />
+        <Note>
+          Views and clicks are plotted separately on purpose. They are different scales, and putting
+          them on one chart with two axes would invent a relationship that is not in the data.
+        </Note>
+      </Panel>
+
+      <Panel title="What is not here yet" description="Two gaps worth knowing about.">
+        <ul className="text-sm space-y-2" style={{ color: C.muted }}>
+          <li>
+            <span style={{ color: C.text, fontWeight: 600 }}>Facebook reach reads zero.</span> Meta
+            accepts the metric and returns 0 for every Page post, so every comparison here uses views
+            instead. Instagram reach is fine.
+          </li>
+          <li>
+            <span style={{ color: C.text, fontWeight: 600 }}>Posts are not linked to clicks.</span>{' '}
+            Nothing in the Meta data says which post drove which click. Tag posts with a content
+            theme on the{' '}
+            <Link href="/admin/posts" style={{ color: C.text, textDecoration: 'underline' }}>
+              posts screen
+            </Link>{' '}
+            to join the two sides together.
+          </li>
+        </ul>
+      </Panel>
     </div>
   );
 }
