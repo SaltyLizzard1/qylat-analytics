@@ -51,17 +51,25 @@ export default async function FormatsPage() {
 
       <Panel
         title="Facebook, average views per post"
-        description="Facebook Page posts all arrive as a single format."
+        description="Reels against carousels against plain posts, the same comparison as Instagram."
       >
         <BarList
           data={toBars(facebook, 'avg_views')}
           valueLabel="Average views per post"
           emptyMessage="No Facebook posts synced yet."
         />
+      </Panel>
+
+      <Panel title="Facebook, average engagement per post">
+        <BarList
+          data={toBars(facebook, 'avg_engagement')}
+          valueLabel="Average engagement per post"
+          emptyMessage="No Facebook posts synced yet."
+        />
         <Note>
-          The Page posts edge does not report whether a Facebook post is a Reel, so everything from
-          Facebook lands as one format. Splitting it needs the video reels edge, which is not built.
-          Instagram formats are exact.
+          Facebook format comes from two signals, because the Page posts edge has no product type
+          field. A Reel is identified by its /reel/ permalink, and a carousel by an album
+          attachment. Instagram reports its formats directly.
         </Note>
       </Panel>
     </div>

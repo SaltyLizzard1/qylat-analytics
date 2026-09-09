@@ -93,10 +93,12 @@ export function BarList({
                 </span>
               </span>
             </div>
-            <div
-              className="h-2 w-full rounded-full overflow-hidden"
-              style={{ background: C.neutral }}
-            >
+            {/*
+              No track behind the bar. An unfilled rail encodes nothing while
+              looking like it encodes something, and reads as a second series.
+              Bar length carries the magnitude, the longest bar sets the scale.
+            */}
+            <div className="h-2 w-full">
               <div
                 className="h-full rounded-full"
                 style={{

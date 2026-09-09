@@ -9,6 +9,7 @@ import {
   fetchInstagramMediaInsights,
   instagramFormat,
   facebookFormat,
+  facebookMediaType,
   slugFromCaption,
   type MetaConfig,
   type InsightResult,
@@ -159,8 +160,8 @@ async function syncFacebook(cfg: MetaConfig, since: Date): Promise<PlatformRepor
       const postId = await upsertPost({
         platform: 'facebook',
         platformPostId: post.id,
-        format: facebookFormat(),
-        mediaProductType: null,
+        format: facebookFormat(post),
+        mediaProductType: facebookMediaType(post),
         publishedAt: post.created_time,
         caption: post.message ?? null,
         thumbnailUrl: post.full_picture ?? null,

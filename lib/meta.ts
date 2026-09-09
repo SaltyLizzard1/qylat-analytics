@@ -248,6 +248,7 @@ export type FacebookPost = {
   shares?: { count?: number };
   comments?: { summary?: { total_count?: number } };
   reactions?: { summary?: { total_count?: number } };
+  attachments?: { data?: { media_type?: string }[] };
 };
 
 const FACEBOOK_POST_FIELDS = [
@@ -259,6 +260,7 @@ const FACEBOOK_POST_FIELDS = [
   'shares',
   'comments.summary(total_count).limit(0)',
   'reactions.summary(total_count).limit(0)',
+  'attachments{media_type}',
 ].join(',');
 
 const FACEBOOK_POST_METRICS = [
@@ -364,12 +366,30 @@ export function instagramFormat(media: InstagramMedia): string {
 }
 
 /**
- * The Page /posts edge does not expose media_product_type, so a Facebook Reel
- * is not distinguishable from a normal post here. Everything lands as `other`
- * until the /video_reels edge is added.
+ * Facebook format, from two signals because neither is sufficient alone.
+ *
+ * The Page /posts edge has no media_product_type, but a Reel's permalink_url
+ * is /reel/<id>/ while an ordinary post is /<page-id>/posts/<id>. That
+ * separates Reels exactly. It cannot separate a single photo from an album,
+ * which is what attachments.media_type is for: `album` is a multi photo post,
+ * which is a carousel.
+ *
+ * media_type alone cannot identify a Reel, since an ordinary Facebook video
+ * also reports `video`. Hence both.
+ *
+ * The /video_reels edge is the authoritative alternative, but it returns video
+ * IDs that do not match the composite post IDs from /posts, so it needs a merge
+ * step to say what the permalink already says. Kept in reserve.
  */
-export function facebookFormat(): string {
+export function facebookFormat(post: FacebookPost): string {
+  if ((post.permalink_url ?? '').includes('/reel/')) return 'reel';
+  if (facebookMediaType(post)?.toLowerCase() === 'album') return 'carousel';
   return 'other';
+}
+
+/** Raw attachment media_type, stored for debugging what Meta actually said. */
+export function facebookMediaType(post: FacebookPost): string | null {
+  return post.attachments?.data?.[0]?.media_type ?? null;
 }
 
 const GO_SLUG_PATTERN = /\/go\/([a-z0-9-]{2,50})/i;
