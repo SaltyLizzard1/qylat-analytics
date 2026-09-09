@@ -6,6 +6,7 @@ import { createLink, CreateLinkState } from './actions';
 import { CopyButton } from '@/components/CopyButton';
 import { generateSlug } from '@/lib/utm';
 import { severityGood, severityBad } from '@/lib/severity';
+import { BASE_URL } from '@/lib/config';
 
 const PLATFORMS = ['instagram', 'facebook', 'tiktok', 'youtube'] as const;
 const FORMATS: Record<string, string[]> = {
@@ -36,6 +37,11 @@ const FIELD = {
 const initialState: CreateLinkState = { status: 'idle' };
 
 export default function NewLinkPage() {
+  const [formKey, setFormKey] = useState(0);
+  return <LinkForm key={formKey} onReset={() => setFormKey((k) => k + 1)} />;
+}
+
+function LinkForm({ onReset }: { onReset: () => void }) {
   const [state, formAction, isPending] = useActionState(createLink, initialState);
   const [platform, setPlatform] = useState('instagram');
   const [format, setFormat] = useState('reel');
@@ -45,9 +51,8 @@ export default function NewLinkPage() {
   const previewSlug = customSlug.trim() || generateSlug(platform, format);
 
   if (state.status === 'success') {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const shortUrl = `${origin}/go/${state.slug}`;
-    return <SuccessView shortUrl={shortUrl} utmUrl={state.utmUrl} slug={state.slug} />;
+    const shortUrl = `${BASE_URL}/${state.slug}`;
+    return <SuccessView shortUrl={shortUrl} utmUrl={state.utmUrl} onReset={onReset} />;
   }
 
   return (
@@ -172,8 +177,8 @@ export default function NewLinkPage() {
             <span className="text-xs uppercase tracking-widest" style={{ color: '#555555' }}>
               Your short link
             </span>
-            <code className="text-sm" style={{ color: '#111111' }}>
-              /go/{previewSlug}
+            <code className="text-sm break-all" style={{ color: '#111111' }}>
+              {BASE_URL}/{previewSlug}
             </code>
           </div>
           <div>
@@ -215,7 +220,15 @@ export default function NewLinkPage() {
   );
 }
 
-function SuccessView({ shortUrl, utmUrl, slug }: { shortUrl: string; utmUrl: string; slug: string }) {
+function SuccessView({
+  shortUrl,
+  utmUrl,
+  onReset,
+}: {
+  shortUrl: string;
+  utmUrl: string;
+  onReset: () => void;
+}) {
   const utmParams = (() => {
     try {
       return Object.fromEntries(new URL(utmUrl).searchParams);
@@ -271,18 +284,18 @@ function SuccessView({ shortUrl, utmUrl, slug }: { shortUrl: string; utmUrl: str
       </div>
 
       <div className="flex gap-3">
-        <Link
-          href="/admin/links/new"
+        <button
+          type="button"
+          onClick={onReset}
           className="flex-1 py-3 text-center rounded-lg text-sm font-semibold"
           style={{
             background: '#111111',
             color: '#FFFFFF',
             border: '1px solid #111111',
-            textDecoration: 'none',
           }}
         >
           Create another
-        </Link>
+        </button>
         <Link
           href="/admin/links"
           className="flex-1 py-3 text-center rounded-lg text-sm"

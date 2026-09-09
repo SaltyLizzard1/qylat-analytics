@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { CopyButton } from '@/components/CopyButton';
+import { BASE_URL } from '@/lib/config';
+import { DeleteLinkButton } from './DeleteLinkButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,10 +112,10 @@ function LinkCard({ link }: { link: Record<string, unknown> }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <code className="text-sm font-mono" style={{ color: '#111111' }}>
-              /go/{slug}
+            <code className="text-sm font-mono break-all" style={{ color: '#111111' }}>
+              {BASE_URL}/{slug}
             </code>
-            <CopyButton text={`/go/${slug}`} label="Copy slug" />
+            <CopyButton text={`${BASE_URL}/${slug}`} label="Copy" />
           </div>
 
           <div className="flex flex-wrap gap-1.5 mb-2">
@@ -128,11 +130,14 @@ function LinkCard({ link }: { link: Record<string, unknown> }) {
           </p>
         </div>
 
-        <div className="text-right flex-shrink-0">
-          <p className="text-2xl font-bold" style={{ color: '#111111' }}>
-            {clickCount}
-          </p>
-          <p className="text-xs" style={{ color: '#555555' }}>clicks</p>
+        <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
+          <div>
+            <p className="text-2xl font-bold" style={{ color: '#111111' }}>
+              {clickCount}
+            </p>
+            <p className="text-xs" style={{ color: '#555555' }}>clicks</p>
+          </div>
+          <DeleteLinkButton slug={slug} />
         </div>
       </div>
     </div>
