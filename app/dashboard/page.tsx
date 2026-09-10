@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { getOverview, getWeeklyViews, getWeeklyClicks } from '@/lib/queries';
+import { getOverview, getWeeklyViews, getWeeklyClicks, getPeriodDeltas } from '@/lib/queries';
 import { getAttentionItems } from '@/lib/attention';
-import { StatTile, TrendChart, Panel, PageHeader, Note } from '@/components/charts';
+import { StatTile, TrendChart, Panel, PageHeader, Note, SectionHeading } from '@/components/charts';
+import { Delta } from '@/components/Delta';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import type { Level } from '@/lib/status';
@@ -16,11 +17,12 @@ const LEVEL_STYLE: Record<Level, { color: string; background: string; border: st
 };
 
 export default async function DashboardPage() {
-  const [overview, weeklyViews, weeklyClicks, attention] = await Promise.all([
+  const [overview, weeklyViews, weeklyClicks, attention, d] = await Promise.all([
     getOverview(),
     getWeeklyViews(),
     getWeeklyClicks(),
     getAttentionItems(),
+    getPeriodDeltas(30),
   ]);
 
   const viewPoints = weeklyViews.map((r) => ({
@@ -126,6 +128,36 @@ export default async function DashboardPage() {
         )}
       </section>
 
+      <SectionHeading note={`last ${d.days} days against the ${d.days} before`}>
+        Last {d.days} days
+      </SectionHeading>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatTile
+          label="Posts published"
+          value={compact(d.publishedPosts.current)}
+          delta={<Delta current={d.publishedPosts.current} previous={d.publishedPosts.previous} />}
+        />
+        <StatTile
+          label="Views on those posts"
+          value={compact(d.publishedViews.current)}
+          delta={<Delta current={d.publishedViews.current} previous={d.publishedViews.previous} />}
+        />
+        <StatTile
+          label="Link clicks"
+          value={compact(d.clicks.current)}
+          delta={<Delta current={d.clicks.current} previous={d.clicks.previous} />}
+        />
+        <StatTile
+          label="New followers"
+          value={compact(d.followers.current)}
+          delta={<Delta current={d.followers.current} previous={d.followers.previous} />}
+          sub="Instagram"
+        />
+      </div>
+
+      <SectionHeading note="every post ever synced">All time</SectionHeading>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatTile label="Posts" value={compact(overview.posts)} sub="Facebook and Instagram" />
         <StatTile label="Views" value={compact(overview.views)} sub="latest snapshot per post" />
@@ -140,6 +172,8 @@ export default async function DashboardPage() {
           sub={`across ${overview.links} /go/ links`}
         />
       </div>
+
+      <SectionHeading>Trends</SectionHeading>
 
       <Panel
         title="Views per week"
@@ -162,6 +196,8 @@ export default async function DashboardPage() {
           chart with two axes would invent a relationship that is not in the data.
         </Note>
       </Panel>
+
+      <SectionHeading>Caveats</SectionHeading>
 
       <Panel title="Known blind spots" description="Things this dashboard cannot see.">
         <ul className="text-sm space-y-2" style={{ color: C.muted }}>

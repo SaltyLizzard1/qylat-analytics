@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getThemePerformance, getUntaggedPostCount, getPillarMix } from '@/lib/queries';
 import { BarList, Panel, Empty, Note, PageHeader, type BarDatum } from '@/components/charts';
 import { DataRows, type Column } from '@/components/DataRows';
+import { Donut, type Slice } from '@/components/Donut';
 import type { Row } from '@/lib/queries';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { PILLARS, pillarLabel, HAS_TARGETS } from '@/lib/pillars';
@@ -33,6 +34,12 @@ export default async function ThemesPage() {
       value: (r.views as number) ?? 0,
       meta: `${r.posts} posts`,
     }));
+
+  const tagSlices: Slice[] = mix.rows.map((r) => ({
+    key: r.theme as string,
+    label: pillarLabel(r.theme as string),
+    value: (r.posts as number) ?? 0,
+  }));
 
   const num = (key: string, label: string, width: string, bold = false): Column<Row> => ({
     key,
@@ -77,6 +84,10 @@ export default async function ThemesPage() {
         {mix.taggedPosts === 0 ? (
           <Empty message="No posts tagged yet, so there is no mix to compare." />
         ) : (
+          <>
+          <div className="mb-6">
+            <Donut data={tagSlices} valueLabel="Share of tagged posts" />
+          </div>
           <div className="flex flex-col gap-3.5">
             {PILLARS.map((p) => {
               const row = mix.rows.find((r) => r.theme === p.slug);
@@ -145,6 +156,7 @@ export default async function ThemesPage() {
               );
             })}
           </div>
+          </>
         )}
         <Note>
           Based on {mix.taggedPosts} tagged posts out of {mix.totalPosts}. Until most posts are

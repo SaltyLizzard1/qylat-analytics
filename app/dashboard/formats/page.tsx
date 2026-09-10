@@ -1,13 +1,21 @@
-import { getFormatComparison } from '@/lib/queries';
+import { getFormatComparison, getSplits } from '@/lib/queries';
 import { BarList, Panel, Note, PageHeader, type BarDatum } from '@/components/charts';
 import { StatusLegend } from '@/components/status';
-import { formatStatus, PERFORMANCE_SHORT } from '@/lib/status';
+import { Donut, type Slice } from '@/components/Donut';
+import { formatStatus, PERFORMANCE_SHORT, PERFORMANCE_LABEL } from '@/lib/status';
 import { platformLabel, formatLabel } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
 export default async function FormatsPage() {
-  const rows = await getFormatComparison();
+  const [rows, splits] = await Promise.all([getFormatComparison(), getSplits()]);
+
+  // No identity colour for a format, so the donut falls back to its grey ramp.
+  const formatSlices: Slice[] = splits.byFormat.map((r) => ({
+    key: r.key as string,
+    label: formatLabel(r.key as string),
+    value: (r.value as number) ?? 0,
+  }));
 
   const instagram = rows.filter((r) => r.platform === 'instagram');
   const facebook = rows.filter((r) => r.platform === 'facebook');
@@ -36,7 +44,16 @@ export default async function FormatsPage() {
           ? (() => {
               const st = formatStatus(r.avg_views as number, benchmark, r.posts as number);
               // Same colour, performance wording. A format is not urgent.
-              return st ? { ...st, label: PERFORMANCE_SHORT[st.level] } : null;
+              // Both label forms have to be set: BarList renders compact, which
+              // reads shortLabel, so overriding only `label` left the action
+              // wording ("Good", "Attention") showing on the badge.
+              return st
+                ? {
+                    ...st,
+                    label: PERFORMANCE_LABEL[st.level],
+                    shortLabel: PERFORMANCE_SHORT[st.level],
+                  }
+                : null;
             })()
           : undefined,
     }));
@@ -50,6 +67,13 @@ export default async function FormatsPage() {
       />
 
       <StatusLegend scale="performance" />
+
+      <Panel
+        title="What you actually publish"
+        description="Share of every synced post by format, across both platforms. Output mix, not performance."
+      >
+        <Donut data={formatSlices} valueLabel="Share of posts" emptyMessage="No posts synced yet." />
+      </Panel>
 
       <Panel
         title="Instagram, average views per post"

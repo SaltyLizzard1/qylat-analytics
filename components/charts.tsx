@@ -19,11 +19,14 @@ export function StatTile({
   value,
   sub,
   status,
+  delta,
 }: {
   label: string;
   value: string;
   sub?: string;
   status?: Status | null;
+  /** Period over period change, rendered under the number. */
+  delta?: React.ReactNode;
 }) {
   return (
     <div className="px-4 py-3.5" style={CARD}>
@@ -42,11 +45,38 @@ export function StatTile({
       >
         {value}
       </p>
+      {delta && <div className="mt-1.5">{delta}</div>}
       {sub && (
-        <p className="text-xs mt-1.5" style={{ color: C.muted }}>
+        <p className="text-xs mt-1" style={{ color: C.muted }}>
           {sub}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Band that groups the panels below it.
+ *
+ * Nine views of equal-weight cards is a long undifferentiated scroll. A rule
+ * with a label tells the eye where one idea stops and the next begins, which
+ * is cheaper than another layer of nesting.
+ */
+export function SectionHeading({ children, note }: { children: React.ReactNode; note?: string }) {
+  return (
+    <div className="flex items-baseline gap-3 pt-2">
+      <span
+        className="text-xs uppercase whitespace-nowrap"
+        style={{ color: C.text, letterSpacing: '0.1em', fontWeight: 600 }}
+      >
+        {children}
+      </span>
+      {note && (
+        <span className="text-xs truncate" style={{ color: C.muted }}>
+          {note}
+        </span>
+      )}
+      <span aria-hidden style={{ flex: 1, height: 1, background: C.border }} />
     </div>
   );
 }

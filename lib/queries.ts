@@ -57,6 +57,112 @@ export async function getOverview() {
   };
 }
 
+export type Period = { current: number; previous: number };
+
+/**
+ * Period over period figures, current window against the one before it.
+ *
+ * The semantics differ per metric and the labels in the view have to match, or
+ * the number is a lie:
+ *
+ * - Clicks, sessions and followers are event streams with real timestamps, so
+ *   "in the last 30 days" means exactly that.
+ * - Views and engagement are NOT. post_metrics holds a cumulative per-post
+ *   total, not a daily increment, so there is no way to ask how many views
+ *   happened last week. What is answerable is how the posts PUBLISHED in a
+ *   window are doing, which is what these return. A tile showing them must
+ *   say "posts published", not "views this month".
+ */
+export async function getPeriodDeltas(days = 30): Promise<{
+  publishedPosts: Period;
+  publishedViews: Period;
+  publishedEngagement: Period;
+  clicks: Period;
+  sessions: Period;
+  followers: Period;
+  days: number;
+}> {
+  const d = Math.max(1, Math.floor(days));
+
+  const published = await sql(`
+    ${LATEST}
+    SELECT
+      COUNT(*) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${d} days')::int AS cur_posts,
+      COUNT(*) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${d * 2} days'
+                         AND p.published_at <  NOW() - INTERVAL '${d} days')::int AS prev_posts,
+      COALESCE(SUM(l.views) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${d} days'), 0)::int AS cur_views,
+      COALESCE(SUM(l.views) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${d * 2} days'
+                                      AND p.published_at <  NOW() - INTERVAL '${d} days'), 0)::int AS prev_views,
+      COALESCE(SUM(l.engagement) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${d} days'), 0)::int AS cur_eng,
+      COALESCE(SUM(l.engagement) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${d * 2} days'
+                                           AND p.published_at <  NOW() - INTERVAL '${d} days'), 0)::int AS prev_eng
+    FROM posts p JOIN latest l ON l.post_id = p.id
+  `);
+
+  const clicks = await sql(`
+    SELECT
+      COUNT(*) FILTER (WHERE clicked_at >= NOW() - INTERVAL '${d} days')::int AS cur,
+      COUNT(*) FILTER (WHERE clicked_at >= NOW() - INTERVAL '${d * 2} days'
+                         AND clicked_at <  NOW() - INTERVAL '${d} days')::int AS prev
+    FROM click_events
+  `);
+
+  const sessions = await sql(`
+    SELECT
+      COALESCE(SUM(sessions) FILTER (WHERE session_date >= CURRENT_DATE - ${d}), 0)::int AS cur,
+      COALESCE(SUM(sessions) FILTER (WHERE session_date >= CURRENT_DATE - ${d * 2}
+                                       AND session_date <  CURRENT_DATE - ${d}), 0)::int AS prev
+    FROM site_sessions
+  `);
+
+  const followers = await sql(`
+    SELECT
+      COALESCE(SUM(new_followers) FILTER (WHERE recorded_on >= CURRENT_DATE - ${d}), 0)::int AS cur,
+      COALESCE(SUM(new_followers) FILTER (WHERE recorded_on >= CURRENT_DATE - ${d * 2}
+                                            AND recorded_on <  CURRENT_DATE - ${d}), 0)::int AS prev
+    FROM audience_snapshots WHERE new_followers IS NOT NULL
+  `);
+
+  const p = published[0] ?? {};
+  return {
+    days: d,
+    publishedPosts: { current: (p.cur_posts as number) ?? 0, previous: (p.prev_posts as number) ?? 0 },
+    publishedViews: { current: (p.cur_views as number) ?? 0, previous: (p.prev_views as number) ?? 0 },
+    publishedEngagement: { current: (p.cur_eng as number) ?? 0, previous: (p.prev_eng as number) ?? 0 },
+    clicks: { current: (clicks[0]?.cur as number) ?? 0, previous: (clicks[0]?.prev as number) ?? 0 },
+    sessions: { current: (sessions[0]?.cur as number) ?? 0, previous: (sessions[0]?.prev as number) ?? 0 },
+    followers: { current: (followers[0]?.cur as number) ?? 0, previous: (followers[0]?.prev as number) ?? 0 },
+  };
+}
+
+/** Part to whole splits: share of views by platform, posts by format, posts by tag. */
+export async function getSplits(): Promise<{
+  byPlatform: Row[];
+  byFormat: Row[];
+  byTag: Row[];
+}> {
+  const byPlatform = await sql(`
+    ${LATEST}
+    SELECT p.platform AS key, COALESCE(SUM(l.views), 0)::int AS value
+    FROM posts p JOIN latest l ON l.post_id = p.id
+    GROUP BY p.platform HAVING SUM(l.views) > 0 ORDER BY value DESC
+  `);
+
+  const byFormat = await sql(`
+    SELECT format AS key, COUNT(*)::int AS value
+    FROM posts WHERE format IS NOT NULL
+    GROUP BY format ORDER BY value DESC
+  `);
+
+  const byTag = await sql(`
+    SELECT content_theme AS key, COUNT(*)::int AS value
+    FROM posts WHERE content_theme IS NOT NULL AND content_theme <> ''
+    GROUP BY content_theme ORDER BY value DESC
+  `);
+
+  return { byPlatform, byFormat, byTag };
+}
+
 /** Views and posts published per ISO week. */
 export async function getWeeklyViews(): Promise<Row[]> {
   return sql(`

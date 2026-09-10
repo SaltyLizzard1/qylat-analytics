@@ -1,13 +1,25 @@
-import { getPlatformComparison, getClicksByPlatform } from '@/lib/queries';
+import { getPlatformComparison, getClicksByPlatform, getSplits } from '@/lib/queries';
 import { BarList, Panel, Note, PageHeader, type BarDatum } from '@/components/charts';
 import { DataRows, Chip, Sub, type Column } from '@/components/DataRows';
+import { Donut, type Slice } from '@/components/Donut';
 import { C, compact, platformLabel, platformColor } from '@/lib/theme';
 import type { Row } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PlatformsPage() {
-  const [platforms, clicks] = await Promise.all([getPlatformComparison(), getClicksByPlatform()]);
+  const [platforms, clicks, splits] = await Promise.all([
+    getPlatformComparison(),
+    getClicksByPlatform(),
+    getSplits(),
+  ]);
+
+  const viewSlices: Slice[] = splits.byPlatform.map((r) => ({
+    key: r.key as string,
+    label: platformLabel(r.key as string),
+    value: (r.value as number) ?? 0,
+    color: platformColor(r.key as string),
+  }));
 
   // Only platforms with post data get a bar. A zero length bar for TikTok
   // would claim its posts got no views, when the truth is nothing can see them.
@@ -106,6 +118,13 @@ export default async function PlatformsPage() {
           data={measured.map((r) => bar(r, 'avg_views'))}
           valueLabel="Average views per post"
         />
+      </Panel>
+
+      <Panel
+        title="Share of all views"
+        description="Part to whole. Which platform your total attention actually comes from."
+      >
+        <Donut data={viewSlices} valueLabel="Share of views" emptyMessage="No views recorded yet." />
       </Panel>
 
       <Panel title="Total views" description="Raw volume, for context only.">
