@@ -179,6 +179,43 @@ export async function getThemePerformance(): Promise<Row[]> {
   `);
 }
 
+/**
+ * Posts, views and engagement per theme, plus the untagged remainder.
+ *
+ * Feeds the pillar mix: what actually got published against the intended
+ * share. Performance alone does not answer "am I posting the right balance",
+ * which is the question the pillars exist to answer.
+ */
+export async function getPillarMix(): Promise<{ rows: Row[]; taggedPosts: number; totalPosts: number }> {
+  const rows = await sql(`
+    WITH latest AS (
+      SELECT DISTINCT ON (post_id) post_id, views, engagement
+      FROM post_metrics ORDER BY post_id, recorded_on DESC
+    )
+    SELECT p.content_theme AS theme,
+           COUNT(*)::int                        AS posts,
+           COALESCE(SUM(l.views), 0)::int       AS views,
+           COALESCE(SUM(l.engagement), 0)::int  AS engagement,
+           COALESCE(ROUND(AVG(l.views)), 0)::int AS avg_views
+    FROM posts p JOIN latest l ON l.post_id = p.id
+    WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
+    GROUP BY p.content_theme
+    ORDER BY posts DESC
+  `);
+
+  const counts = await sql`
+    SELECT COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE content_theme IS NOT NULL AND content_theme <> '')::int AS tagged
+    FROM posts
+  `;
+
+  return {
+    rows,
+    taggedPosts: (counts[0]?.tagged as number) ?? 0,
+    totalPosts: (counts[0]?.total as number) ?? 0,
+  };
+}
+
 /** How many posts still need a theme, for the empty state prompt. */
 export async function getUntaggedPostCount(): Promise<number> {
   const rows = await sql`

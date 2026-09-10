@@ -1,18 +1,24 @@
 import Link from 'next/link';
-import { getThemePerformance, getUntaggedPostCount } from '@/lib/queries';
-import { BarList, Panel, Empty, Note, type BarDatum } from '@/components/charts';
+import { getThemePerformance, getUntaggedPostCount, getPillarMix } from '@/lib/queries';
+import { BarList, Panel, Empty, Note, PageHeader, type BarDatum } from '@/components/charts';
+import { StatusBadge, StatusLegend } from '@/components/status';
+import { PILLARS, pillarLabel } from '@/lib/pillars';
 import { C, compact } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ThemesPage() {
-  const [rows, untagged] = await Promise.all([getThemePerformance(), getUntaggedPostCount()]);
+  const [rows, untagged, mix] = await Promise.all([
+    getThemePerformance(),
+    getUntaggedPostCount(),
+    getPillarMix(),
+  ]);
 
   const clickBars: BarDatum[] = rows
     .filter((r) => (r.clicks as number) > 0)
     .map((r) => ({
       key: r.theme as string,
-      label: r.theme as string,
+      label: pillarLabel(r.theme as string),
       value: (r.clicks as number) ?? 0,
       meta: `${r.links} links`,
     }));
@@ -21,22 +27,85 @@ export default async function ThemesPage() {
     .filter((r) => (r.views as number) > 0)
     .map((r) => ({
       key: r.theme as string,
-      label: r.theme as string,
+      label: pillarLabel(r.theme as string),
       value: (r.views as number) ?? 0,
       meta: `${r.posts} posts`,
     }));
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl mb-1" style={{ fontWeight: 600, color: C.text }}>
-          Content Theme Performance
-        </h1>
-        <p className="text-sm" style={{ color: C.muted }}>
-          Which topics earn attention and which ones actually send people to the site. Themes join
-          your posts to your /go/ links.
-        </p>
-      </div>
+      <PageHeader
+        title="Content Theme Performance"
+        lead="Which pillars earn attention and which ones actually send people to the site. Themes join your posts to your /go/ links, and to the pillar mix you are aiming for."
+      />
+
+      <StatusLegend />
+
+      <Panel
+        title="Pillar mix, published against target"
+        description="Your four content pillars carry target shares of output. This says whether what you actually published matches, which performance figures alone cannot tell you."
+      >
+        {mix.taggedPosts === 0 ? (
+          <Empty message="No posts tagged yet, so there is no mix to compare." />
+        ) : (
+          <div className="flex flex-col gap-3.5">
+            {PILLARS.map((p) => {
+              const row = mix.rows.find((r) => r.theme === p.slug);
+              const posts = (row?.posts as number) ?? 0;
+              const actual = mix.taggedPosts > 0 ? posts / mix.taggedPosts : 0;
+              const drift = actual - p.targetShare;
+              // Within 10 points is fine. Beyond 20 is a real drift worth acting on.
+              const level = Math.abs(drift) <= 0.1 ? 'good' : Math.abs(drift) <= 0.2 ? 'warning' : 'bad';
+              return (
+                <div key={p.slug} title={p.covers}>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm truncate" style={{ color: C.text }}>
+                        {p.label}
+                      </span>
+                      <StatusBadge
+                        status={{
+                          level,
+                          label:
+                            level === 'good'
+                              ? 'On target'
+                              : drift > 0
+                                ? 'Over target'
+                                : 'Under target',
+                          reason: `${(actual * 100).toFixed(0)}% published against a ${(
+                            p.targetShare * 100
+                          ).toFixed(0)}% target, from ${posts} of ${mix.taggedPosts} tagged posts`,
+                        }}
+                        compact
+                      />
+                    </span>
+                    <span className="text-xs tabular-nums flex-shrink-0" style={{ color: C.muted }}>
+                      {(actual * 100).toFixed(0)}% of {mix.taggedPosts}
+                      <span style={{ color: C.border }}> / </span>
+                      target {(p.targetShare * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div style={{ height: 6 }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${Math.min(actual * 100, 100)}%`,
+                        background: C.text,
+                        borderRadius: '999px',
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <Note>
+          Based on {mix.taggedPosts} tagged posts out of {mix.totalPosts}. Until most posts are
+          tagged the mix reflects only what you have got round to, not what you published, so read
+          it as provisional.
+        </Note>
+      </Panel>
 
       {untagged > 0 && (
         <Panel title="Tagging needed">
@@ -117,7 +186,7 @@ export default async function ThemesPage() {
                     }}
                   >
                     <td className="px-2 py-2.5" style={{ color: C.text }}>
-                      {r.theme as string}
+                      {pillarLabel(r.theme as string)}
                     </td>
                     {(['posts', 'views', 'engagement', 'links', 'clicks'] as const).map((k) => (
                       <td

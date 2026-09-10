@@ -7,6 +7,7 @@ import { CopyButton } from '@/components/CopyButton';
 import { generateSlug } from '@/lib/utm';
 import { severityGood, severityBad } from '@/lib/severity';
 import { BASE_URL } from '@/lib/config';
+import { PILLARS } from '@/lib/pillars';
 
 const PLATFORMS = ['instagram', 'facebook', 'tiktok', 'youtube'] as const;
 const FORMATS: Record<string, string[]> = {
@@ -46,6 +47,7 @@ function LinkForm({ onReset }: { onReset: () => void }) {
   const [platform, setPlatform] = useState('instagram');
   const [format, setFormat] = useState('reel');
   const [customSlug, setCustomSlug] = useState('');
+  const [theme, setTheme] = useState('');
 
   const formats = FORMATS[platform] ?? ['reel', 'carousel', 'bio', 'other'];
   const previewSlug = customSlug.trim() || generateSlug(platform, format);
@@ -145,13 +147,41 @@ function LinkForm({ onReset }: { onReset: () => void }) {
           <label className="block text-xs uppercase tracking-widest mb-2" style={{ color: '#555555' }}>
             Content Theme
             <span className="ml-2 normal-case" style={{ color: '#555555' }}>
-              (optional, e.g. "thailand-60-days")
+              (pick a pillar, so this link joins to the matching post)
             </span>
           </label>
+          {/*
+            Same four pillars as the post tagging screen. The theme string is
+            what joins a link to a post, so both sides have to use one
+            vocabulary or the Themes view stays empty.
+          */}
+          <div className="flex flex-wrap gap-2 mb-2">
+            {PILLARS.map((p) => {
+              const active = theme === p.slug;
+              return (
+                <button
+                  key={p.slug}
+                  type="button"
+                  onClick={() => setTheme(active ? '' : p.slug)}
+                  title={p.covers}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={
+                    active
+                      ? { background: '#111111', color: '#FFFFFF', border: '1px solid #111111' }
+                      : { background: '#FFFFFF', color: '#555555', border: '1px solid #D0D0D0' }
+                  }
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
           <input
             type="text"
             name="content_theme"
-            placeholder="thailand-60-days"
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            placeholder="or type your own"
             style={FIELD}
           />
         </div>
