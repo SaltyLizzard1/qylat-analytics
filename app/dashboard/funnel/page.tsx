@@ -5,6 +5,8 @@ import {
   getGaStatus,
 } from '@/lib/queries';
 import { BarList, Panel, Empty, Note, StatTile, type BarDatum } from '@/components/charts';
+import { StatusBadge, StatusLegend } from '@/components/status';
+import { arrivalStatus } from '@/lib/status';
 import { C, compact, pct, platformLabel } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -51,6 +53,7 @@ export default async function FunnelPage() {
   return (
     <div className="space-y-5">
       <Header />
+      <StatusLegend />
 
       <div className="grid grid-cols-3 gap-3">
         <StatTile label="Clicks" value={compact(totalClicks)} sub="your redirect log" />
@@ -90,6 +93,7 @@ export default async function FunnelPage() {
                 <Th right>Sessions</Th>
                 <Th right>Arrived</Th>
                 <Th right>Engaged</Th>
+                <Th>Status</Th>
               </tr>
             </thead>
             <tbody>
@@ -118,6 +122,9 @@ export default async function FunnelPage() {
                     </Td>
                     <Td right>{clicks > 0 ? pct(sessions, clicks) : '--'}</Td>
                     <Td right>{(r.engaged as number) ?? 0}</Td>
+                    <Td>
+                      <StatusBadge status={arrivalStatus(sessions, clicks)} compact />
+                    </Td>
                   </tr>
                 );
               })}
@@ -136,6 +143,7 @@ export default async function FunnelPage() {
                 <Th right>Sessions</Th>
                 <Th right>Arrived</Th>
                 <Th right>Engaged</Th>
+                <Th>Status</Th>
               </tr>
             </thead>
             <tbody>
@@ -154,6 +162,9 @@ export default async function FunnelPage() {
                   </Td>
                   <Td right>{pct(r.sessions as number, r.clicks as number)}</Td>
                   <Td right>{(r.engaged as number) ?? 0}</Td>
+                  <Td>
+                    <StatusBadge status={arrivalStatus(r.sessions as number, r.clicks as number)} compact />
+                  </Td>
                 </tr>
               ))}
             </tbody>

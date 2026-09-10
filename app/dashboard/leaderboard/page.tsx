@@ -1,5 +1,7 @@
 import { getLeaderboard } from '@/lib/queries';
-import { Panel, Empty, Note } from '@/components/charts';
+import { Panel, Empty, Note, PageHeader } from '@/components/charts';
+import { StatusBadge, StatusLegend } from '@/components/status';
+import { engagementStatus } from '@/lib/status';
 import { C, compact, pct, shortDate, platformLabel, formatLabel } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -9,15 +11,12 @@ export default async function LeaderboardPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl mb-1" style={{ fontWeight: 600, color: C.text }}>
-          Post Leaderboard
-        </h1>
-        <p className="text-sm" style={{ color: C.muted }}>
-          Every synced post ranked by views, with engagement rate beside it so a small post that
-          punched above its weight is still visible.
-        </p>
-      </div>
+      <PageHeader
+        title="Post Leaderboard"
+        lead="Every synced post ranked by views, with engagement rate beside it so a small post that punched above its weight is still visible."
+      />
+
+      <StatusLegend />
 
       <Panel title={`Top ${Math.min(rows.length, 30)} posts`}>
         {rows.length === 0 ? (
@@ -33,6 +32,7 @@ export default async function LeaderboardPage() {
                   <Th align="right">Eng.</Th>
                   <Th align="right">Eng. rate</Th>
                   <Th align="right">Published</Th>
+                  <Th align="left">Status</Th>
                 </tr>
               </thead>
               <tbody>
@@ -79,6 +79,9 @@ export default async function LeaderboardPage() {
                         <span className="text-xs" style={{ color: C.muted }}>
                           {shortDate(r.published_at as string)}
                         </span>
+                      </Td>
+                      <Td>
+                        <StatusBadge status={engagementStatus(engagement, views)} compact />
                       </Td>
                     </tr>
                   );

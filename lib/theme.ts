@@ -11,14 +11,41 @@ export const C = {
   neutral: '#F2F2F2',
 } as const;
 
+/**
+ * Depth without colour. The page and cards are both white, so a card needs a
+ * hairline plus a barely-there neutral shadow to read as a surface. The shadow
+ * is pure black at very low alpha, so it introduces no tint.
+ */
+export const SHADOW = '0 1px 2px rgba(17, 17, 17, 0.04), 0 2px 10px rgba(17, 17, 17, 0.03)';
+
+export const RADIUS = { sm: '6px', md: '10px', lg: '14px', pill: '999px' } as const;
+
 export const CARD = {
   background: C.card,
   border: `1px solid ${C.border}`,
+  borderRadius: RADIUS.md,
+  boxShadow: SHADOW,
 } as const;
 
 export const HEADING = {
   fontWeight: 600,
   color: C.text,
+  letterSpacing: '-0.011em',
+} as const;
+
+/** Page title. Tighter tracking at larger sizes stops headings looking loose. */
+export const TITLE = {
+  fontWeight: 600,
+  color: C.text,
+  letterSpacing: '-0.021em',
+} as const;
+
+/** Small uppercase eyebrow above a heading or over a chart. */
+export const EYEBROW = {
+  fontSize: '0.6875rem',
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  color: C.muted,
 } as const;
 
 /** Compact number formatting for dense tables. 12400 becomes 12.4k. */

@@ -351,6 +351,96 @@ export async function getWeeklyFollowerGains(platform: string): Promise<Row[]> {
   `;
 }
 
+/**
+ * Follower gain attributed to content themes.
+ *
+ * A post published on day D is credited with the follower gain from D through
+ * D plus LOOKAHEAD_DAYS, because a follow rarely happens in the same minute as
+ * the view. Days are deduplicated per theme, so two posts of the same theme in
+ * one week do not double count the same day's followers.
+ *
+ * This is attribution, not causation, and with a small number of follower
+ * events it is weak attribution. `attributed_days` is returned so the view can
+ * show how thin the evidence is instead of implying precision.
+ */
+export async function getThemeFollowerAttribution(lookaheadDays = 2): Promise<Row[]> {
+  const lookahead = Math.max(0, Math.min(Math.floor(lookaheadDays), 14));
+  return sql(`
+    WITH latest AS (
+      SELECT DISTINCT ON (post_id) post_id, views
+      FROM post_metrics ORDER BY post_id, recorded_on DESC
+    ),
+    tagged AS (
+      SELECT p.content_theme AS theme, p.published_at::date AS day
+      FROM posts p
+      WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
+        AND p.published_at IS NOT NULL
+    ),
+    windows AS (
+      SELECT DISTINCT t.theme, (t.day + o.offs) AS day
+      FROM tagged t CROSS JOIN generate_series(0, ${lookahead}) AS o(offs)
+    ),
+    gains AS (
+      SELECT w.theme,
+             SUM(a.new_followers)::int      AS followers_gained,
+             COUNT(DISTINCT w.day)::int     AS attributed_days
+      FROM windows w
+      JOIN audience_snapshots a
+        ON a.recorded_on = w.day
+       AND a.platform = 'instagram'
+       AND a.new_followers IS NOT NULL
+      GROUP BY w.theme
+    ),
+    post_side AS (
+      SELECT p.content_theme AS theme,
+             COUNT(*)::int                    AS posts,
+             COALESCE(SUM(l.views), 0)::int   AS views
+      FROM posts p JOIN latest l ON l.post_id = p.id
+      WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
+      GROUP BY p.content_theme
+    )
+    SELECT ps.theme, ps.posts, ps.views,
+           COALESCE(g.followers_gained, 0) AS followers_gained,
+           COALESCE(g.attributed_days, 0)  AS attributed_days
+    FROM post_side ps LEFT JOIN gains g ON g.theme = ps.theme
+    ORDER BY followers_gained DESC, views DESC
+  `);
+}
+
+/**
+ * Posts published and followers gained, per week, on the same weeks.
+ * Only weeks where follower data exists, so the two series line up honestly.
+ */
+export async function getWeeklyGrowthOverlap(): Promise<Row[]> {
+  return sql(`
+    WITH latest AS (
+      SELECT DISTINCT ON (post_id) post_id, views
+      FROM post_metrics ORDER BY post_id, recorded_on DESC
+    ),
+    pub AS (
+      SELECT DATE_TRUNC('week', p.published_at)::date AS week,
+             COUNT(*)::int                  AS posts,
+             COALESCE(SUM(l.views), 0)::int AS views
+      FROM posts p JOIN latest l ON l.post_id = p.id
+      WHERE p.published_at IS NOT NULL
+      GROUP BY 1
+    ),
+    fol AS (
+      SELECT DATE_TRUNC('week', recorded_on)::date AS week,
+             SUM(new_followers)::int AS gained
+      FROM audience_snapshots
+      WHERE platform = 'instagram' AND new_followers IS NOT NULL
+      GROUP BY 1
+    )
+    SELECT TO_CHAR(f.week, 'YYYY-MM-DD') AS week,
+           COALESCE(p.posts, 0)  AS posts,
+           COALESCE(p.views, 0)  AS views,
+           f.gained
+    FROM fol f LEFT JOIN pub p ON p.week = f.week
+    ORDER BY f.week
+  `);
+}
+
 /** Everything typed in by hand, newest first, for the admin screen. */
 export async function getManualAudienceEntries(): Promise<Row[]> {
   return sql`
