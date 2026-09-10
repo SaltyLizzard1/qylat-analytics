@@ -19,16 +19,49 @@ export type Level = 'good' | 'warning' | 'bad';
 
 export type Status = {
   level: Level;
-  /** Short label shown beside the colour. Never omitted. */
+  /** Label shown beside the colour. Never omitted. */
   label: string;
+  /** Compact form for dense rows. Falls back to label when absent. */
+  shortLabel?: string;
   /** Plain sentence saying why, for tooltips and the attention list. */
   reason: string;
 };
 
+/**
+ * Two label scales, one colour scale.
+ *
+ * ACTION is for things you can still change: a link nobody clicked, a funnel
+ * leaking, posts left untagged. "Work on immediately" is a sensible thing to
+ * say about those.
+ *
+ * PERFORMANCE is for things already published. A reel from three weeks ago is
+ * not urgent, because there is nothing to do to it. What you want to know is
+ * how it did against your own typical post, so you can decide what to make
+ * next. Calling that "Urgent" was wrong and confusing.
+ */
 export const LEVEL_LABEL: Record<Level, string> = {
   good: 'Good',
   warning: 'Needs attention',
   bad: 'Work on immediately',
+};
+
+/** Compact wording for the ACTION scale. */
+export const LEVEL_SHORT: Record<Level, string> = {
+  good: 'Good',
+  warning: 'Attention',
+  bad: 'Urgent',
+};
+
+export const PERFORMANCE_LABEL: Record<Level, string> = {
+  good: 'Above your usual',
+  warning: 'About usual',
+  bad: 'Below your usual',
+};
+
+export const PERFORMANCE_SHORT: Record<Level, string> = {
+  good: 'Strong',
+  warning: 'Typical',
+  bad: 'Weak',
 };
 
 /** Sort order for lists: worst first. */
@@ -85,11 +118,39 @@ export function arrivalStatus(sessions: number | null, clicks: number | null): S
   return {
     level: l,
     label: LEVEL_LABEL[l],
+    shortLabel: LEVEL_SHORT[l],
     reason: `${fmtPct(rate)} of ${clicks} clicks became a session`,
   };
 }
 
-/** Engagement per view. */
+/**
+ * How a published post did against your own median, not against an invented
+ * industry threshold.
+ *
+ * Self-calibrating: as the account grows the median moves and the comparison
+ * stays meaningful. A post at 1.3x the median or better reads strong, below
+ * 0.7x reads weak, and the wide band between them is deliberately "typical",
+ * because most posts are typical and colouring half of them red is noise.
+ */
+export function performanceStatus(
+  value: number | null,
+  median: number | null,
+  what = 'views'
+): Status | null {
+  if (!median || median <= 0 || value === null || value === undefined) return null;
+  const ratio = value / median;
+  const l: Level = ratio >= 1.3 ? 'good' : ratio >= 0.7 ? 'warning' : 'bad';
+  return {
+    level: l,
+    label: PERFORMANCE_LABEL[l],
+    shortLabel: PERFORMANCE_SHORT[l],
+    reason: `${Math.round(ratio * 100)}% of your median ${what} (${Math.round(
+      median
+    ).toLocaleString()}), on this platform`,
+  };
+}
+
+/** Engagement per view. Absolute thresholds, used for platform level checks. */
 export function engagementStatus(engagement: number | null, views: number | null): Status | null {
   if (!views || views < THRESHOLDS.minSampleViews) return null;
   const rate = (engagement ?? 0) / views;
@@ -97,6 +158,7 @@ export function engagementStatus(engagement: number | null, views: number | null
   return {
     level: l,
     label: LEVEL_LABEL[l],
+    shortLabel: LEVEL_SHORT[l],
     reason: `${fmtPct(rate)} engagement across ${views.toLocaleString()} views`,
   };
 }
@@ -113,6 +175,7 @@ export function formatStatus(
   return {
     level: l,
     label: LEVEL_LABEL[l],
+    shortLabel: LEVEL_SHORT[l],
     reason: `${fmtPct(ratio)} of the platform average, over ${posts} posts`,
   };
 }
@@ -128,6 +191,7 @@ export function idleLinkStatus(clicks: number, createdAt: string | Date | null):
   return {
     level: l,
     label: LEVEL_LABEL[l],
+    shortLabel: LEVEL_SHORT[l],
     reason: `no clicks in ${days} days since it was created`,
   };
 }
@@ -143,6 +207,7 @@ export function taggingStatus(untagged: number, total: number): Status | null {
   return {
     level: l,
     label: LEVEL_LABEL[l],
+    shortLabel: LEVEL_SHORT[l],
     reason: `${untagged} of ${total} posts have no theme, so theme views stay empty`,
   };
 }
@@ -155,6 +220,7 @@ export function growthStatus(gained: number | null, days: number): Status | null
   return {
     level: l,
     label: LEVEL_LABEL[l],
+    shortLabel: LEVEL_SHORT[l],
     reason: `${value} new followers over ${days} days`,
   };
 }

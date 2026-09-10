@@ -95,6 +95,38 @@ export async function getLeaderboard(limit = 30): Promise<Row[]> {
   `);
 }
 
+/**
+ * Median views and engagement rate per platform, across ALL posts.
+ *
+ * Median rather than mean, because one 479 view reel drags a mean upward and
+ * would make every ordinary post look weak. Computed over every post, not just
+ * the leaderboard's top rows, or the benchmark would be drawn from the winners.
+ */
+export async function getPlatformMedians(): Promise<Record<string, { views: number; engagementRate: number }>> {
+  const rows = await sql(`
+    WITH latest AS (
+      SELECT DISTINCT ON (post_id) post_id, views, engagement
+      FROM post_metrics ORDER BY post_id, recorded_on DESC
+    )
+    SELECT p.platform,
+           PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY l.views) AS median_views,
+           PERCENTILE_CONT(0.5) WITHIN GROUP (
+             ORDER BY CASE WHEN l.views > 0 THEN l.engagement::float / l.views ELSE 0 END
+           ) AS median_eng_rate
+    FROM posts p JOIN latest l ON l.post_id = p.id
+    GROUP BY p.platform
+  `);
+
+  const out: Record<string, { views: number; engagementRate: number }> = {};
+  for (const r of rows) {
+    out[r.platform as string] = {
+      views: Number(r.median_views) || 0,
+      engagementRate: Number(r.median_eng_rate) || 0,
+    };
+  }
+  return out;
+}
+
 export async function getPlatformComparison(): Promise<Row[]> {
   return sql(`
     ${LATEST}

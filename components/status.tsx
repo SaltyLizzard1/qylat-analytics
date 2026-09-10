@@ -63,12 +63,16 @@ export function StatusBadge({
         aria-hidden
         style={{ width: 6, height: 6, borderRadius: 999, background: s.color, flexShrink: 0 }}
       />
-      {compact ? SHORT[status.level] : status.label}
+      {/*
+        Uses the label the caller supplied. An earlier version substituted a
+        hardcoded word here, which meant a post on the leaderboard read
+        "Urgent" no matter what the evaluator had decided to call it. The
+        evaluator owns its wording, not this component.
+      */}
+      {compact ? (status.shortLabel ?? status.label) : status.label}
     </span>
   );
 }
-
-const SHORT: Record<Level, string> = { good: 'Good', warning: 'Attention', bad: 'Urgent' };
 
 /**
  * Dot on its own, for dense table rows. Carries a title and an accessible
@@ -99,13 +103,26 @@ export function StatusDot({ status }: { status: Status | null }) {
   );
 }
 
-/** Legend, so the colours are explained once per page rather than guessed at. */
-export function StatusLegend() {
-  const items: { level: Level; label: string }[] = [
-    { level: 'good', label: 'Good' },
-    { level: 'warning', label: 'Needs attention' },
-    { level: 'bad', label: 'Work on immediately' },
-  ];
+/**
+ * Legend, so the colours are explained once per page rather than guessed at.
+ *
+ * `scale` must match what the page's badges actually say. An action legend over
+ * performance badges is worse than no legend, because it tells the reader a
+ * published post is something to fix.
+ */
+export function StatusLegend({ scale = 'action' }: { scale?: 'action' | 'performance' }) {
+  const items: { level: Level; label: string }[] =
+    scale === 'performance'
+      ? [
+          { level: 'good', label: 'Above your usual' },
+          { level: 'warning', label: 'About usual' },
+          { level: 'bad', label: 'Below your usual' },
+        ]
+      : [
+          { level: 'good', label: 'Good' },
+          { level: 'warning', label: 'Needs attention' },
+          { level: 'bad', label: 'Work on immediately' },
+        ];
   return (
     <div className="flex flex-wrap items-center gap-4">
       {items.map((i) => (

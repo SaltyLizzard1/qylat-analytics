@@ -1,7 +1,7 @@
 import { getFormatComparison } from '@/lib/queries';
 import { BarList, Panel, Note, PageHeader, type BarDatum } from '@/components/charts';
 import { StatusLegend } from '@/components/status';
-import { formatStatus } from '@/lib/status';
+import { formatStatus, PERFORMANCE_SHORT } from '@/lib/status';
 import { platformLabel, formatLabel } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,11 @@ export default async function FormatsPage() {
       // benchmark would be comparing two different things.
       status:
         field === 'avg_views'
-          ? formatStatus(r.avg_views as number, benchmark, r.posts as number)
+          ? (() => {
+              const st = formatStatus(r.avg_views as number, benchmark, r.posts as number);
+              // Same colour, performance wording. A format is not urgent.
+              return st ? { ...st, label: PERFORMANCE_SHORT[st.level] } : null;
+            })()
           : undefined,
     }));
   };
@@ -45,7 +49,7 @@ export default async function FormatsPage() {
         lead="Reels against carousels against plain posts, measured per post rather than in total. Each format is judged against its own platform's average, since formats are only comparable within a platform."
       />
 
-      <StatusLegend />
+      <StatusLegend scale="performance" />
 
       <Panel
         title="Instagram, average views per post"

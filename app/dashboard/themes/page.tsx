@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getThemePerformance, getUntaggedPostCount, getPillarMix } from '@/lib/queries';
 import { BarList, Panel, Empty, Note, PageHeader, type BarDatum } from '@/components/charts';
 import { StatusBadge, StatusLegend } from '@/components/status';
-import { PILLARS, pillarLabel } from '@/lib/pillars';
+import { PILLARS, pillarLabel, HAS_TARGETS } from '@/lib/pillars';
 import { C, compact } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -42,8 +42,12 @@ export default async function ThemesPage() {
       <StatusLegend />
 
       <Panel
-        title="Pillar mix, published against target"
-        description="Your four content pillars carry target shares of output. This says whether what you actually published matches, which performance figures alone cannot tell you."
+        title={HAS_TARGETS ? 'Tag mix, published against target' : 'Tag mix'}
+        description={
+          HAS_TARGETS
+            ? 'Your tags carry target shares of output. This says whether what you published matches, which performance figures alone cannot tell you.'
+            : 'How your published posts split across the four tags. No target shares are set, so this reports the distribution and makes no judgement about it. Give me target percentages and it will start comparing.'
+        }
       >
         {mix.taggedPosts === 0 ? (
           <Empty message="No posts tagged yet, so there is no mix to compare." />
@@ -53,9 +57,18 @@ export default async function ThemesPage() {
               const row = mix.rows.find((r) => r.theme === p.slug);
               const posts = (row?.posts as number) ?? 0;
               const actual = mix.taggedPosts > 0 ? posts / mix.taggedPosts : 0;
-              const drift = actual - p.targetShare;
-              // Within 10 points is fine. Beyond 20 is a real drift worth acting on.
-              const level = Math.abs(drift) <= 0.1 ? 'good' : Math.abs(drift) <= 0.2 ? 'warning' : 'bad';
+              const target = p.targetShare;
+              // Only judge drift when a target exists. Without one there is
+              // nothing to be off, and a badge would be inventing an opinion.
+              const drift = typeof target === 'number' ? actual - target : null;
+              const level =
+                drift === null
+                  ? null
+                  : Math.abs(drift) <= 0.1
+                    ? 'good'
+                    : Math.abs(drift) <= 0.2
+                      ? 'warning'
+                      : 'bad';
               return (
                 <div key={p.slug} title={p.covers}>
                   <div className="flex items-center justify-between gap-3 mb-1.5">
@@ -63,26 +76,34 @@ export default async function ThemesPage() {
                       <span className="text-sm truncate" style={{ color: C.text }}>
                         {p.label}
                       </span>
-                      <StatusBadge
-                        status={{
-                          level,
-                          label:
-                            level === 'good'
-                              ? 'On target'
-                              : drift > 0
-                                ? 'Over target'
-                                : 'Under target',
-                          reason: `${(actual * 100).toFixed(0)}% published against a ${(
-                            p.targetShare * 100
-                          ).toFixed(0)}% target, from ${posts} of ${mix.taggedPosts} tagged posts`,
-                        }}
-                        compact
-                      />
+                      {level && typeof target === 'number' && (
+                        <StatusBadge
+                          status={{
+                            level,
+                            label:
+                              level === 'good'
+                                ? 'On target'
+                                : (drift as number) > 0
+                                  ? 'Over target'
+                                  : 'Under target',
+                            reason: `${(actual * 100).toFixed(0)}% published against a ${(
+                              target * 100
+                            ).toFixed(0)}% target, from ${posts} of ${mix.taggedPosts} tagged posts`,
+                          }}
+                          compact
+                        />
+                      )}
                     </span>
                     <span className="text-xs tabular-nums flex-shrink-0" style={{ color: C.muted }}>
-                      {(actual * 100).toFixed(0)}% of {mix.taggedPosts}
+                      {posts} {posts === 1 ? 'post' : 'posts'}
                       <span style={{ color: C.border }}> / </span>
-                      target {(p.targetShare * 100).toFixed(0)}%
+                      {(actual * 100).toFixed(0)}%
+                      {typeof target === 'number' && (
+                        <>
+                          <span style={{ color: C.border }}> / </span>
+                          target {(target * 100).toFixed(0)}%
+                        </>
+                      )}
                     </span>
                   </div>
                   <div style={{ height: 6 }}>
