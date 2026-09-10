@@ -51,6 +51,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               Posts
             </Link>
+            <Link
+              href="/admin/audience"
+              className="text-xs px-2 py-1.5 hidden sm:block"
+              style={{ color: '#111111', textDecoration: 'underline' }}
+            >
+              Audience
+            </Link>
           </nav>
         </div>
 

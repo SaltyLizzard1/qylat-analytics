@@ -212,6 +212,71 @@ export async function getPostsForTagging(): Promise<Row[]> {
   `);
 }
 
+/* ------------------------------------------------------------------ */
+/* Audience                                                            */
+/* ------------------------------------------------------------------ */
+
+export const AUDIENCE_PLATFORMS = [
+  { value: 'facebook-personal', label: 'Facebook personal profile', manualOnly: true },
+  { value: 'tiktok', label: 'TikTok', manualOnly: true },
+  { value: 'youtube', label: 'YouTube', manualOnly: true },
+  { value: 'instagram', label: 'Instagram', manualOnly: false },
+  { value: 'facebook', label: 'Facebook Page', manualOnly: false },
+] as const;
+
+/** Most recent follower total per account, whatever its source. */
+export async function getLatestAudience(): Promise<Row[]> {
+  return sql(`
+    SELECT DISTINCT ON (platform)
+      platform, account_label, followers, source, recorded_on
+    FROM audience_snapshots
+    WHERE followers IS NOT NULL
+    ORDER BY platform, recorded_on DESC
+  `);
+}
+
+/** Follower total over time, for the trend chart. */
+export async function getAudienceHistory(platform: string): Promise<Row[]> {
+  return sql`
+    SELECT recorded_on, followers
+    FROM audience_snapshots
+    WHERE platform = ${platform} AND followers IS NOT NULL
+    ORDER BY recorded_on
+  `;
+}
+
+/** New followers per ISO week, from the daily gains the platform reported. */
+export async function getWeeklyFollowerGains(platform: string): Promise<Row[]> {
+  return sql`
+    SELECT TO_CHAR(DATE_TRUNC('week', recorded_on), 'YYYY-MM-DD') AS week,
+           SUM(new_followers)::int AS gained
+    FROM audience_snapshots
+    WHERE platform = ${platform} AND new_followers IS NOT NULL
+    GROUP BY 1 ORDER BY 1
+  `;
+}
+
+/** Everything typed in by hand, newest first, for the admin screen. */
+export async function getManualAudienceEntries(): Promise<Row[]> {
+  return sql`
+    SELECT id, recorded_on, platform, account_label, followers
+    FROM audience_snapshots
+    WHERE source = 'manual'
+    ORDER BY recorded_on DESC, platform
+    LIMIT 100
+  `;
+}
+
+/** How many distinct days carry a follower gain, to gate the theme view. */
+export async function getFollowerSignalStrength(): Promise<{ days: number; total: number }> {
+  const rows = await sql`
+    SELECT COUNT(*) FILTER (WHERE new_followers > 0)::int AS days,
+           COALESCE(SUM(new_followers), 0)::int AS total
+    FROM audience_snapshots WHERE new_followers IS NOT NULL
+  `;
+  return { days: (rows[0]?.days as number) ?? 0, total: (rows[0]?.total as number) ?? 0 };
+}
+
 /** Existing themes from both tables, for the tagging dropdown. */
 export async function getKnownThemes(): Promise<string[]> {
   const rows = await sql`

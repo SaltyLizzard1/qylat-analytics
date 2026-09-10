@@ -350,6 +350,76 @@ export async function fetchInstagramMediaInsights(
 }
 
 /* ------------------------------------------------------------------ */
+/* Audience                                                            */
+/* ------------------------------------------------------------------ */
+
+export type AudienceReading = {
+  followers: number | null;
+  /** Gain on the most recent day, where the platform reports one. */
+  newFollowers: number | null;
+};
+
+/** Instagram follower total. Reliable, unlike the daily gain metric. */
+export async function fetchInstagramAudience(cfg: MetaConfig): Promise<AudienceReading> {
+  const body = await graphGet<{ followers_count?: number }>(cfg, cfg.igUserId, {
+    fields: 'followers_count',
+  });
+  return { followers: body.followers_count ?? null, newFollowers: null };
+}
+
+/**
+ * Facebook Page follower total.
+ *
+ * Note `fan_count` is the older "likes" number and `followers_count` is the
+ * current one. Both are read, followers_count wins.
+ */
+export async function fetchPageAudience(cfg: MetaConfig): Promise<AudienceReading> {
+  const body = await graphGet<{ followers_count?: number; fan_count?: number }>(cfg, cfg.pageId, {
+    fields: 'followers_count,fan_count',
+  });
+  return {
+    followers: body.followers_count ?? body.fan_count ?? null,
+    newFollowers: null,
+  };
+}
+
+export type DailyFollowerGain = { day: string; gain: number };
+
+/**
+ * Daily new-follower counts for Instagram over a trailing window.
+ *
+ * This is the only follower history any of these APIs will give up, and the
+ * window is short, which is the whole reason snapshots have to be recorded
+ * daily from here on. Returns an empty array rather than throwing when the
+ * metric is unavailable, since a missing history must not fail the sync.
+ */
+export async function fetchInstagramFollowerHistory(
+  cfg: MetaConfig,
+  days = 30
+): Promise<DailyFollowerGain[]> {
+  const until = Math.floor(Date.now() / 1000);
+  const since = until - Math.min(days, 30) * 24 * 60 * 60;
+
+  try {
+    const body = await graphGet<{
+      data?: { values?: { value?: number; end_time?: string }[] }[];
+    }>(cfg, `${cfg.igUserId}/insights`, {
+      metric: 'follower_count',
+      period: 'day',
+      since: String(since),
+      until: String(until),
+    });
+
+    const values = body.data?.[0]?.values ?? [];
+    return values
+      .filter((v) => typeof v.end_time === 'string')
+      .map((v) => ({ day: (v.end_time as string).slice(0, 10), gain: v.value ?? 0 }));
+  } catch {
+    return [];
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Mapping helpers                                                     */
 /* ------------------------------------------------------------------ */
 

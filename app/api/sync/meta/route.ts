@@ -10,6 +10,9 @@ import {
   instagramFormat,
   facebookFormat,
   facebookMediaType,
+  fetchInstagramAudience,
+  fetchPageAudience,
+  fetchInstagramFollowerHistory,
   slugFromCaption,
   type MetaConfig,
   type InsightResult,
@@ -254,6 +257,58 @@ async function syncInstagram(cfg: MetaConfig, since: Date): Promise<PlatformRepo
   return report;
 }
 
+/**
+ * Records today's follower totals and backfills whatever daily-gain history
+ * Instagram will still give up.
+ *
+ * Only `source = 'api'` rows are touched. A manually entered figure, including
+ * the personal Facebook profile, is never overwritten here.
+ */
+async function syncAudience(cfg: MetaConfig) {
+  const report = { written: 0, errors: [] as { account: string; reason: string }[] };
+
+  const accounts: { platform: string; label: string; read: () => Promise<{ followers: number | null }> }[] = [
+    { platform: 'instagram', label: 'QYLAT Instagram', read: () => fetchInstagramAudience(cfg) },
+    { platform: 'facebook', label: 'QYLAT Facebook Page', read: () => fetchPageAudience(cfg) },
+  ];
+
+  for (const account of accounts) {
+    try {
+      const reading = await account.read();
+      await sql`
+        INSERT INTO audience_snapshots (recorded_on, platform, account_label, followers, source)
+        VALUES (CURRENT_DATE, ${account.platform}, ${account.label}, ${reading.followers}, 'api')
+        ON CONFLICT (platform, recorded_on) DO UPDATE SET
+          followers     = EXCLUDED.followers,
+          account_label = EXCLUDED.account_label
+        WHERE audience_snapshots.source = 'api'
+      `;
+      report.written += 1;
+    } catch (e) {
+      report.errors.push({ account: account.platform, reason: errText(e) });
+    }
+  }
+
+  // Daily gains, backfilled. The window is short and shrinking, so this is
+  // best effort and must never fail the run.
+  try {
+    const history = await fetchInstagramFollowerHistory(cfg, 30);
+    for (const point of history) {
+      await sql`
+        INSERT INTO audience_snapshots (recorded_on, platform, account_label, new_followers, source)
+        VALUES (${point.day}::date, 'instagram', 'QYLAT Instagram', ${point.gain}, 'api')
+        ON CONFLICT (platform, recorded_on) DO UPDATE SET
+          new_followers = EXCLUDED.new_followers
+        WHERE audience_snapshots.source = 'api'
+      `;
+    }
+  } catch (e) {
+    report.errors.push({ account: 'instagram-history', reason: errText(e) });
+  }
+
+  return report;
+}
+
 export async function GET(request: NextRequest) {
   if (!authorized(request)) {
     return NextResponse.json(
@@ -289,6 +344,13 @@ export async function GET(request: NextRequest) {
     instagram = { failed: errText(e) };
   }
 
+  let audience: { written: number; errors: { account: string; reason: string }[] } | { failed: string };
+  try {
+    audience = await syncAudience(cfg);
+  } catch (e) {
+    audience = { failed: errText(e) };
+  }
+
   const hardFailure = 'failed' in facebook || 'failed' in instagram;
 
   return NextResponse.json(
@@ -300,6 +362,7 @@ export async function GET(request: NextRequest) {
       since: since.toISOString(),
       facebook,
       instagram,
+      audience,
     },
     { status: hardFailure ? 502 : 200 }
   );

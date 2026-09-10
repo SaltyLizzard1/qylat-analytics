@@ -9,6 +9,7 @@ const NAV = [
   { href: '/dashboard/formats', label: 'Formats' },
   { href: '/dashboard/themes', label: 'Themes' },
   { href: '/dashboard/ctas', label: 'CTAs' },
+  { href: '/dashboard/audience', label: 'Audience' },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
