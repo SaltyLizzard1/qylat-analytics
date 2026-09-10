@@ -3,6 +3,10 @@
     {
       "path": "/api/sync/meta?days=7",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/sync/ga?days=14",
+      "schedule": "30 8 * * *"
     }
   ]
 }

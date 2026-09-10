@@ -10,6 +10,7 @@ const NAV = [
   { href: '/dashboard/themes', label: 'Themes' },
   { href: '/dashboard/ctas', label: 'CTAs' },
   { href: '/dashboard/audience', label: 'Audience' },
+  { href: '/dashboard/funnel', label: 'Funnel' },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -67,13 +68,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {item.label}
             </Link>
           ))}
-          <span
-            className="text-sm px-3 py-1.5 rounded whitespace-nowrap cursor-not-allowed"
-            style={{ color: C.muted }}
-            title="Needs the Vercel Analytics integration, Phase 3"
-          >
-            Funnel
-          </span>
         </nav>
       </header>
 

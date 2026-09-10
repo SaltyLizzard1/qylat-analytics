@@ -213,6 +213,101 @@ export async function getPostsForTagging(): Promise<Row[]> {
 }
 
 /* ------------------------------------------------------------------ */
+/* Funnel: clicks to sessions                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Per link: first party clicks against Google Analytics sessions.
+ *
+ * The two will not agree, and the gap is the point of the view. A click is
+ * logged the instant the redirect is hit. A session needs the browser to load
+ * the site and run the GA script, which in-app browsers, ad blockers, consent
+ * banners and bots all interfere with. Clicks above sessions is normal.
+ * Sessions above clicks means traffic arrived on that UTM without passing
+ * through the /go/ redirect.
+ */
+export async function getLinkFunnel(): Promise<Row[]> {
+  return sql(`
+    WITH clicks AS (
+      SELECT slug, COUNT(*)::int AS clicks FROM click_events GROUP BY slug
+    ),
+    ga AS (
+      SELECT content AS slug,
+             SUM(sessions)::int         AS sessions,
+             SUM(engaged_sessions)::int AS engaged,
+             SUM(key_events)::int       AS key_events
+      FROM site_sessions GROUP BY content
+    )
+    SELECT
+      l.slug, l.platform, l.format, l.cta_type, l.content_theme,
+      COALESCE(c.clicks, 0)    AS clicks,
+      COALESCE(g.sessions, 0)  AS sessions,
+      COALESCE(g.engaged, 0)   AS engaged,
+      COALESCE(g.key_events, 0) AS key_events
+    FROM links l
+    LEFT JOIN clicks c ON c.slug = l.slug
+    LEFT JOIN ga     g ON g.slug = l.slug
+    ORDER BY COALESCE(c.clicks, 0) DESC, l.slug
+  `);
+}
+
+/** Funnel rolled up by platform. */
+export async function getPlatformFunnel(): Promise<Row[]> {
+  return sql(`
+    WITH clicks AS (
+      SELECT l.platform, COUNT(c.id)::int AS clicks
+      FROM links l LEFT JOIN click_events c ON c.slug = l.slug
+      GROUP BY l.platform
+    ),
+    ga AS (
+      SELECT l.platform,
+             SUM(s.sessions)::int         AS sessions,
+             SUM(s.engaged_sessions)::int AS engaged
+      FROM site_sessions s JOIN links l ON l.slug = s.content
+      GROUP BY l.platform
+    )
+    SELECT c.platform,
+           c.clicks,
+           COALESCE(g.sessions, 0) AS sessions,
+           COALESCE(g.engaged, 0)  AS engaged
+    FROM clicks c LEFT JOIN ga g ON g.platform = c.platform
+    ORDER BY c.clicks DESC
+  `);
+}
+
+/**
+ * GA traffic on UTM values that match no link, plus everything untagged.
+ * Untracked traffic is a finding, not noise, so it gets shown rather than
+ * quietly dropped by the join.
+ */
+export async function getUnmatchedTraffic(): Promise<Row[]> {
+  return sql(`
+    SELECT s.source, s.medium, s.content,
+           SUM(s.sessions)::int         AS sessions,
+           SUM(s.engaged_sessions)::int AS engaged
+    FROM site_sessions s
+    WHERE NOT EXISTS (SELECT 1 FROM links l WHERE l.slug = s.content)
+    GROUP BY s.source, s.medium, s.content
+    HAVING SUM(s.sessions) > 0
+    ORDER BY sessions DESC
+    LIMIT 15
+  `);
+}
+
+/** Whether any GA data has landed, for the empty state. */
+export async function getGaStatus(): Promise<{ rows: number; lastSynced: string | null; latestDate: string | null }> {
+  const r = await sql`
+    SELECT COUNT(*)::int AS n, MAX(synced_at) AS last_synced, MAX(session_date) AS latest
+    FROM site_sessions
+  `;
+  return {
+    rows: (r[0]?.n as number) ?? 0,
+    lastSynced: (r[0]?.last_synced as string) ?? null,
+    latestDate: (r[0]?.latest as string) ?? null,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Audience                                                            */
 /* ------------------------------------------------------------------ */
 
