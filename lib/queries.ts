@@ -87,7 +87,7 @@ export async function getLeaderboard(limit = 30): Promise<Row[]> {
     ${LATEST}
     SELECT
       p.id, p.platform, p.format, p.permalink, p.published_at, p.caption,
-      p.content_theme,
+      p.content_theme, p.thumbnail_url,
       l.views, l.reach, l.engagement, l.likes, l.comments, l.saves, l.shares
     FROM posts p JOIN latest l ON l.post_id = p.id
     ORDER BY l.views DESC NULLS LAST, p.published_at DESC
@@ -269,16 +269,43 @@ export async function getCtaPerformance(): Promise<Row[]> {
   `);
 }
 
-/** Posts for the admin tagging screen, newest first. */
-export async function getPostsForTagging(): Promise<Row[]> {
+export type PostFilter = 'all' | 'untagged' | 'tagged';
+
+/**
+ * Posts for the admin tagging screen, newest first.
+ *
+ * The untagged filter exists so working through a backlog is a countdown
+ * rather than a re-scan: a row leaves the list the moment it is saved.
+ */
+export async function getPostsForTagging(filter: PostFilter = 'all'): Promise<Row[]> {
+  const where =
+    filter === 'untagged'
+      ? `WHERE p.content_theme IS NULL OR p.content_theme = ''`
+      : filter === 'tagged'
+        ? `WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''`
+        : '';
+
   return sql(`
     ${LATEST}
     SELECT
       p.id, p.platform, p.format, p.permalink, p.published_at,
-      p.caption, p.content_theme, l.views, l.engagement
+      p.caption, p.content_theme, p.thumbnail_url, l.views, l.engagement
     FROM posts p LEFT JOIN latest l ON l.post_id = p.id
+    ${where}
     ORDER BY p.published_at DESC
   `);
+}
+
+/** Counts for the filter tabs, so each one shows how much work is left. */
+export async function getPostTagCounts(): Promise<{ all: number; tagged: number; untagged: number }> {
+  const rows = await sql`
+    SELECT COUNT(*)::int AS all_posts,
+           COUNT(*) FILTER (WHERE content_theme IS NOT NULL AND content_theme <> '')::int AS tagged
+    FROM posts
+  `;
+  const all = (rows[0]?.all_posts as number) ?? 0;
+  const tagged = (rows[0]?.tagged as number) ?? 0;
+  return { all, tagged, untagged: all - tagged };
 }
 
 /* ------------------------------------------------------------------ */
