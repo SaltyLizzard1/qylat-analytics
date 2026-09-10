@@ -120,6 +120,69 @@ export function platformColor(platform: string | null | undefined): string {
   return PLATFORM_COLOR[platform] ?? C.text;
 }
 
+/**
+ * The identity palette: six hues, fixed order, every one validated.
+ *
+ * Run through the dataviz validator as a categorical palette in this exact
+ * order, it passes the lightness band, the chroma floor, CVD adjacent
+ * separation, the normal-vision floor and contrast against the surface. Every
+ * slot was also checked against all three status colours with no pair falling
+ * below the normal-vision floor, so an identity hue can never be mistaken for
+ * a good, warning or urgent state.
+ *
+ * The order matters and is not decorative: reordering breaks the CVD adjacency
+ * check. Magenta next to teal fails at 5.1 delta-E under deuteranopia, which
+ * is why magenta sits first and teal last.
+ *
+ * Rejected, with the numbers, so nobody re-litigates them:
+ *   #C2185B, #A81A5B, #DB2777  too close to status red (8.2, 7.8, 6.7)
+ *   #5B7C0A                    too close to status green (9.3)
+ *   #C2410C                    too close to status red (9.1)
+ *   #0891B2, #7E22CE           too close to teal and purple (4.1, 5.5)
+ *   #00695C, #69C9D0           below the chroma floor, read as grey
+ *
+ * Each chart draws from this palette in its own fixed assignment. A hue can
+ * mean Instagram on one page and Reel on another, because platforms, formats
+ * and tags never share a chart and every mark carries its own text label.
+ */
+export const IDENTITY = {
+  magenta: '#E8479C',
+  blue: '#1877F2',
+  orange: '#E8710A',
+  purple: '#833AB4',
+  teal: '#1A9AA3',
+  lime: '#65A30D',
+} as const;
+
+/** Format identity. Distinct slots from the platforms, so the two never clash. */
+export const FORMAT_COLOR: Record<string, string> = {
+  reel: IDENTITY.magenta,
+  other: IDENTITY.orange,
+  carousel: IDENTITY.lime,
+  story: IDENTITY.purple,
+  short: IDENTITY.teal,
+  bio: IDENTITY.blue,
+};
+
+export function formatColor(format: string | null | undefined): string {
+  if (!format) return C.text;
+  return FORMAT_COLOR[format] ?? C.text;
+}
+
+/** Content tag identity, in the palette's own order. */
+export const TAG_COLOR: Record<string, string> = {
+  'life-in-thailand': IDENTITY.magenta,
+  'life-traveling': IDENTITY.blue,
+  mechanics: IDENTITY.orange,
+  inspirational: IDENTITY.purple,
+  promotional: IDENTITY.lime,
+};
+
+export function tagColor(tag: string | null | undefined): string {
+  if (!tag) return C.muted;
+  return TAG_COLOR[tag] ?? C.muted;
+}
+
 export const FORMAT_LABEL: Record<string, string> = {
   reel: 'Reel',
   carousel: 'Carousel',

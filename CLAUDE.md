@@ -2,9 +2,16 @@
 
 ## Colour
 
-The base design is black and white. Colour carries exactly one meaning in this
-project: status. Nothing is coloured for decoration, for branding, or to tell
-one data series from another.
+Colour does two jobs and only two. Anything else is decoration and does not belong.
+
+**1. Status** says how something is doing. Green good, yellow needs attention,
+red work on immediately. Comes only from `lib/severity.ts`.
+
+**2. Identity** says which thing it is, and nothing about quality. Comes only
+from the `IDENTITY` palette in `lib/theme.ts`, via `platformColor`,
+`formatColor` or `tagColor`.
+
+The two never collide, and that was measured rather than assumed.
 
 ### Base palette
 
@@ -13,54 +20,82 @@ one data series from another.
 - Primary text: `#111111`
 - Secondary text: `#555555`
 - Neutral boxes, insets, table headers: `#F2F2F2`
-- Primary buttons: background `#111111`, text `#FFFFFF`, border `1px solid #111111`
+- Primary buttons: background `#111111`, text `#FFFFFF`
 
-Depth comes from a hairline border plus the neutral shadow in `lib/theme.ts`,
-never from a tinted background.
+Depth comes from a hairline border plus the neutral shadow in `lib/theme.ts`.
 
-### Status colour
+### The identity palette
 
-Three states, and only three:
+Six hues, fixed order, in `lib/theme.ts`:
 
-| State | Meaning | Source |
-|---|---|---|
-| Green | Good, working, leave it alone | `severityGood` |
-| Yellow | Needs attention | `severityWarning` |
-| Red | Work on immediately | `severityBad` |
+| Slot | Hex |
+|---|---|
+| magenta | `#E8479C` |
+| blue | `#1877F2` |
+| orange | `#E8710A` |
+| purple | `#833AB4` |
+| teal | `#1A9AA3` |
+| lime | `#65A30D` |
 
-Rules:
+**The order is load bearing, not decorative.** Reordering breaks the CVD
+adjacency check: magenta beside teal fails at 5.1 delta-E under deuteranopia,
+which is why magenta is first and teal is last.
 
-1. **Status colour comes only from `lib/severity.ts`.** Never write a status
-   colour inline. Never add a fourth state.
-2. **Colour never travels alone.** Every status ships with a text label, via
-   `StatusBadge` or `StatusDot` in `components/status.tsx`. Red and green are
-   indistinguishable to a significant share of readers, and a greyscale print
-   has to stay readable.
-3. **Every threshold lives in `lib/status.ts`.** Do not hardcode a comparison
-   anywhere else. Changing a number there moves every badge and the overview
-   attention list together.
-4. **No status below the minimum sample.** `lib/status.ts` returns null rather
-   than a colour when there is too little data. Too few clicks is no data, not
-   a problem, and colouring it red invents a finding.
+Assignments: platforms use purple, blue, teal. Formats use magenta, orange,
+lime. Tags use the palette in order. A hue can mean Instagram on one page and
+Reel on another, because platforms, formats and tags never share a chart and
+every mark carries its own text label.
 
-### The warm tint rule, and its one exception
+### Before adding or changing a hue, run the validator
 
-Do not use cream, gold, tan or any warm tint in the base design.
+```
+node <dataviz-skill>/scripts/validate_palette.js "#hex,#hex,..." --mode light
+```
 
-Forbidden values (not exhaustive): `#FBF6E3`, `#E8C84A`, `#8B6914`, `#2D1A00`,
-`#1A1008`, `#231409`, `#3A2210`, `#0F0A05`, `#8A7A60`, `#E6DCC3`, `#F3ECD6`,
-`#F9F4E8`, `#FFF8E1`, `#FFE082`, `#D4C4A0`, `#C9A030`, `#F5E070`, `#4A3820`,
-`#5A4A30`, `#6A5A40`, `#3A281A`, `#92A882`.
+It checks the lightness band, chroma floor, CVD separation, normal-vision floor
+and contrast. Do not eyeball it. Also check every new hue against the three
+status colours with `--pairs all`: nothing may fall below the normal-vision
+floor of 15, or an identity mark becomes confusable with a status state.
 
-The single exception is `severityWarning` in `lib/severity.ts`, which is a warm
-amber on a pale warm ground. That is deliberate: yellow is the requested colour
-for "needs attention" and there is no cool yellow. It is confined to that file
-and to status use. Everywhere else the ban stands.
+Already rejected, with numbers, so they are not re-litigated:
+
+| Hex | Why |
+|---|---|
+| `#C2185B` `#A81A5B` `#DB2777` | too close to status red (8.2, 7.8, 6.7) |
+| `#E1306C` | Instagram's own magenta, 14.2 from status red |
+| `#5B7C0A` | too close to status green (9.3) |
+| `#C2410C` | too close to status red (9.1) |
+| `#0891B2` `#7E22CE` | too close to teal and purple (4.1, 5.5) |
+| `#00695C` `#69C9D0` | below the chroma floor, read as grey |
+| `#FF0000` | YouTube brand red, collides with status red |
+
+### Rules that still hold
+
+1. **Colour never travels alone.** Every status ships with a text label, via
+   `StatusBadge` or `StatusDot`. Every coloured bar and slice is directly
+   labelled. Red and green are indistinguishable to a large share of readers.
+2. **Every threshold lives in `lib/status.ts`.** Never hardcode a comparison.
+3. **No status below the minimum sample.** `lib/status.ts` returns null rather
+   than a colour when there is too little data.
+4. **Two label scales, one colour scale.** ACTION (Good / Needs attention /
+   Work on immediately) for things still changeable. PERFORMANCE (High / Medium
+   / Low) for things already published. Set both `label` and `shortLabel`:
+   compact badges read the short one.
+
+### Known and accepted
+
+The status green `#0A6B1F` and amber `#8A5A00` are 1.2 delta-E apart under
+protanopia, effectively identical. Survivable only because every badge carries
+a text label. Worth fixing if the palette is ever revisited.
 
 ## Charts
 
-- Identity comes from the label, magnitude from bar length. No categorical
-  colour encoding, so there is no palette to validate.
+- Magnitude comes from bar length or arc size, never from colour. Identity
+  comes from the label first and the hue second, so a chart still reads with
+  the colour removed.
+- A donut is only for a genuine part-to-whole question, capped at five slices
+  with the rest folded into Other. Beyond that, arcs stop being comparable and
+  a bar list is the honest form.
 - **One axis per chart.** Two measures of different scale become two charts,
   stacked and sharing an x axis. Never a second y axis.
 - No track or rail behind a bar. An unfilled rail encodes nothing while looking

@@ -30,13 +30,16 @@ export function Donut({
   total: totalOverride,
   valueLabel,
   emptyMessage = 'No data yet.',
-  size = 132,
+  size = 168,
+  centreLabel,
 }: {
   data: Slice[];
   total?: number;
   valueLabel: string;
   emptyMessage?: string;
   size?: number;
+  /** Small caption under the centre total, e.g. "posts". */
+  centreLabel?: string;
 }) {
   const positive = data.filter((d) => d.value > 0);
   if (positive.length === 0) return <Empty message={emptyMessage} />;
@@ -52,7 +55,7 @@ export function Donut({
   const total = totalOverride ?? slices.reduce((n, s) => n + s.value, 0);
   if (total <= 0) return <Empty message={emptyMessage} />;
 
-  const stroke = 18;
+  const stroke = 26;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   // 2px of surface between arcs, per the mark spec. Without it neighbouring
@@ -103,17 +106,39 @@ export function Donut({
               return el;
             })}
           </g>
+          <text
+            x={size / 2}
+            y={size / 2 + (centreLabel ? -2 : 6)}
+            textAnchor="middle"
+            fontSize="26"
+            fontWeight="600"
+            fill={C.text}
+          >
+            {compact(total)}
+          </text>
+          {centreLabel && (
+            <text
+              x={size / 2}
+              y={size / 2 + 16}
+              textAnchor="middle"
+              fontSize="10"
+              fill={C.muted}
+              style={{ letterSpacing: '0.08em' }}
+            >
+              {centreLabel.toUpperCase()}
+            </text>
+          )}
         </svg>
 
         <ul className="flex flex-col gap-1.5 min-w-0 flex-1">
           {slices.map((s, i) => (
-            <li key={s.key} className="flex items-center justify-between gap-3 text-sm">
+            <li key={s.key} className="flex items-center justify-between gap-3 text-sm py-0.5">
               <span className="flex items-center gap-2 min-w-0">
                 <span
                   aria-hidden
                   style={{
-                    width: 9,
-                    height: 9,
+                    width: 11,
+                    height: 11,
                     borderRadius: RADIUS.sm,
                     background: s.color ?? GREY_RAMP[i % GREY_RAMP.length],
                     flexShrink: 0,

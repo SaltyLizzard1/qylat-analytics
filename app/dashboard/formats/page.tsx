@@ -3,18 +3,18 @@ import { BarList, Panel, Note, PageHeader, type BarDatum } from '@/components/ch
 import { StatusLegend } from '@/components/status';
 import { Donut, type Slice } from '@/components/Donut';
 import { formatStatus, PERFORMANCE_SHORT, PERFORMANCE_LABEL } from '@/lib/status';
-import { platformLabel, formatLabel } from '@/lib/theme';
+import { platformLabel, formatLabel, formatColor } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
 export default async function FormatsPage() {
   const [rows, splits] = await Promise.all([getFormatComparison(), getSplits()]);
 
-  // No identity colour for a format, so the donut falls back to its grey ramp.
   const formatSlices: Slice[] = splits.byFormat.map((r) => ({
     key: r.key as string,
     label: formatLabel(r.key as string),
     value: (r.value as number) ?? 0,
+    color: formatColor(r.key as string),
   }));
 
   const instagram = rows.filter((r) => r.platform === 'instagram');
@@ -34,6 +34,7 @@ export default async function FormatsPage() {
       label: formatLabel(r.format as string),
       value: (r[field] as number) ?? 0,
       meta: `${r.posts} posts`,
+      color: formatColor(r.format as string),
       title: `${platformLabel(r.platform as string)} ${formatLabel(r.format as string)}: ${
         r[field]
       } average across ${r.posts} posts`,
@@ -72,7 +73,12 @@ export default async function FormatsPage() {
         title="What you actually publish"
         description="Share of every synced post by format, across both platforms. Output mix, not performance."
       >
-        <Donut data={formatSlices} valueLabel="Share of posts" emptyMessage="No posts synced yet." />
+        <Donut
+          data={formatSlices}
+          valueLabel="Share of posts"
+          centreLabel="posts"
+          emptyMessage="No posts synced yet."
+        />
       </Panel>
 
       <Panel

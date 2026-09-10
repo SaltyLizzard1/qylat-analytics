@@ -6,7 +6,7 @@ import { Donut, type Slice } from '@/components/Donut';
 import type { Row } from '@/lib/queries';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { PILLARS, pillarLabel, HAS_TARGETS } from '@/lib/pillars';
-import { C, compact } from '@/lib/theme';
+import { C, compact, tagColor } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +24,7 @@ export default async function ThemesPage() {
       label: pillarLabel(r.theme as string),
       value: (r.clicks as number) ?? 0,
       meta: `${r.links} links`,
+      color: tagColor(r.theme as string),
     }));
 
   const viewBars: BarDatum[] = rows
@@ -33,12 +34,14 @@ export default async function ThemesPage() {
       label: pillarLabel(r.theme as string),
       value: (r.views as number) ?? 0,
       meta: `${r.posts} posts`,
+      color: tagColor(r.theme as string),
     }));
 
   const tagSlices: Slice[] = mix.rows.map((r) => ({
     key: r.theme as string,
     label: pillarLabel(r.theme as string),
     value: (r.posts as number) ?? 0,
+    color: tagColor(r.theme as string),
   }));
 
   const num = (key: string, label: string, width: string, bold = false): Column<Row> => ({
@@ -86,7 +89,7 @@ export default async function ThemesPage() {
         ) : (
           <>
           <div className="mb-6">
-            <Donut data={tagSlices} valueLabel="Share of tagged posts" />
+            <Donut data={tagSlices} valueLabel="Share of tagged posts" centreLabel="tagged" />
           </div>
           <div className="flex flex-col gap-3.5">
             {PILLARS.map((p) => {
@@ -147,7 +150,7 @@ export default async function ThemesPage() {
                       style={{
                         height: '100%',
                         width: `${Math.min(actual * 100, 100)}%`,
-                        background: C.text,
+                        background: tagColor(p.slug),
                         borderRadius: '999px',
                       }}
                     />
