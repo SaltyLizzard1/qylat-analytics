@@ -53,17 +53,36 @@ export function gaConfig(): GaConfig {
     throw new Error(`Missing Google Analytics environment variables: ${missing.join(', ')}`);
   }
 
+  /**
+   * Accepts the service account either base64 encoded or as raw JSON.
+   *
+   * Base64 was the original advice because it survives shell quoting, but the
+   * encoded blob is over three thousand characters and copying it out of a
+   * terminal truncates easily, which is a silent failure. The key file is
+   * already a single line, since its private_key holds escaped \n rather than
+   * real newlines, so pasting the file contents straight in works and removes
+   * the whole class of error. Both are supported and neither is wrong.
+   */
+  const raw = (encoded as string).trim();
+  const decoded = raw.startsWith('{')
+    ? raw
+    : Buffer.from(raw.replace(/\s+/g, ''), 'base64').toString('utf8');
+
   let account: ServiceAccount;
   try {
-    account = JSON.parse(Buffer.from(encoded as string, 'base64').toString('utf8'));
+    account = JSON.parse(decoded);
   } catch {
     throw new Error(
-      'GA_SERVICE_ACCOUNT_B64 is not valid base64 encoded JSON. Re-encode the key file.'
+      `GA_SERVICE_ACCOUNT_B64 did not parse. It should be the service account JSON, ` +
+        `either raw or base64 encoded. Got ${raw.length} characters starting "${raw.slice(0, 12)}". ` +
+        `A truncated paste is the usual cause.`
     );
   }
 
   if (!account.client_email || !account.private_key) {
-    throw new Error('GA_SERVICE_ACCOUNT_B64 decoded but has no client_email or private_key.');
+    throw new Error(
+      'GA_SERVICE_ACCOUNT_B64 parsed but has no client_email or private_key. Wrong file?'
+    );
   }
 
   return { propertyId: propertyId as string, account };
