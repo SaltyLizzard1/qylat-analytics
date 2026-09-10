@@ -59,8 +59,17 @@ export function compact(n: number | null | undefined): string {
   return `${(n / 1_000_000).toFixed(1)}m`;
 }
 
-export function pct(numerator: number | null, denominator: number | null): string {
-  if (!numerator || !denominator) return '--';
+/**
+ * Percentage, where zero is a measurement rather than a gap.
+ *
+ * An earlier version returned '--' for a zero numerator, so a post with 479
+ * views and genuinely no interactions displayed as "-- eng" and looked like
+ * missing data. Zero engagement is a real and interesting result. Only a null
+ * value or a zero denominator is unknown.
+ */
+export function pct(numerator: number | null | undefined, denominator: number | null | undefined): string {
+  if (numerator === null || numerator === undefined) return '--';
+  if (!denominator) return '--';
   return `${((numerator / denominator) * 100).toFixed(1)}%`;
 }
 

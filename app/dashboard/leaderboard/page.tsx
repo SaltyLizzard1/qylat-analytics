@@ -2,12 +2,29 @@ import { getLeaderboard, getPlatformMedians } from '@/lib/queries';
 import { Panel, Empty, Note, PageHeader } from '@/components/charts';
 import { StatusBadge } from '@/components/status';
 import { PostThumb } from '@/components/PostThumb';
-import { performanceStatus, PERFORMANCE_LABEL } from '@/lib/status';
+import { performanceStatus, type Level } from '@/lib/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import { pillarLabel } from '@/lib/pillars';
 import { C, RADIUS, compact, pct, shortDate, platformLabel, formatLabel } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * The badge on this page measures engagement rate, so it says so. Views
+ * performance is already carried by the rank and the bar, and a bare "Weak"
+ * next to the top post by views reads as a judgement on the whole post.
+ */
+const ENGAGEMENT_LABEL: Record<Level, string> = {
+  good: 'High engagement',
+  warning: 'Typical engagement',
+  bad: 'Low engagement',
+};
+
+const ENGAGEMENT_SHORT: Record<Level, string> = {
+  good: 'High eng',
+  warning: 'Typical eng',
+  bad: 'Low eng',
+};
 
 export default async function LeaderboardPage() {
   const [rows, medians] = await Promise.all([getLeaderboard(30), getPlatformMedians()]);
@@ -18,10 +35,15 @@ export default async function LeaderboardPage() {
     <div className="space-y-5">
       <PageHeader
         title="Post Leaderboard"
-        lead="Ranked by views. The label measures engagement rate against your own median for that platform, so it says which posts landed rather than repeating the ranking. Nothing here is urgent: a published post is something to learn from, not something to fix."
+        lead="Ranked by views. The badge measures engagement rate against your own median for that platform, so it describes interaction, not the post. A top post with low engagement reached plenty of people who did not react, which is a finding rather than a failure."
       />
 
-      {/* Legend, worded for performance rather than urgency. */}
+      {/*
+        Legend names the dimension. "Weak" on its own reads as a verdict on the
+        post, which is wrong beside the number one post by views: that post
+        reached the most people and got no interactions, which is a finding
+        about engagement, not a bad post.
+      */}
       <div className="flex flex-wrap items-center gap-4">
         {(
           [
@@ -32,7 +54,7 @@ export default async function LeaderboardPage() {
         ).map(([level, style]) => (
           <span key={level} className="inline-flex items-center gap-1.5 text-xs" style={{ color: C.muted }}>
             <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: style.color }} />
-            {PERFORMANCE_LABEL[level]}
+            {ENGAGEMENT_LABEL[level]}
           </span>
         ))}
         <span className="text-xs" style={{ color: C.muted }}>
@@ -56,12 +78,23 @@ export default async function LeaderboardPage() {
               // Views vs median would read Strong on every row of a list
               // sorted by views. Engagement rate is what separates a post that
               // got seen from one that got seen and landed.
-              const rate = views && views > 0 ? (engagement ?? 0) / views : null;
-              const status = performanceStatus(
+              // engagement may legitimately be 0. Only a null is unknown.
+              const rate =
+                views && views > 0 && engagement !== null && engagement !== undefined
+                  ? engagement / views
+                  : null;
+              const base = performanceStatus(
                 rate,
                 medians[platform]?.engagementRate ?? null,
                 'engagement rate'
               );
+              const status = base
+                ? {
+                    ...base,
+                    label: ENGAGEMENT_LABEL[base.level],
+                    shortLabel: ENGAGEMENT_SHORT[base.level],
+                  }
+                : null;
               const theme = r.content_theme as string | null;
 
               return (

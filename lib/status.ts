@@ -137,16 +137,37 @@ export function performanceStatus(
   median: number | null,
   what = 'views'
 ): Status | null {
-  if (!median || median <= 0 || value === null || value === undefined) return null;
+  if (value === null || value === undefined || median === null || median === undefined) return null;
+
+  /*
+   * A median of zero is a real state, not a missing one. Most Facebook Page
+   * posts get no interactions at all, so the median engagement rate there is
+   * 0, and bailing out returned "not enough data" for every Facebook row and
+   * hid a genuine signal. Against a zero median, anything positive is above
+   * it and zero simply matches it.
+   */
+  if (median <= 0) {
+    const l: Level = value > 0 ? 'good' : 'warning';
+    return {
+      level: l,
+      label: PERFORMANCE_LABEL[l],
+      shortLabel: PERFORMANCE_SHORT[l],
+      reason:
+        value > 0
+          ? `above your median ${what}, which is zero on this platform`
+          : `matches your median ${what}, which is zero on this platform`,
+    };
+  }
+
   const ratio = value / median;
   const l: Level = ratio >= 1.3 ? 'good' : ratio >= 0.7 ? 'warning' : 'bad';
   return {
     level: l,
     label: PERFORMANCE_LABEL[l],
     shortLabel: PERFORMANCE_SHORT[l],
-    reason: `${Math.round(ratio * 100)}% of your median ${what} (${Math.round(
-      median
-    ).toLocaleString()}), on this platform`,
+    reason: `${Math.round(ratio * 100)}% of your median ${what} (${
+      median < 1 ? `${(median * 100).toFixed(1)}%` : Math.round(median).toLocaleString()
+    }), on this platform`,
   };
 }
 
