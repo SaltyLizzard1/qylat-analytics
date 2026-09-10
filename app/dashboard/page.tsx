@@ -5,7 +5,7 @@ import { StatTile, TrendChart, Panel, PageHeader, Note } from '@/components/char
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import type { Level } from '@/lib/status';
-import { C, RADIUS, compact, shortDate } from '@/lib/theme';
+import { C, CARD, RADIUS, compact, shortDate } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,43 +57,60 @@ export default async function DashboardPage() {
         }
       />
 
-      <StatusLegend />
+      {/*
+        The attention list is the point of this screen: what to work on, worst
+        first.
 
-      {/* The attention list is the point of this screen: what to work on, worst first. */}
-      <section className="p-5" style={{ ...LEVEL_STYLE[attention[0]?.level ?? 'good'], borderRadius: RADIUS.md }}>
+        The container is a plain card. An earlier version took the severity
+        colour of its worst item as its own background, which turned the top of
+        the dashboard into one large red block and made a background the
+        loudest thing on the page. Colour belongs on the item it describes, at
+        the size of that item: here a left accent plus the badge.
+      */}
+      <section className="p-5" style={CARD}>
         <div className="flex items-center justify-between gap-3 mb-3">
-          <h2 className="text-base" style={{ fontWeight: 600 }}>
+          <h2 className="text-base" style={{ fontWeight: 600, color: C.text }}>
             {attention.length === 0
               ? 'Nothing needs attention'
               : `${urgent > 0 ? `${urgent} urgent` : ''}${urgent > 0 && watch > 0 ? ', ' : ''}${
                   watch > 0 ? `${watch} to watch` : ''
                 }`}
           </h2>
+          <StatusLegend />
         </div>
 
         {attention.length === 0 ? (
-          <p className="text-sm">
+          <p className="text-sm" style={{ color: C.muted }}>
             Every check passed, or there is not enough data yet to judge. Thresholds live in
             lib/status.ts.
           </p>
         ) : (
-          <ul className="space-y-2.5">
+          <ul className="flex flex-col gap-2">
             {attention.map((item, i) => (
               <li
                 key={`${item.title}-${i}`}
-                className="p-3"
-                style={{ background: C.card, borderRadius: RADIUS.sm, border: `1px solid ${C.border}` }}
+                className="px-3 py-2.5"
+                style={{
+                  background: C.card,
+                  borderRadius: RADIUS.sm,
+                  border: `1px solid ${C.border}`,
+                  borderLeft: `3px solid ${LEVEL_STYLE[item.level].color}`,
+                }}
               >
                 <div className="flex items-start justify-between gap-3 mb-1">
                   <Link
                     href={item.href}
                     className="text-sm"
-                    style={{ fontWeight: 600, color: C.text, textDecoration: 'underline' }}
+                    style={{ fontWeight: 600, color: C.text, textDecoration: 'none' }}
                   >
                     {item.title}
                   </Link>
                   <StatusBadge
-                    status={{ level: item.level, label: item.level === 'bad' ? 'Urgent' : 'Watch', reason: item.detail }}
+                    status={{
+                      level: item.level,
+                      label: item.level === 'bad' ? 'Urgent' : 'Watch',
+                      reason: item.detail,
+                    }}
                     compact
                   />
                 </div>

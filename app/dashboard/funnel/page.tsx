@@ -3,8 +3,10 @@ import {
   getPlatformFunnel,
   getUnmatchedTraffic,
   getGaStatus,
+  type Row,
 } from '@/lib/queries';
-import { BarList, Panel, Empty, Note, StatTile, type BarDatum } from '@/components/charts';
+import { BarList, Panel, Empty, Note, StatTile, PageHeader, type BarDatum } from '@/components/charts';
+import { DataRows, Chip, Sub, type Column } from '@/components/DataRows';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { arrivalStatus } from '@/lib/status';
 import { C, compact, pct, platformLabel } from '@/lib/theme';
@@ -30,25 +32,107 @@ export default async function FunnelPage() {
     );
   }
 
-  const withClicks = links.filter((r) => (r.clicks as number) > 0 || (r.sessions as number) > 0);
+  const withActivity = links.filter((r) => (r.clicks as number) > 0 || (r.sessions as number) > 0);
 
   const totalClicks = links.reduce((n, r) => n + ((r.clicks as number) ?? 0), 0);
   const totalSessions = links.reduce((n, r) => n + ((r.sessions as number) ?? 0), 0);
   const totalEngaged = links.reduce((n, r) => n + ((r.engaged as number) ?? 0), 0);
 
-  const clickBars: BarDatum[] = withClicks.map((r) => ({
+  const clickBars: BarDatum[] = withActivity.map((r) => ({
     key: `c-${r.slug}`,
     label: r.slug as string,
     value: (r.clicks as number) ?? 0,
     meta: platformLabel(r.platform as string),
   }));
 
-  const sessionBars: BarDatum[] = withClicks.map((r) => ({
+  const sessionBars: BarDatum[] = withActivity.map((r) => ({
     key: `s-${r.slug}`,
     label: r.slug as string,
     value: (r.sessions as number) ?? 0,
     meta: platformLabel(r.platform as string),
   }));
+
+  const statusCol: Column<Row> = {
+    key: 'status',
+    label: 'Status',
+    width: '6.5rem',
+    render: (r) => (
+      <StatusBadge status={arrivalStatus(r.sessions as number, r.clicks as number)} compact />
+    ),
+  };
+
+  const numeric = (key: string, label: string, width: string, bold = false): Column<Row> => ({
+    key,
+    label,
+    align: 'right',
+    width,
+    bold,
+    render: (r) => (r[key] as number) ?? 0,
+  });
+
+  const linkColumns: Column<Row>[] = [
+    {
+      key: 'slug',
+      label: 'Link',
+      width: 'minmax(9rem, 1.8fr)',
+      render: (r) => (
+        <span className="font-mono text-xs truncate block" style={{ color: C.text }}>
+          {r.slug as string}
+        </span>
+      ),
+    },
+    {
+      key: 'platform',
+      label: 'Platform',
+      width: '6.5rem',
+      render: (r) => <Chip>{platformLabel(r.platform as string)}</Chip>,
+    },
+    numeric('clicks', 'Clicks', '4.5rem'),
+    numeric('sessions', 'Sessions', '5.5rem', true),
+    {
+      key: 'arrived',
+      label: 'Arrived',
+      align: 'right',
+      width: '5rem',
+      render: (r) =>
+        (r.clicks as number) > 0 ? pct(r.sessions as number, r.clicks as number) : <Sub>--</Sub>,
+    },
+    numeric('engaged', 'Engaged', '5rem'),
+    statusCol,
+  ];
+
+  const platformColumns: Column<Row>[] = [
+    {
+      key: 'platform',
+      label: 'Platform',
+      width: 'minmax(7rem, 1.4fr)',
+      render: (r) => platformLabel(r.platform as string),
+    },
+    numeric('clicks', 'Clicks', '4.5rem'),
+    numeric('sessions', 'Sessions', '5.5rem', true),
+    {
+      key: 'arrived',
+      label: 'Arrived',
+      align: 'right',
+      width: '5rem',
+      render: (r) => pct(r.sessions as number, r.clicks as number),
+    },
+    numeric('engaged', 'Engaged', '5rem'),
+    statusCol,
+  ];
+
+  const unmatchedColumns: Column<Row>[] = [
+    { key: 'source', label: 'Source', width: 'minmax(8rem, 1.4fr)', render: (r) => r.source as string },
+    { key: 'medium', label: 'Medium', width: '7rem', render: (r) => <Sub>{r.medium as string}</Sub> },
+    {
+      key: 'content',
+      label: 'utm_content',
+      width: 'minmax(8rem, 1.2fr)',
+      render: (r) => <Sub>{r.content as string}</Sub>,
+    },
+    numeric('sessions', 'Sessions', '5.5rem', true),
+    numeric('engaged', 'Engaged', '5rem'),
+  ];
 
   return (
     <div className="space-y-5">
@@ -58,11 +142,7 @@ export default async function FunnelPage() {
       <div className="grid grid-cols-3 gap-3">
         <StatTile label="Clicks" value={compact(totalClicks)} sub="your redirect log" />
         <StatTile label="Sessions" value={compact(totalSessions)} sub="Google Analytics" />
-        <StatTile
-          label="Arrived"
-          value={pct(totalSessions, totalClicks)}
-          sub="sessions per click"
-        />
+        <StatTile label="Arrived" value={pct(totalSessions, totalClicks)} sub="sessions per click" />
       </div>
 
       <Panel
@@ -82,144 +162,24 @@ export default async function FunnelPage() {
         </Note>
       </Panel>
 
-      <Panel title="The numbers" description="Every link, clicks through to engaged sessions.">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                <Th>Link</Th>
-                <Th>Platform</Th>
-                <Th right>Clicks</Th>
-                <Th right>Sessions</Th>
-                <Th right>Arrived</Th>
-                <Th right>Engaged</Th>
-                <Th>Status</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {links.map((r, i) => {
-                const clicks = (r.clicks as number) ?? 0;
-                const sessions = (r.sessions as number) ?? 0;
-                return (
-                  <tr
-                    key={r.slug as string}
-                    style={{
-                      borderBottom: `1px solid ${C.border}`,
-                      background: i % 2 === 1 ? C.neutral : C.card,
-                    }}
-                  >
-                    <Td>
-                      <code style={{ color: C.text }}>{r.slug as string}</code>
-                    </Td>
-                    <Td>
-                      <span className="text-xs" style={{ color: C.muted }}>
-                        {platformLabel(r.platform as string)}
-                      </span>
-                    </Td>
-                    <Td right>{clicks}</Td>
-                    <Td right bold>
-                      {sessions}
-                    </Td>
-                    <Td right>{clicks > 0 ? pct(sessions, clicks) : '--'}</Td>
-                    <Td right>{(r.engaged as number) ?? 0}</Td>
-                    <Td>
-                      <StatusBadge status={arrivalStatus(sessions, clicks)} compact />
-                    </Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      <Panel title="Every link" description="Clicks through to engaged sessions.">
+        <DataRows columns={linkColumns} rows={links} keyOf={(r) => r.slug as string} />
       </Panel>
 
       <Panel title="By platform">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                <Th>Platform</Th>
-                <Th right>Clicks</Th>
-                <Th right>Sessions</Th>
-                <Th right>Arrived</Th>
-                <Th right>Engaged</Th>
-                <Th>Status</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {platforms.map((r, i) => (
-                <tr
-                  key={r.platform as string}
-                  style={{
-                    borderBottom: `1px solid ${C.border}`,
-                    background: i % 2 === 1 ? C.neutral : C.card,
-                  }}
-                >
-                  <Td>{platformLabel(r.platform as string)}</Td>
-                  <Td right>{(r.clicks as number) ?? 0}</Td>
-                  <Td right bold>
-                    {(r.sessions as number) ?? 0}
-                  </Td>
-                  <Td right>{pct(r.sessions as number, r.clicks as number)}</Td>
-                  <Td right>{(r.engaged as number) ?? 0}</Td>
-                  <Td>
-                    <StatusBadge status={arrivalStatus(r.sessions as number, r.clicks as number)} compact />
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataRows columns={platformColumns} rows={platforms} keyOf={(r) => r.platform as string} />
       </Panel>
 
       <Panel
         title="Traffic not coming through a /go/ link"
         description="Sessions whose utm_content matches no link you created, including everything untagged."
       >
-        {unmatched.length === 0 ? (
-          <Empty message="All recorded sessions match a link." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                  <Th>Source</Th>
-                  <Th>Medium</Th>
-                  <Th>utm_content</Th>
-                  <Th right>Sessions</Th>
-                  <Th right>Engaged</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {unmatched.map((r, i) => (
-                  <tr
-                    key={`${r.source}-${r.medium}-${r.content}-${i}`}
-                    style={{
-                      borderBottom: `1px solid ${C.border}`,
-                      background: i % 2 === 1 ? C.neutral : C.card,
-                    }}
-                  >
-                    <Td>{r.source as string}</Td>
-                    <Td>
-                      <span className="text-xs" style={{ color: C.muted }}>
-                        {r.medium as string}
-                      </span>
-                    </Td>
-                    <Td>
-                      <span className="text-xs" style={{ color: C.muted }}>
-                        {r.content as string}
-                      </span>
-                    </Td>
-                    <Td right bold>
-                      {(r.sessions as number) ?? 0}
-                    </Td>
-                    <Td right>{(r.engaged as number) ?? 0}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataRows
+          columns={unmatchedColumns}
+          rows={unmatched}
+          keyOf={(r, i) => `${r.source}-${r.medium}-${r.content}-${i}`}
+          emptyMessage="All recorded sessions match a link."
+        />
         <Note>
           Most of this is direct and organic traffic, which is fine. Watch for a social referral with
           no utm_content: that is a post you shared without a /go/ link, and it is invisible to every
@@ -240,44 +200,9 @@ export default async function FunnelPage() {
 
 function Header() {
   return (
-    <div>
-      <h1 className="text-2xl mb-1" style={{ fontWeight: 600, color: C.text }}>
-        Funnel
-      </h1>
-      <p className="text-sm" style={{ color: C.muted }}>
-        What happened after the click. Your redirect log says someone left the platform, Google
-        Analytics says whether they actually arrived and stayed.
-      </p>
-    </div>
-  );
-}
-
-function Th({ children, right = false }: { children: React.ReactNode; right?: boolean }) {
-  return (
-    <th
-      className="text-xs uppercase tracking-widest font-normal px-2 py-2"
-      style={{ color: C.muted, textAlign: right ? 'right' : 'left' }}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  right = false,
-  bold = false,
-}: {
-  children: React.ReactNode;
-  right?: boolean;
-  bold?: boolean;
-}) {
-  return (
-    <td
-      className="px-2 py-2.5 tabular-nums"
-      style={{ textAlign: right ? 'right' : 'left', color: C.text, fontWeight: bold ? 600 : 400 }}
-    >
-      {children}
-    </td>
+    <PageHeader
+      title="Funnel"
+      lead="What happened after the click. Your redirect log says someone left the platform, Google Analytics says whether they actually arrived and stayed."
+    />
   );
 }

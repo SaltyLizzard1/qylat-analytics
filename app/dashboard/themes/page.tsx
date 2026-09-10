@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { getThemePerformance, getUntaggedPostCount, getPillarMix } from '@/lib/queries';
 import { BarList, Panel, Empty, Note, PageHeader, type BarDatum } from '@/components/charts';
+import { DataRows, type Column } from '@/components/DataRows';
+import type { Row } from '@/lib/queries';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { PILLARS, pillarLabel, HAS_TARGETS } from '@/lib/pillars';
 import { C, compact } from '@/lib/theme';
@@ -32,11 +34,34 @@ export default async function ThemesPage() {
       meta: `${r.posts} posts`,
     }));
 
+  const num = (key: string, label: string, width: string, bold = false): Column<Row> => ({
+    key,
+    label,
+    align: 'right',
+    width,
+    bold,
+    render: (r) => compact(r[key] as number),
+  });
+
+  const bothColumns: Column<Row>[] = [
+    {
+      key: 'theme',
+      label: 'Theme',
+      width: 'minmax(9rem, 1.6fr)',
+      render: (r) => pillarLabel(r.theme as string),
+    },
+    num('posts', 'Posts', '4.5rem'),
+    num('views', 'Views', '5rem'),
+    num('engagement', 'Engagement', '6.5rem'),
+    num('links', 'Links', '4.5rem'),
+    num('clicks', 'Clicks', '5rem', true),
+  ];
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Content Theme Performance"
-        lead="Which pillars earn attention and which ones actually send people to the site. Themes join your posts to your /go/ links, and to the pillar mix you are aiming for."
+        lead="Which tags earn attention and which ones actually send people to the site. A tag joins what you published to what people clicked."
       />
 
       <StatusLegend />
@@ -131,9 +156,9 @@ export default async function ThemesPage() {
       {untagged > 0 && (
         <Panel title="Tagging needed">
           <p className="text-sm mb-3" style={{ color: C.muted }}>
-            <span style={{ color: C.text, fontWeight: 600 }}>{untagged} posts have no theme.</span>{' '}
-            Meta has no theme field, so this view only fills in once you tag posts yourself. Tagging
-            is a dropdown per post and takes a few seconds each.
+            <span style={{ color: C.text, fontWeight: 600 }}>{untagged} posts have no tag.</span>{' '}
+            Meta has no such field, so this view only fills in once you tag posts yourself. The
+            posts screen defaults to untagged and it is one click per post.
           </p>
           <Link
             href="/admin/posts"
@@ -173,57 +198,12 @@ export default async function ThemesPage() {
       </Panel>
 
       <Panel title="Both sides together">
-        {rows.length === 0 ? (
-          <Empty message="Nothing to show until a theme exists on a link or a post." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                  <th
-                    className="text-left text-xs uppercase tracking-widest font-normal px-2 py-2"
-                    style={{ color: C.muted }}
-                  >
-                    Theme
-                  </th>
-                  {['Posts', 'Views', 'Engagement', 'Links', 'Clicks'].map((h) => (
-                    <th
-                      key={h}
-                      className="text-right text-xs uppercase tracking-widest font-normal px-2 py-2"
-                      style={{ color: C.muted }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr
-                    key={r.theme as string}
-                    style={{
-                      borderBottom: `1px solid ${C.border}`,
-                      background: i % 2 === 1 ? C.neutral : C.card,
-                    }}
-                  >
-                    <td className="px-2 py-2.5" style={{ color: C.text }}>
-                      {pillarLabel(r.theme as string)}
-                    </td>
-                    {(['posts', 'views', 'engagement', 'links', 'clicks'] as const).map((k) => (
-                      <td
-                        key={k}
-                        className="px-2 py-2.5 text-right tabular-nums"
-                        style={{ color: C.text, fontWeight: k === 'clicks' ? 600 : 400 }}
-                      >
-                        {compact(r[k] as number)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataRows
+          columns={bothColumns}
+          rows={rows}
+          keyOf={(r) => r.theme as string}
+          emptyMessage="Nothing to show until a theme exists on a link or a post."
+        />
         <Note>
           A theme can appear with posts but no links, or links but no clicks. That is not an error,
           it means one side has been filled in and the other has not.

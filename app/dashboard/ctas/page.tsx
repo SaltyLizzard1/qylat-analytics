@@ -1,6 +1,7 @@
 import { getCtaPerformance } from '@/lib/queries';
-import { BarList, Panel, Note, type BarDatum } from '@/components/charts';
-import { C } from '@/lib/theme';
+import { BarList, Panel, Note, PageHeader, type BarDatum } from '@/components/charts';
+import { DataRows, Sub, type Column } from '@/components/DataRows';
+import type { Row } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,29 +13,57 @@ const CTA_LABEL: Record<string, string> = {
   unset: 'No CTA set',
 };
 
+function label(value: string): string {
+  return CTA_LABEL[value] ?? value;
+}
+
 export default async function CtasPage() {
   const rows = await getCtaPerformance();
 
   const bars: BarDatum[] = rows.map((r) => ({
     key: r.cta_type as string,
-    label: CTA_LABEL[r.cta_type as string] ?? (r.cta_type as string),
+    label: label(r.cta_type as string),
     value: (r.clicks as number) ?? 0,
     meta: `${r.links} links`,
   }));
 
   const distinctCtas = rows.filter((r) => r.cta_type !== 'unset').length;
 
+  const columns: Column<Row>[] = [
+    {
+      key: 'cta',
+      label: 'CTA',
+      width: 'minmax(9rem, 1.6fr)',
+      render: (r) => label(r.cta_type as string),
+    },
+    { key: 'links', label: 'Links', align: 'right', width: '4.5rem', render: (r) => (r.links as number) ?? 0 },
+    {
+      key: 'clicks',
+      label: 'Clicks',
+      align: 'right',
+      width: '5rem',
+      bold: true,
+      render: (r) => (r.clicks as number) ?? 0,
+    },
+    {
+      key: 'per',
+      label: 'Clicks per link',
+      align: 'right',
+      width: '8rem',
+      render: (r) => {
+        const links = (r.links as number) ?? 0;
+        const clicks = (r.clicks as number) ?? 0;
+        return links > 0 ? (clicks / links).toFixed(1) : <Sub>--</Sub>;
+      },
+    },
+  ];
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl mb-1" style={{ fontWeight: 600, color: C.text }}>
-          CTA Destination
-        </h1>
-        <p className="text-sm" style={{ color: C.muted }}>
-          Which call to action people actually click, measured from your own redirect log rather
-          than from any platform.
-        </p>
-      </div>
+      <PageHeader
+        title="CTA Destination"
+        lead="Which call to action people actually click, measured from your own redirect log rather than from any platform."
+      />
 
       <Panel title="Clicks by CTA">
         <BarList data={bars} valueLabel="Clicks" emptyMessage="No /go/ links created yet." />
@@ -49,60 +78,12 @@ export default async function CtasPage() {
       </Panel>
 
       <Panel title="The numbers">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                <th
-                  className="text-left text-xs uppercase tracking-widest font-normal px-2 py-2"
-                  style={{ color: C.muted }}
-                >
-                  CTA
-                </th>
-                {['Links', 'Clicks', 'Clicks per link'].map((h) => (
-                  <th
-                    key={h}
-                    className="text-right text-xs uppercase tracking-widest font-normal px-2 py-2"
-                    style={{ color: C.muted }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => {
-                const links = (r.links as number) ?? 0;
-                const clicks = (r.clicks as number) ?? 0;
-                return (
-                  <tr
-                    key={r.cta_type as string}
-                    style={{
-                      borderBottom: `1px solid ${C.border}`,
-                      background: i % 2 === 1 ? C.neutral : C.card,
-                    }}
-                  >
-                    <td className="px-2 py-2.5" style={{ color: C.text }}>
-                      {CTA_LABEL[r.cta_type as string] ?? (r.cta_type as string)}
-                    </td>
-                    <td className="px-2 py-2.5 text-right tabular-nums" style={{ color: C.text }}>
-                      {links}
-                    </td>
-                    <td
-                      className="px-2 py-2.5 text-right tabular-nums"
-                      style={{ color: C.text, fontWeight: 600 }}
-                    >
-                      {clicks}
-                    </td>
-                    <td className="px-2 py-2.5 text-right tabular-nums" style={{ color: C.text }}>
-                      {links > 0 ? (clicks / links).toFixed(1) : '--'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataRows
+          columns={columns}
+          rows={rows}
+          keyOf={(r) => r.cta_type as string}
+          emptyMessage="No /go/ links created yet."
+        />
       </Panel>
     </div>
   );
