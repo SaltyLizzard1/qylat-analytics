@@ -5,7 +5,7 @@ import { PostThumb } from '@/components/PostThumb';
 import { performanceStatus, type Level } from '@/lib/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import { pillarLabel } from '@/lib/pillars';
-import { C, RADIUS, compact, pct, shortDate, platformLabel, formatLabel } from '@/lib/theme';
+import { C, RADIUS, compact, pct, shortDate, platformLabel, formatLabel, platformColor } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,14 +16,14 @@ export const dynamic = 'force-dynamic';
  */
 const ENGAGEMENT_LABEL: Record<Level, string> = {
   good: 'High engagement',
-  warning: 'Typical engagement',
+  warning: 'Medium engagement',
   bad: 'Low engagement',
 };
 
 const ENGAGEMENT_SHORT: Record<Level, string> = {
-  good: 'High eng',
-  warning: 'Typical eng',
-  bad: 'Low eng',
+  good: 'High',
+  warning: 'Medium',
+  bad: 'Low',
 };
 
 export default async function LeaderboardPage() {
@@ -68,7 +68,32 @@ export default async function LeaderboardPage() {
         {rows.length === 0 ? (
           <Empty message="No posts synced yet. Run the Meta sync first." />
         ) : (
-          <ol className="flex flex-col gap-2">
+          <>
+            {/*
+              Header row. Widths mirror the row below exactly, so the labels sit
+              over the columns they describe. The badge column says
+              "Engagement", which is what makes High / Medium / Low mean
+              something on its own.
+            */}
+            <div
+              className="flex items-center gap-3 px-3 pb-2 mb-2"
+              style={{ borderBottom: `1px solid ${C.border}` }}
+            >
+              <HeadCell width="1.4rem" align="right">
+                #
+              </HeadCell>
+              <HeadCell width="44px" />
+              <div className="flex-1 min-w-0">
+                <HeadCell>Post</HeadCell>
+              </div>
+              <div className="hidden sm:block flex-shrink-0" style={{ width: 90 }} />
+              <HeadCell width="4.2rem" align="right">
+                Views
+              </HeadCell>
+              <HeadCell width="5.2rem">Engagement</HeadCell>
+            </div>
+
+            <ol className="flex flex-col gap-2">
             {rows.map((r, i) => {
               const caption = ((r.caption as string) ?? '').replace(/\s+/g, ' ').trim();
               const permalink = r.permalink as string | null;
@@ -132,7 +157,21 @@ export default async function LeaderboardPage() {
                       )}
                     </p>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <Chip>{platformLabel(platform)}</Chip>
+                      <Chip>
+                        <span
+                          aria-hidden
+                          style={{
+                            display: 'inline-block',
+                            width: 6,
+                            height: 6,
+                            borderRadius: 999,
+                            background: platformColor(platform),
+                            marginRight: 5,
+                            verticalAlign: 'middle',
+                          }}
+                        />
+                        {platformLabel(platform)}
+                      </Chip>
                       <Chip>{formatLabel(r.format as string)}</Chip>
                       {theme && <Chip>{pillarLabel(theme)}</Chip>}
                       <span className="text-xs" style={{ color: C.muted }}>
@@ -155,22 +194,23 @@ export default async function LeaderboardPage() {
                     </div>
                   </div>
 
-                  <div className="flex-shrink-0 text-right" style={{ minWidth: '4.2rem' }}>
+                  <div className="flex-shrink-0 text-right" style={{ width: '4.2rem' }}>
                     <p className="tabular-nums text-sm" style={{ fontWeight: 600, color: C.text }}>
                       {compact(views)}
                     </p>
-                    <p className="text-xs" style={{ color: C.muted }}>
-                      {pct(engagement, views)} eng
-                    </p>
                   </div>
 
-                  <div className="flex-shrink-0" style={{ minWidth: '5.2rem' }}>
+                  <div className="flex-shrink-0" style={{ width: '5.2rem' }}>
                     <StatusBadge status={status} compact />
+                    <p className="text-xs mt-0.5 tabular-nums" style={{ color: C.muted }}>
+                      {pct(engagement, views)}
+                    </p>
                   </div>
                 </li>
               );
-            })}
-          </ol>
+              })}
+            </ol>
+          </>
         )}
 
         <Note>
@@ -183,6 +223,25 @@ export default async function LeaderboardPage() {
         </Note>
       </Panel>
     </div>
+  );
+}
+
+function HeadCell({
+  children,
+  width,
+  align = 'left',
+}: {
+  children?: React.ReactNode;
+  width?: string;
+  align?: 'left' | 'right';
+}) {
+  return (
+    <span
+      className="text-xs uppercase flex-shrink-0 whitespace-nowrap"
+      style={{ color: C.muted, letterSpacing: '0.08em', width, textAlign: align }}
+    >
+      {children}
+    </span>
   );
 }
 

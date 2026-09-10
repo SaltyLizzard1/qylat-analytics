@@ -59,9 +59,9 @@ export const PERFORMANCE_LABEL: Record<Level, string> = {
 };
 
 export const PERFORMANCE_SHORT: Record<Level, string> = {
-  good: 'Strong',
-  warning: 'Typical',
-  bad: 'Weak',
+  good: 'High',
+  warning: 'Medium',
+  bad: 'Low',
 };
 
 /** Sort order for lists: worst first. */

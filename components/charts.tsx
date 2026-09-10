@@ -61,6 +61,12 @@ export type BarDatum = {
   title?: string;
   /** Optional status, rendered as a badge beside the label. */
   status?: Status | null;
+  /**
+   * Optional identity colour for the bar, e.g. a platform hue. Says WHICH,
+   * never how good. Defaults to ink, which is the right answer whenever the
+   * bars are all the same kind of thing.
+   */
+  color?: string;
 };
 
 /**
@@ -121,7 +127,7 @@ export function BarList({
                 style={{
                   height: '100%',
                   width: `${Math.max((d.value / max) * 100, d.value > 0 ? 1.5 : 0)}%`,
-                  background: C.text,
+                  background: d.color ?? C.text,
                   borderRadius: RADIUS.pill,
                 }}
               />

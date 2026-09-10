@@ -127,19 +127,42 @@ export async function getPlatformMedians(): Promise<Record<string, { views: numb
   return out;
 }
 
+/**
+ * Platform comparison across every platform you actually use, not only the
+ * ones with post data.
+ *
+ * TikTok and YouTube have no post integration, only /go/ link tracking. An
+ * earlier version inner joined on posts, so TikTok vanished from the page
+ * entirely and looked like it did not exist rather than like it is not
+ * measured. Post columns come back NULL for those, which the view renders as
+ * "not integrated" rather than as zero. Zero would claim the posts got no
+ * views, when the truth is that nothing can see them.
+ */
 export async function getPlatformComparison(): Promise<Row[]> {
   return sql(`
-    ${LATEST}
+    ${LATEST},
+    used AS (
+      SELECT DISTINCT platform FROM posts
+      UNION
+      SELECT DISTINCT platform FROM links
+    ),
+    post_stats AS (
+      SELECT
+        p.platform,
+        COUNT(*)::int                          AS posts,
+        COALESCE(SUM(l.views), 0)::int         AS views,
+        COALESCE(ROUND(AVG(l.views)), 0)::int  AS avg_views,
+        COALESCE(SUM(l.engagement), 0)::int    AS engagement,
+        COALESCE(SUM(l.reach), 0)::int         AS reach
+      FROM posts p JOIN latest l ON l.post_id = p.id
+      GROUP BY p.platform
+    )
     SELECT
-      p.platform,
-      COUNT(*)::int                                    AS posts,
-      COALESCE(SUM(l.views), 0)::int                   AS views,
-      COALESCE(ROUND(AVG(l.views)), 0)::int            AS avg_views,
-      COALESCE(SUM(l.engagement), 0)::int              AS engagement,
-      COALESCE(SUM(l.reach), 0)::int                   AS reach
-    FROM posts p JOIN latest l ON l.post_id = p.id
-    GROUP BY p.platform
-    ORDER BY views DESC
+      u.platform,
+      s.posts, s.views, s.avg_views, s.engagement, s.reach,
+      (s.platform IS NOT NULL) AS has_posts
+    FROM used u LEFT JOIN post_stats s ON s.platform = u.platform
+    ORDER BY COALESCE(s.views, -1) DESC, u.platform
   `);
 }
 

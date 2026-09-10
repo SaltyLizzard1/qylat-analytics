@@ -86,6 +86,40 @@ export const PLATFORM_LABEL: Record<string, string> = {
   youtube: 'YouTube',
 };
 
+/**
+ * Platform identity colours. A second, separate job for colour.
+ *
+ * Status is green / yellow / red and says how something is doing. These say
+ * WHICH platform, and nothing about quality. The two never overlap, which was
+ * checked rather than assumed: run through the dataviz palette validator, the
+ * trio passes the lightness band, the chroma floor, CVD separation, the
+ * normal-vision floor and contrast, and no pair with a status colour falls
+ * below the normal-vision floor.
+ *
+ * Deliberate substitutions from the official brand palettes:
+ *   Instagram uses its brand purple, not its magenta #E1306C. Magenta sat
+ *   only 14.2 delta-E from the status red #B00020, below the readability
+ *   floor, so the two could be confused on the same screen.
+ *   TikTok uses a darkened teal, not its brand cyan #69C9D0, which failed the
+ *   lightness band and the chroma floor and read as grey on white.
+ *   YouTube gets no hue. Its brand red would collide with status red, and
+ *   there is no YouTube data to plot.
+ *
+ * Every coloured bar is also directly labelled, so identity never rests on
+ * colour alone.
+ */
+export const PLATFORM_COLOR: Record<string, string> = {
+  instagram: '#833AB4',
+  facebook: '#1877F2',
+  tiktok: '#1A9AA3',
+  youtube: C.muted,
+};
+
+export function platformColor(platform: string | null | undefined): string {
+  if (!platform) return C.text;
+  return PLATFORM_COLOR[platform] ?? C.text;
+}
+
 export const FORMAT_LABEL: Record<string, string> = {
   reel: 'Reel',
   carousel: 'Carousel',
