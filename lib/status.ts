@@ -90,6 +90,13 @@ export const THRESHOLDS = {
   /** New followers over the recorded window. */
   followerGrowth: { good: 30, warning: 10 },
 
+  /**
+   * A platform median below this is treated as no baseline at all. Facebook's
+   * median engagement rate is 0.0%, and judging posts against nothing made
+   * 0.5% read as High.
+   */
+  minMedianRate: 0.01,
+
   /** Minimum sample before a status is claimed at all. */
   minSampleClicks: 5,
   minSampleViews: 50,
@@ -140,24 +147,17 @@ export function performanceStatus(
   if (value === null || value === undefined || median === null || median === undefined) return null;
 
   /*
-   * A median of zero is a real state, not a missing one. Most Facebook Page
-   * posts get no interactions at all, so the median engagement rate there is
-   * 0, and bailing out returned "not enough data" for every Facebook row and
-   * hid a genuine signal. Against a zero median, anything positive is above
-   * it and zero simply matches it.
+   * A degenerate median is not a baseline, it is an absence, and comparing
+   * against it produces nonsense: Facebook's median engagement rate is 0.0%,
+   * so a post at 0.5% scored "High" while an Instagram post at 4.7% scored
+   * "Medium" against a 4.9% median. Read side by side that is absurd, and the
+   * badge is the thing at fault, not the numbers.
+   *
+   * Below the floor there is nothing meaningful to compare to, so say so
+   * rather than inventing a verdict. Same principle as the minimum sample:
+   * no baseline is no answer, not a good one.
    */
-  if (median <= 0) {
-    const l: Level = value > 0 ? 'good' : 'warning';
-    return {
-      level: l,
-      label: PERFORMANCE_LABEL[l],
-      shortLabel: PERFORMANCE_SHORT[l],
-      reason:
-        value > 0
-          ? `above your median ${what}, which is zero on this platform`
-          : `matches your median ${what}, which is zero on this platform`,
-    };
-  }
+  if (median < THRESHOLDS.minMedianRate) return null;
 
   const ratio = value / median;
   const l: Level = ratio >= 1.3 ? 'good' : ratio >= 0.7 ? 'warning' : 'bad';
