@@ -5,6 +5,7 @@ import { C, RADIUS } from '@/lib/theme';
 
 const NAV = [
   { href: '/dashboard', label: 'Overview' },
+  { href: '/dashboard/recent', label: 'Recent' },
   { href: '/dashboard/leaderboard', label: 'Leaderboard' },
   { href: '/dashboard/platforms', label: 'Platforms' },
   { href: '/dashboard/formats', label: 'Formats' },
@@ -50,6 +51,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin/sync"
+              className="text-xs px-3 py-1.5"
+              style={{
+                border: `1px solid ${C.border}`,
+                borderRadius: RADIUS.sm,
+                color: C.text,
+                textDecoration: 'none',
+              }}
+            >
+              Sync now
+            </Link>
             <Link
               href="/admin/links"
               className="text-xs px-3 py-1.5"

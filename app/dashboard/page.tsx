@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { getOverview, getWeeklyViews, getWeeklyClicks, getPeriodDeltas } from '@/lib/queries';
+import { parsePeriod, withPeriod } from '@/lib/period';
+import { PeriodPicker } from '@/components/PeriodPicker';
 import { getAttentionItems } from '@/lib/attention';
 import { StatTile, TrendChart, Panel, PageHeader, Note, SectionHeading } from '@/components/charts';
 import { Delta } from '@/components/Delta';
@@ -16,13 +18,18 @@ const LEVEL_STYLE: Record<Level, { color: string; background: string; border: st
   bad: severityBad,
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; compare?: string }>;
+}) {
+  const period = parsePeriod(await searchParams);
   const [overview, weeklyViews, weeklyClicks, attention, d] = await Promise.all([
     getOverview(),
     getWeeklyViews(),
     getWeeklyClicks(),
     getAttentionItems(),
-    getPeriodDeltas(30),
+    getPeriodDeltas(period.days),
   ]);
 
   const viewPoints = weeklyViews.map((r) => ({
@@ -128,33 +135,87 @@ export default async function DashboardPage() {
         )}
       </section>
 
-      <SectionHeading note={`last ${d.days} days against the ${d.days} before`}>
-        Last {d.days} days
+      <PeriodPicker period={period} />
+
+      <SectionHeading note="activity that happened during the window">
+        {period.label}
       </SectionHeading>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatTile
           label="Posts published"
           value={compact(d.publishedPosts.current)}
-          delta={<Delta current={d.publishedPosts.current} previous={d.publishedPosts.previous} />}
-        />
-        <StatTile
-          label="Views on those posts"
-          value={compact(d.publishedViews.current)}
-          delta={<Delta current={d.publishedViews.current} previous={d.publishedViews.previous} />}
+          delta={
+            period.compare === 'previous' ? (
+              <Delta current={d.publishedPosts.current} previous={d.publishedPosts.previous} suffix={`vs ${period.compareLabel}`} />
+            ) : undefined
+          }
+          sub="published in the window"
         />
         <StatTile
           label="Link clicks"
           value={compact(d.clicks.current)}
-          delta={<Delta current={d.clicks.current} previous={d.clicks.previous} />}
+          delta={
+            period.compare === 'previous' ? (
+              <Delta current={d.clicks.current} previous={d.clicks.previous} suffix={`vs ${period.compareLabel}`} />
+            ) : undefined
+          }
+          sub="clicks that happened in the window"
         />
         <StatTile
           label="New followers"
           value={compact(d.followers.current)}
-          delta={<Delta current={d.followers.current} previous={d.followers.previous} />}
-          sub="Instagram"
+          delta={
+            period.compare === 'previous' ? (
+              <Delta current={d.followers.current} previous={d.followers.previous} suffix={`vs ${period.compareLabel}`} />
+            ) : undefined
+          }
+          sub="Instagram, gained in the window"
+        />
+        <StatTile
+          label="Sessions"
+          value={compact(d.sessions.current)}
+          delta={
+            period.compare === 'previous' ? (
+              <Delta current={d.sessions.current} previous={d.sessions.previous} suffix={`vs ${period.compareLabel}`} />
+            ) : undefined
+          }
+          sub="site visits in the window"
         />
       </div>
+
+      <SectionHeading note="cumulative totals, not activity during the window">
+        Posts published in this window
+      </SectionHeading>
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <StatTile
+          label="Posts published"
+          value={compact(d.publishedPosts.current)}
+          sub={`in the ${period.label.toLowerCase()}`}
+        />
+        <StatTile
+          label="Current lifetime views of those posts"
+          value={compact(d.publishedViews.current)}
+          sub="not views that happened in the window"
+        />
+        <StatTile
+          label="Current lifetime engagement of those posts"
+          value={compact(d.publishedEngagement.current)}
+          sub="not engagement during the window"
+        />
+      </div>
+
+      <Note>
+        These three are cumulative totals as they stand today, not activity inside the window. A post
+        published yesterday has had a day to accumulate; one published four weeks ago has had four
+        weeks, so comparing these across periods measures age as much as performance. For the
+        question {'"'}is my newer work performing better{'"'}, use{' '}
+        <Link href={withPeriod('/dashboard/recent', period)} style={{ color: C.text, textDecoration: 'underline' }}>
+          Recent Posts
+        </Link>
+        , which compares posts at the same age.
+      </Note>
 
       <SectionHeading note="every post ever synced">All time</SectionHeading>
 
