@@ -20,6 +20,18 @@ export default async function FormatsPage() {
   const instagram = rows.filter((r) => r.platform === 'instagram');
   const facebook = rows.filter((r) => r.platform === 'facebook');
 
+  /*
+   * One scale per measure, shared across both platforms.
+   *
+   * Panels that normalise to themselves make every top bar full width, so
+   * Facebook reels at 158 views looked identical to Instagram reels at 234,
+   * and Facebook reels at 1 engagement looked identical to Instagram reels at
+   * 14. The bars now carry the cross platform difference that the numbers
+   * always showed.
+   */
+  const maxViews = Math.max(...rows.map((r) => (r.avg_views as number) ?? 0), 1);
+  const maxEngagement = Math.max(...rows.map((r) => (r.avg_engagement as number) ?? 0), 1);
+
   /** Average views per post across a whole platform, the benchmark each format is judged against. */
   const platformAverage = (list: typeof rows): number => {
     const posts = list.reduce((n, r) => n + ((r.posts as number) ?? 0), 0);
@@ -64,7 +76,7 @@ export default async function FormatsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Format Comparison"
-        lead="Reels against carousels against plain posts, measured per post rather than in total. Each format is judged against its own platform's average, since formats are only comparable within a platform."
+        lead="Reels against carousels against plain posts, measured per post rather than in total. The badge judges each format against its own platform's average, because formats are only comparable within a platform. The bars share one scale across both platforms, so a full width bar means the same thing on either chart."
       />
 
       <StatusLegend scale="performance" />
@@ -88,6 +100,7 @@ export default async function FormatsPage() {
         <BarList
           data={toBars(instagram, 'avg_views')}
           valueLabel="Average views per post"
+          max={maxViews}
           emptyMessage="No Instagram posts synced yet."
         />
       </Panel>
@@ -96,6 +109,7 @@ export default async function FormatsPage() {
         <BarList
           data={toBars(instagram, 'avg_engagement')}
           valueLabel="Average engagement per post"
+          max={maxEngagement}
           emptyMessage="No Instagram posts synced yet."
         />
       </Panel>
@@ -107,6 +121,7 @@ export default async function FormatsPage() {
         <BarList
           data={toBars(facebook, 'avg_views')}
           valueLabel="Average views per post"
+          max={maxViews}
           emptyMessage="No Facebook posts synced yet."
         />
       </Panel>
@@ -115,6 +130,7 @@ export default async function FormatsPage() {
         <BarList
           data={toBars(facebook, 'avg_engagement')}
           valueLabel="Average engagement per post"
+          max={maxEngagement}
           emptyMessage="No Facebook posts synced yet."
         />
         <Note>

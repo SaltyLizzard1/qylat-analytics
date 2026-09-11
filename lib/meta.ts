@@ -377,10 +377,52 @@ export async function fetchPageAudience(cfg: MetaConfig): Promise<AudienceReadin
   const body = await graphGet<{ followers_count?: number; fan_count?: number }>(cfg, cfg.pageId, {
     fields: 'followers_count,fan_count',
   });
-  return {
-    followers: body.followers_count ?? body.fan_count ?? null,
-    newFollowers: null,
-  };
+
+  /*
+   * Take the larger of the two rather than `followers_count ?? fan_count`.
+   *
+   * `??` only falls back on null and undefined, so a followers_count of 0
+   * would win over a fan_count of 6 and report an empty Page. The two fields
+   * measure slightly different things (followers versus the older likes
+   * count) and either can lag the other, so the larger is the safer read.
+   */
+  const followers = Math.max(body.followers_count ?? 0, body.fan_count ?? 0);
+  const known = body.followers_count !== undefined || body.fan_count !== undefined;
+
+  return { followers: known ? followers : null, newFollowers: null };
+}
+
+/**
+ * Daily new-follower counts for the Facebook Page.
+ *
+ * Instagram had this from the start and the Page did not, so Page growth was
+ * only ever a running total with no history. Best effort: a missing history
+ * must never fail the sync.
+ */
+export async function fetchPageFollowerHistory(
+  cfg: MetaConfig,
+  days = 30
+): Promise<DailyFollowerGain[]> {
+  const until = Math.floor(Date.now() / 1000);
+  const since = until - Math.min(days, 30) * 24 * 60 * 60;
+
+  try {
+    const body = await graphGet<{
+      data?: { values?: { value?: number; end_time?: string }[] }[];
+    }>(cfg, `${cfg.pageId}/insights`, {
+      metric: 'page_follows',
+      period: 'day',
+      since: String(since),
+      until: String(until),
+    });
+
+    const values = body.data?.[0]?.values ?? [];
+    return values
+      .filter((v) => typeof v.end_time === 'string')
+      .map((v) => ({ day: (v.end_time as string).slice(0, 10), gain: v.value ?? 0 }));
+  } catch {
+    return [];
+  }
 }
 
 export type DailyFollowerGain = { day: string; gain: number };

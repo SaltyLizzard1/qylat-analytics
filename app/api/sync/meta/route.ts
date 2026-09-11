@@ -13,6 +13,7 @@ import {
   fetchInstagramAudience,
   fetchPageAudience,
   fetchInstagramFollowerHistory,
+  fetchPageFollowerHistory,
   slugFromCaption,
   type MetaConfig,
   type InsightResult,
@@ -289,21 +290,28 @@ async function syncAudience(cfg: MetaConfig) {
     }
   }
 
-  // Daily gains, backfilled. The window is short and shrinking, so this is
-  // best effort and must never fail the run.
-  try {
-    const history = await fetchInstagramFollowerHistory(cfg, 30);
-    for (const point of history) {
-      await sql`
-        INSERT INTO audience_snapshots (recorded_on, platform, account_label, new_followers, source)
-        VALUES (${point.day}::date, 'instagram', 'QYLAT Instagram', ${point.gain}, 'api')
-        ON CONFLICT (platform, recorded_on) DO UPDATE SET
-          new_followers = EXCLUDED.new_followers
-        WHERE audience_snapshots.source = 'api'
-      `;
+  // Daily gains, backfilled for both accounts. The window is short and
+  // shrinking, so this is best effort and must never fail the run.
+  const histories: { platform: string; label: string; load: () => Promise<{ day: string; gain: number }[]> }[] = [
+    { platform: 'instagram', label: 'QYLAT Instagram', load: () => fetchInstagramFollowerHistory(cfg, 30) },
+    { platform: 'facebook', label: 'QYLAT Facebook Page', load: () => fetchPageFollowerHistory(cfg, 30) },
+  ];
+
+  for (const h of histories) {
+    try {
+      const history = await h.load();
+      for (const point of history) {
+        await sql`
+          INSERT INTO audience_snapshots (recorded_on, platform, account_label, new_followers, source)
+          VALUES (${point.day}::date, ${h.platform}, ${h.label}, ${point.gain}, 'api')
+          ON CONFLICT (platform, recorded_on) DO UPDATE SET
+            new_followers = EXCLUDED.new_followers
+          WHERE audience_snapshots.source = 'api'
+        `;
+      }
+    } catch (e) {
+      report.errors.push({ account: `${h.platform}-history`, reason: errText(e) });
     }
-  } catch (e) {
-    report.errors.push({ account: 'instagram-history', reason: errText(e) });
   }
 
   return report;

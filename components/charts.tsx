@@ -110,14 +110,24 @@ export function BarList({
   data,
   valueLabel,
   emptyMessage = 'No data yet.',
+  max: sharedMax,
 }: {
   data: BarDatum[];
   valueLabel: string;
   emptyMessage?: string;
+  /**
+   * Scale bars against this instead of the panel's own largest value.
+   *
+   * Without it, every panel normalises to itself, so a Facebook reel averaging
+   * 1 engagement draws exactly the same full width bar as an Instagram reel
+   * averaging 14. Two charts meant to be read against each other have to share
+   * a scale or the longer bar means nothing.
+   */
+  max?: number;
 }) {
   if (data.length === 0) return <Empty message={emptyMessage} />;
 
-  const max = Math.max(...data.map((d) => d.value), 1);
+  const max = Math.max(sharedMax ?? 0, ...data.map((d) => d.value), 1);
 
   return (
     <div>
