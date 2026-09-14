@@ -148,5 +148,15 @@ These are not derivable from the code and have each caused a real failure.
   `source = 'manual'` are the only record of the personal Facebook profile,
   which no API can read. Both sync upserts carry `WHERE source = 'api'`. Keep
   it that way.
-- **Deleting a link with clicks fails.** `click_events.slug` is a foreign key to
-  `links.slug` with no cascade rule. Known defect, not yet fixed.
+- **Links with clicks cannot be deleted, on purpose.** `click_events.slug` is a
+  foreign key to `links.slug` with no cascade rule. `deleteLink` counts the
+  clicks first and refuses with the count rather than letting the constraint
+  throw. Click history outlives the link. Do not add a cascade.
+- **Never compare cumulative views across posts of different age.** Views
+  roughly double in the first 48 hours, so a post from yesterday against one
+  from June measures age, not performance. Compare posts at the same age
+  through `lib/cohort.ts`, which takes the latest snapshot at or before the
+  target age and never a later one. Anything that shows lifetime totals for a
+  window of posts must say "lifetime" in the label. The `?period=` window
+  filters by `published_at` for post cohorts and by event timestamp for
+  clicks, sessions and follower gains; the two are never mixed in one figure.

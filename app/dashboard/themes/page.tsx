@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { parsePeriod } from '@/lib/period';
+import { PeriodPicker } from '@/components/PeriodPicker';
 import { getThemePerformance, getUntaggedPostCount, getPillarMix } from '@/lib/queries';
 import { BarList, Panel, Empty, Note, PageHeader, type BarDatum } from '@/components/charts';
 import { DataRows, type Column } from '@/components/DataRows';
@@ -10,11 +12,16 @@ import { C, compact, tagColor } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ThemesPage() {
+export default async function ThemesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; compare?: string }>;
+}) {
+  const period = parsePeriod(await searchParams);
   const [rows, untagged, mix] = await Promise.all([
-    getThemePerformance(),
+    getThemePerformance(period.days),
     getUntaggedPostCount(),
-    getPillarMix(),
+    getPillarMix(period.days),
   ]);
 
   const clickBars: BarDatum[] = rows
@@ -73,6 +80,8 @@ export default async function ThemesPage() {
         title="Content Theme Performance"
         lead="Which tags earn attention and which ones actually send people to the site. A tag joins what you published to what people clicked."
       />
+
+      <PeriodPicker period={period} />
 
       <StatusLegend />
 
@@ -191,8 +200,8 @@ export default async function ThemesPage() {
       )}
 
       <Panel
-        title="Clicks by theme"
-        description="From the theme recorded on each /go/ link. This side works without tagging any posts."
+        title="Clicks by tag"
+        description={`Clicks that happened in the ${period.label.toLowerCase()}, grouped by the tag on each /go/ link. This side works without tagging any posts.`}
       >
         <BarList
           data={clickBars}
@@ -202,8 +211,8 @@ export default async function ThemesPage() {
       </Panel>
 
       <Panel
-        title="Views by theme"
-        description="From the theme you tag on each synced post."
+        title="Lifetime views by tag"
+        description={`Posts published in the ${period.label.toLowerCase()}, lifetime views as of today, grouped by the tag on each post.`}
       >
         <BarList
           data={viewBars}

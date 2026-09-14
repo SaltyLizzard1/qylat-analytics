@@ -5,6 +5,8 @@ import {
   getGaStatus,
   type Row,
 } from '@/lib/queries';
+import { parsePeriod } from '@/lib/period';
+import { PeriodPicker } from '@/components/PeriodPicker';
 import { BarList, Panel, Empty, Note, StatTile, PageHeader, type BarDatum } from '@/components/charts';
 import { DataRows, Chip, Sub, type Column } from '@/components/DataRows';
 import { StatusBadge, StatusLegend } from '@/components/status';
@@ -13,11 +15,16 @@ import { C, compact, pct, platformLabel } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
-export default async function FunnelPage() {
+export default async function FunnelPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; compare?: string }>;
+}) {
+  const period = parsePeriod(await searchParams);
   const [links, platforms, unmatched, status] = await Promise.all([
-    getLinkFunnel(),
-    getPlatformFunnel(),
-    getUnmatchedTraffic(),
+    getLinkFunnel(period.days),
+    getPlatformFunnel(period.days),
+    getUnmatchedTraffic(period.days),
     getGaStatus(),
   ]);
 
@@ -137,6 +144,7 @@ export default async function FunnelPage() {
   return (
     <div className="space-y-5">
       <Header />
+      <PeriodPicker period={period} />
       <StatusLegend />
 
       <div className="grid grid-cols-3 gap-3">

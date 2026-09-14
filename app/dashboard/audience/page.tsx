@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { parsePeriod } from '@/lib/period';
+import { PeriodPicker } from '@/components/PeriodPicker';
 import {
   getLatestAudience,
   getAudienceHistory,
@@ -18,11 +20,16 @@ const LABEL: Record<string, string> = {
   youtube: 'YouTube',
 };
 
-export default async function AudiencePage() {
+export default async function AudiencePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; compare?: string }>;
+}) {
+  const period = parsePeriod(await searchParams);
   const [latest, igHistory, igGains, signal] = await Promise.all([
     getLatestAudience(),
-    getAudienceHistory('instagram'),
-    getWeeklyFollowerGains('instagram'),
+    getAudienceHistory('instagram', period.days),
+    getWeeklyFollowerGains('instagram', period.days),
     getFollowerSignalStrength(),
   ]);
 
@@ -47,6 +54,8 @@ export default async function AudiencePage() {
           they only exist from the day recording started.
         </p>
       </div>
+
+      <PeriodPicker period={period} />
 
       {latest.length === 0 ? (
         <Empty message="No snapshots recorded yet. The first sync writes them." />

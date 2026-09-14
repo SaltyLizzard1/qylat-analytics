@@ -1,4 +1,6 @@
 import { getCtaPerformance } from '@/lib/queries';
+import { parsePeriod } from '@/lib/period';
+import { PeriodPicker } from '@/components/PeriodPicker';
 import { BarList, Panel, Note, PageHeader, type BarDatum } from '@/components/charts';
 import { DataRows, Sub, type Column } from '@/components/DataRows';
 import type { Row } from '@/lib/queries';
@@ -17,8 +19,13 @@ function label(value: string): string {
   return CTA_LABEL[value] ?? value;
 }
 
-export default async function CtasPage() {
-  const rows = await getCtaPerformance();
+export default async function CtasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; compare?: string }>;
+}) {
+  const period = parsePeriod(await searchParams);
+  const rows = await getCtaPerformance(period.days);
 
   const bars: BarDatum[] = rows.map((r) => ({
     key: r.cta_type as string,
@@ -65,7 +72,9 @@ export default async function CtasPage() {
         lead="Which call to action people actually click, measured from your own redirect log rather than from any platform."
       />
 
-      <Panel title="Clicks by CTA">
+      <PeriodPicker period={period} />
+
+      <Panel title="Clicks by CTA" description={`Clicks that happened in the ${period.label.toLowerCase()}.`}>
         <BarList data={bars} valueLabel="Clicks" emptyMessage="No /go/ links created yet." />
 
         {distinctCtas <= 1 && rows.length > 0 && (

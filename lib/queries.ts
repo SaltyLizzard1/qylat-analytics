@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db';
+import { sinceSql } from '@/lib/period';
 
 /**
  * Every dashboard query lives here.
@@ -136,7 +137,7 @@ export async function getPeriodDeltas(days = 30): Promise<{
 }
 
 /** Part to whole splits: share of views by platform, posts by format, posts by tag. */
-export async function getSplits(): Promise<{
+export async function getSplits(days?: number | null): Promise<{
   byPlatform: Row[];
   byFormat: Row[];
   byTag: Row[];
@@ -145,18 +146,19 @@ export async function getSplits(): Promise<{
     ${LATEST}
     SELECT p.platform AS key, COALESCE(SUM(l.views), 0)::int AS value
     FROM posts p JOIN latest l ON l.post_id = p.id
+    WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY p.platform HAVING SUM(l.views) > 0 ORDER BY value DESC
   `);
 
   const byFormat = await sql(`
     SELECT format AS key, COUNT(*)::int AS value
-    FROM posts WHERE format IS NOT NULL
+    FROM posts WHERE format IS NOT NULL ${sinceSql(days ?? null, 'published_at')}
     GROUP BY format ORDER BY value DESC
   `);
 
   const byTag = await sql(`
     SELECT content_theme AS key, COUNT(*)::int AS value
-    FROM posts WHERE content_theme IS NOT NULL AND content_theme <> ''
+    FROM posts WHERE content_theme IS NOT NULL AND content_theme <> '' ${sinceSql(days ?? null, 'published_at')}
     GROUP BY content_theme ORDER BY value DESC
   `);
 
@@ -164,7 +166,7 @@ export async function getSplits(): Promise<{
 }
 
 /** Views and posts published per ISO week. */
-export async function getWeeklyViews(): Promise<Row[]> {
+export async function getWeeklyViews(days?: number | null): Promise<Row[]> {
   return sql(`
     ${LATEST}
     SELECT
@@ -172,23 +174,24 @@ export async function getWeeklyViews(): Promise<Row[]> {
       COUNT(*)::int                       AS posts,
       COALESCE(SUM(l.views), 0)::int      AS views
     FROM posts p JOIN latest l ON l.post_id = p.id
-    WHERE p.published_at IS NOT NULL
+    WHERE p.published_at IS NOT NULL ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY 1 ORDER BY 1
   `);
 }
 
 /** First party clicks per ISO week, from click_events. */
-export async function getWeeklyClicks(): Promise<Row[]> {
+export async function getWeeklyClicks(days?: number | null): Promise<Row[]> {
   return sql(`
     SELECT
       TO_CHAR(DATE_TRUNC('week', clicked_at), 'YYYY-MM-DD') AS week,
       COUNT(*)::int AS clicks
     FROM click_events
+    WHERE TRUE ${sinceSql(days ?? null, 'clicked_at')}
     GROUP BY 1 ORDER BY 1
   `);
 }
 
-export async function getLeaderboard(limit = 30): Promise<Row[]> {
+export async function getLeaderboard(limit = 30, days?: number | null): Promise<Row[]> {
   return sql(`
     ${LATEST}
     SELECT
@@ -196,6 +199,7 @@ export async function getLeaderboard(limit = 30): Promise<Row[]> {
       p.content_theme, p.thumbnail_url,
       l.views, l.reach, l.engagement, l.likes, l.comments, l.saves, l.shares
     FROM posts p JOIN latest l ON l.post_id = p.id
+    WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
     ORDER BY l.views DESC NULLS LAST, p.published_at DESC
     LIMIT ${Number(limit)}
   `);
@@ -208,7 +212,7 @@ export async function getLeaderboard(limit = 30): Promise<Row[]> {
  * would make every ordinary post look weak. Computed over every post, not just
  * the leaderboard's top rows, or the benchmark would be drawn from the winners.
  */
-export async function getPlatformMedians(): Promise<Record<string, { views: number; engagementRate: number }>> {
+export async function getPlatformMedians(days?: number | null): Promise<Record<string, { views: number; engagementRate: number }>> {
   const rows = await sql(`
     WITH latest AS (
       SELECT DISTINCT ON (post_id) post_id, views, engagement
@@ -220,6 +224,7 @@ export async function getPlatformMedians(): Promise<Record<string, { views: numb
              ORDER BY CASE WHEN l.views > 0 THEN l.engagement::float / l.views ELSE 0 END
            ) AS median_eng_rate
     FROM posts p JOIN latest l ON l.post_id = p.id
+    WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY p.platform
   `);
 
@@ -244,7 +249,7 @@ export async function getPlatformMedians(): Promise<Record<string, { views: numb
  * "not integrated" rather than as zero. Zero would claim the posts got no
  * views, when the truth is that nothing can see them.
  */
-export async function getPlatformComparison(): Promise<Row[]> {
+export async function getPlatformComparison(days?: number | null): Promise<Row[]> {
   return sql(`
     ${LATEST},
     used AS (
@@ -261,6 +266,7 @@ export async function getPlatformComparison(): Promise<Row[]> {
         COALESCE(SUM(l.engagement), 0)::int    AS engagement,
         COALESCE(SUM(l.reach), 0)::int         AS reach
       FROM posts p JOIN latest l ON l.post_id = p.id
+      WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
       GROUP BY p.platform
     )
     SELECT
@@ -273,19 +279,20 @@ export async function getPlatformComparison(): Promise<Row[]> {
 }
 
 /** Clicks attributed by the platform recorded on the /go/ link. */
-export async function getClicksByPlatform(): Promise<Row[]> {
+export async function getClicksByPlatform(days?: number | null): Promise<Row[]> {
   return sql(`
     SELECT
       k.platform,
       COUNT(DISTINCT k.slug)::int AS links,
       COUNT(c.id)::int            AS clicks
-    FROM links k LEFT JOIN click_events c ON c.slug = k.slug
+    FROM links k LEFT JOIN click_events c
+      ON c.slug = k.slug ${sinceSql(days ?? null, 'c.clicked_at')}
     GROUP BY k.platform
     ORDER BY clicks DESC
   `);
 }
 
-export async function getFormatComparison(): Promise<Row[]> {
+export async function getFormatComparison(days?: number | null): Promise<Row[]> {
   return sql(`
     ${LATEST}
     SELECT
@@ -295,6 +302,7 @@ export async function getFormatComparison(): Promise<Row[]> {
       COALESCE(ROUND(AVG(l.engagement)), 0)::int AS avg_engagement,
       COALESCE(SUM(l.views), 0)::int           AS views
     FROM posts p JOIN latest l ON l.post_id = p.id
+    WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY p.platform, p.format
     ORDER BY avg_views DESC
   `);
@@ -308,7 +316,7 @@ export async function getFormatComparison(): Promise<Row[]> {
  * on the theme string so a theme shows its published reach and its clicks
  * together, and includes themes present on only one side.
  */
-export async function getThemePerformance(): Promise<Row[]> {
+export async function getThemePerformance(days?: number | null): Promise<Row[]> {
   return sql(`
     ${LATEST},
     post_side AS (
@@ -318,13 +326,15 @@ export async function getThemePerformance(): Promise<Row[]> {
              COALESCE(SUM(l.engagement), 0)::int AS engagement
       FROM posts p JOIN latest l ON l.post_id = p.id
       WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
+        ${sinceSql(days ?? null, 'p.published_at')}
       GROUP BY p.content_theme
     ),
     link_side AS (
       SELECT k.content_theme AS theme,
              COUNT(DISTINCT k.slug)::int AS links,
              COUNT(c.id)::int AS clicks
-      FROM links k LEFT JOIN click_events c ON c.slug = k.slug
+      FROM links k LEFT JOIN click_events c
+        ON c.slug = k.slug ${sinceSql(days ?? null, 'c.clicked_at')}
       WHERE k.content_theme IS NOT NULL AND k.content_theme <> ''
       GROUP BY k.content_theme
     )
@@ -347,7 +357,7 @@ export async function getThemePerformance(): Promise<Row[]> {
  * share. Performance alone does not answer "am I posting the right balance",
  * which is the question the pillars exist to answer.
  */
-export async function getPillarMix(): Promise<{ rows: Row[]; taggedPosts: number; totalPosts: number }> {
+export async function getPillarMix(days?: number | null): Promise<{ rows: Row[]; taggedPosts: number; totalPosts: number }> {
   const rows = await sql(`
     WITH latest AS (
       SELECT DISTINCT ON (post_id) post_id, views, engagement
@@ -360,15 +370,16 @@ export async function getPillarMix(): Promise<{ rows: Row[]; taggedPosts: number
            COALESCE(ROUND(AVG(l.views)), 0)::int AS avg_views
     FROM posts p JOIN latest l ON l.post_id = p.id
     WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
+      ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY p.content_theme
     ORDER BY posts DESC
   `);
 
-  const counts = await sql`
+  const counts = await sql(`
     SELECT COUNT(*)::int AS total,
            COUNT(*) FILTER (WHERE content_theme IS NOT NULL AND content_theme <> '')::int AS tagged
-    FROM posts
-  `;
+    FROM posts WHERE TRUE ${sinceSql(days ?? null, 'published_at')}
+  `);
 
   return {
     rows,
@@ -386,13 +397,14 @@ export async function getUntaggedPostCount(): Promise<number> {
   return (rows[0]?.n as number) ?? 0;
 }
 
-export async function getCtaPerformance(): Promise<Row[]> {
+export async function getCtaPerformance(days?: number | null): Promise<Row[]> {
   return sql(`
     SELECT
       COALESCE(k.cta_type, 'unset')  AS cta_type,
       COUNT(DISTINCT k.slug)::int    AS links,
       COUNT(c.id)::int               AS clicks
-    FROM links k LEFT JOIN click_events c ON c.slug = k.slug
+    FROM links k LEFT JOIN click_events c
+      ON c.slug = k.slug ${sinceSql(days ?? null, 'c.clicked_at')}
     GROUP BY k.cta_type
     ORDER BY clicks DESC
   `);
@@ -451,17 +463,21 @@ export async function getPostTagCounts(): Promise<{ all: number; tagged: number;
  * Sessions above clicks means traffic arrived on that UTM without passing
  * through the /go/ redirect.
  */
-export async function getLinkFunnel(): Promise<Row[]> {
+export async function getLinkFunnel(days?: number | null): Promise<Row[]> {
   return sql(`
     WITH clicks AS (
-      SELECT slug, COUNT(*)::int AS clicks FROM click_events GROUP BY slug
+      SELECT slug, COUNT(*)::int AS clicks FROM click_events
+      WHERE TRUE ${sinceSql(days ?? null, 'clicked_at')}
+      GROUP BY slug
     ),
     ga AS (
       SELECT content AS slug,
              SUM(sessions)::int         AS sessions,
              SUM(engaged_sessions)::int AS engaged,
              SUM(key_events)::int       AS key_events
-      FROM site_sessions GROUP BY content
+      FROM site_sessions
+      WHERE TRUE ${sinceSql(days ?? null, 'session_date')}
+      GROUP BY content
     )
     SELECT
       l.slug, l.platform, l.format, l.cta_type, l.content_theme,
@@ -477,11 +493,12 @@ export async function getLinkFunnel(): Promise<Row[]> {
 }
 
 /** Funnel rolled up by platform. */
-export async function getPlatformFunnel(): Promise<Row[]> {
+export async function getPlatformFunnel(days?: number | null): Promise<Row[]> {
   return sql(`
     WITH clicks AS (
       SELECT l.platform, COUNT(c.id)::int AS clicks
-      FROM links l LEFT JOIN click_events c ON c.slug = l.slug
+      FROM links l LEFT JOIN click_events c
+        ON c.slug = l.slug ${sinceSql(days ?? null, 'c.clicked_at')}
       GROUP BY l.platform
     ),
     ga AS (
@@ -489,6 +506,7 @@ export async function getPlatformFunnel(): Promise<Row[]> {
              SUM(s.sessions)::int         AS sessions,
              SUM(s.engaged_sessions)::int AS engaged
       FROM site_sessions s JOIN links l ON l.slug = s.content
+      WHERE TRUE ${sinceSql(days ?? null, 's.session_date')}
       GROUP BY l.platform
     )
     SELECT c.platform,
@@ -505,13 +523,14 @@ export async function getPlatformFunnel(): Promise<Row[]> {
  * Untracked traffic is a finding, not noise, so it gets shown rather than
  * quietly dropped by the join.
  */
-export async function getUnmatchedTraffic(): Promise<Row[]> {
+export async function getUnmatchedTraffic(days?: number | null): Promise<Row[]> {
   return sql(`
     SELECT s.source, s.medium, s.content,
            SUM(s.sessions)::int         AS sessions,
            SUM(s.engaged_sessions)::int AS engaged
     FROM site_sessions s
     WHERE NOT EXISTS (SELECT 1 FROM links l WHERE l.slug = s.content)
+      ${sinceSql(days ?? null, 's.session_date')}
     GROUP BY s.source, s.medium, s.content
     HAVING SUM(s.sessions) > 0
     ORDER BY sessions DESC
@@ -556,24 +575,30 @@ export async function getLatestAudience(): Promise<Row[]> {
 }
 
 /** Follower total over time, for the trend chart. */
-export async function getAudienceHistory(platform: string): Promise<Row[]> {
-  return sql`
+export async function getAudienceHistory(platform: string, days?: number | null): Promise<Row[]> {
+  return sql(
+    `
     SELECT recorded_on, followers
     FROM audience_snapshots
-    WHERE platform = ${platform} AND followers IS NOT NULL
+    WHERE platform = $1 AND followers IS NOT NULL ${sinceSql(days ?? null, 'recorded_on')}
     ORDER BY recorded_on
-  `;
+  `,
+    [platform]
+  );
 }
 
 /** New followers per ISO week, from the daily gains the platform reported. */
-export async function getWeeklyFollowerGains(platform: string): Promise<Row[]> {
-  return sql`
+export async function getWeeklyFollowerGains(platform: string, days?: number | null): Promise<Row[]> {
+  return sql(
+    `
     SELECT TO_CHAR(DATE_TRUNC('week', recorded_on), 'YYYY-MM-DD') AS week,
            SUM(new_followers)::int AS gained
     FROM audience_snapshots
-    WHERE platform = ${platform} AND new_followers IS NOT NULL
+    WHERE platform = $1 AND new_followers IS NOT NULL ${sinceSql(days ?? null, 'recorded_on')}
     GROUP BY 1 ORDER BY 1
-  `;
+  `,
+    [platform]
+  );
 }
 
 /**
@@ -636,7 +661,7 @@ export async function getThemeFollowerAttribution(lookaheadDays = 2): Promise<Ro
  * Posts published and followers gained, per week, on the same weeks.
  * Only weeks where follower data exists, so the two series line up honestly.
  */
-export async function getWeeklyGrowthOverlap(): Promise<Row[]> {
+export async function getWeeklyGrowthOverlap(days?: number | null): Promise<Row[]> {
   return sql(`
     WITH latest AS (
       SELECT DISTINCT ON (post_id) post_id, views
@@ -647,14 +672,14 @@ export async function getWeeklyGrowthOverlap(): Promise<Row[]> {
              COUNT(*)::int                  AS posts,
              COALESCE(SUM(l.views), 0)::int AS views
       FROM posts p JOIN latest l ON l.post_id = p.id
-      WHERE p.published_at IS NOT NULL
+      WHERE p.published_at IS NOT NULL ${sinceSql(days ?? null, 'p.published_at')}
       GROUP BY 1
     ),
     fol AS (
       SELECT DATE_TRUNC('week', recorded_on)::date AS week,
              SUM(new_followers)::int AS gained
       FROM audience_snapshots
-      WHERE platform = 'instagram' AND new_followers IS NOT NULL
+      WHERE platform = 'instagram' AND new_followers IS NOT NULL ${sinceSql(days ?? null, 'recorded_on')}
       GROUP BY 1
     )
     SELECT TO_CHAR(f.week, 'YYYY-MM-DD') AS week,

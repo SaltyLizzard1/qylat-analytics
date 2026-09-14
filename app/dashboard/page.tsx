@@ -26,8 +26,8 @@ export default async function DashboardPage({
   const period = parsePeriod(await searchParams);
   const [overview, weeklyViews, weeklyClicks, attention, d] = await Promise.all([
     getOverview(),
-    getWeeklyViews(),
-    getWeeklyClicks(),
+    getWeeklyViews(period.days),
+    getWeeklyClicks(period.days),
     getAttentionItems(),
     getPeriodDeltas(period.days),
   ]);
@@ -237,15 +237,15 @@ export default async function DashboardPage({
       <SectionHeading>Trends</SectionHeading>
 
       <Panel
-        title="Views per week"
-        description="Total views of everything published that week, from the latest snapshot of each post."
+        title="Lifetime views by publish week"
+        description={`Posts published in the ${period.label.toLowerCase()}, grouped by the week they went out, lifetime views as of today. Older weeks have had longer to accumulate, so this is not views that happened each week.`}
       >
         <TrendChart points={viewPoints} valueLabel="Views" />
       </Panel>
 
       <Panel
         title="Link clicks per week"
-        description="First party clicks on your /go/ links. This is the number that says whether social is sending anyone to the site."
+        description={`First party clicks on your /go/ links that happened in the ${period.label.toLowerCase()}. A real period figure, unlike the chart above.`}
       >
         <TrendChart
           points={clickPoints}

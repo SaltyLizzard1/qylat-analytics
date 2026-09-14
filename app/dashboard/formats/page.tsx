@@ -1,4 +1,6 @@
 import { getFormatComparison, getSplits } from '@/lib/queries';
+import { parsePeriod } from '@/lib/period';
+import { PeriodPicker } from '@/components/PeriodPicker';
 import { BarList, Panel, Note, PageHeader, type BarDatum } from '@/components/charts';
 import { StatusLegend } from '@/components/status';
 import { Donut, type Slice } from '@/components/Donut';
@@ -7,8 +9,16 @@ import { platformLabel, formatLabel, formatColor } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
-export default async function FormatsPage() {
-  const [rows, splits] = await Promise.all([getFormatComparison(), getSplits()]);
+export default async function FormatsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; compare?: string }>;
+}) {
+  const period = parsePeriod(await searchParams);
+  const [rows, splits] = await Promise.all([
+    getFormatComparison(period.days),
+    getSplits(period.days),
+  ]);
 
   const formatSlices: Slice[] = splits.byFormat.map((r) => ({
     key: r.key as string,
@@ -79,11 +89,13 @@ export default async function FormatsPage() {
         lead="Reels against carousels against plain posts, measured per post rather than in total. The badge judges each format against its own platform's average, because formats are only comparable within a platform. The bars share one scale across both platforms, so a full width bar means the same thing on either chart."
       />
 
+      <PeriodPicker period={period} />
+
       <StatusLegend scale="performance" />
 
       <Panel
         title="What you actually publish"
-        description="Share of every synced post by format, across both platforms. Output mix, not performance."
+        description={`Share of posts published in the ${period.label.toLowerCase()} by format, across both platforms. Output mix, not performance.`}
       >
         <Donut
           data={formatSlices}
@@ -94,8 +106,8 @@ export default async function FormatsPage() {
       </Panel>
 
       <Panel
-        title="Instagram, average views per post"
-        description="The clearest signal you have. Instagram and Facebook are kept apart because their distribution works differently."
+        title="Instagram, average lifetime views per post"
+        description={`Posts published in the ${period.label.toLowerCase()}, lifetime views as of today. Instagram and Facebook are kept apart because their distribution works differently. Earlier posts in the window have had longer to accumulate; Recent Posts compares at the same age.`}
       >
         <BarList
           data={toBars(instagram, 'avg_views')}
@@ -115,8 +127,8 @@ export default async function FormatsPage() {
       </Panel>
 
       <Panel
-        title="Facebook, average views per post"
-        description="Reels against carousels against plain posts, the same comparison as Instagram."
+        title="Facebook, average lifetime views per post"
+        description={`Posts published in the ${period.label.toLowerCase()}, lifetime views as of today.`}
       >
         <BarList
           data={toBars(facebook, 'avg_views')}

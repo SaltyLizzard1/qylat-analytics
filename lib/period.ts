@@ -61,6 +61,28 @@ export function parsePeriod(params: { period?: string; compare?: string } = {}):
   };
 }
 
+/**
+ * A window length that is safe to splice into SQL text.
+ *
+ * Several queries build their SQL as strings, so a day count reaching them
+ * must be an integer in a sane range and nothing else. This is the only route
+ * a period takes into a query.
+ */
+export function safeDays(days: number | undefined | null): number | null {
+  if (days === undefined || days === null) return null;
+  const n = Math.floor(Number(days));
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Math.min(n, MAX_CUSTOM_DAYS);
+}
+
+/** SQL fragment restricting a timestamp column to the window, or empty for all time. */
+export function sinceSql(days: number | null, column: string): string {
+  const d = safeDays(days);
+  if (d === null) return '';
+  if (!/^[a-z_][a-z0-9_.]*$/i.test(column)) throw new Error(`Unsafe column name: ${column}`);
+  return `AND ${column} >= NOW() - INTERVAL '${d} days'`;
+}
+
 /** Query string for a period, for links that must carry it forward. */
 export function periodSearch(p: Pick<Period, 'days' | 'compare'>): string {
   const q = new URLSearchParams();

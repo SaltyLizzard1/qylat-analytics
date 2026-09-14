@@ -105,10 +105,24 @@ export async function getAgeNormalisedComparison(opts: {
   const cur = Number(opts.currentDays);
   const prev = Number(opts.previousDays ?? opts.currentDays);
 
+  /*
+   * Bound parameters, not string splicing. An earlier version escaped quotes
+   * by hand and interpolated the value into the SQL, which is the kind of code
+   * that is fine right up until someone passes it a value from a URL.
+   */
+  const params: string[] = [];
   const filters: string[] = [];
-  if (opts.platform) filters.push(`platform = '${opts.platform.replace(/'/g, "''")}'`);
-  if (opts.format) filters.push(`format = '${opts.format.replace(/'/g, "''")}'`);
+  if (opts.platform) {
+    params.push(opts.platform);
+    filters.push(`platform = $${params.length}`);
+  }
+  if (opts.format) {
+    params.push(opts.format);
+    filters.push(`format = $${params.length}`);
+  }
   const where = filters.length ? `AND ${filters.join(' AND ')}` : '';
+  // Same filters against the posts table, where the columns need a prefix.
+  const whereP = filters.length ? `AND ${filters.map((f) => `p.${f}`).join(' AND ')}` : '';
 
   const rows = await sql(`
     WITH ${AT_AGE(age)},
@@ -135,7 +149,7 @@ export async function getAgeNormalisedComparison(opts: {
       CASE WHEN SUM(views) > 0 THEN SUM(COALESCE(shares,0))::float * 1000 / SUM(views) END AS shares_per_1k
     FROM tagged WHERE cohort IS NOT NULL
     GROUP BY cohort
-  `);
+  `, params);
 
   // Posts in each window with no snapshot young enough. Reported rather than
   // hidden, because a cohort of 5 posts where only 2 qualify is a different
@@ -147,8 +161,8 @@ export async function getAgeNormalisedComparison(opts: {
                          AND p.published_at <  NOW() - INTERVAL '${cur} days')::int AS prev_total
     FROM posts p
     WHERE p.published_at IS NOT NULL
-      ${where ? where.replace(/platform/g, 'p.platform').replace(/format/g, 'p.format') : ''}
-  `);
+      ${whereP}
+  `, params);
 
   const current = statsFrom(rows.find((r) => r.cohort === 'current'));
   const previous = statsFrom(rows.find((r) => r.cohort === 'previous'));

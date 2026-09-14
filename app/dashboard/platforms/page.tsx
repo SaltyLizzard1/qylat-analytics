@@ -1,4 +1,6 @@
 import { getPlatformComparison, getClicksByPlatform, getSplits } from '@/lib/queries';
+import { parsePeriod } from '@/lib/period';
+import { PeriodPicker } from '@/components/PeriodPicker';
 import { BarList, Panel, Note, PageHeader, type BarDatum } from '@/components/charts';
 import { DataRows, Chip, Sub, type Column } from '@/components/DataRows';
 import { Donut, type Slice } from '@/components/Donut';
@@ -7,11 +9,16 @@ import type { Row } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PlatformsPage() {
+export default async function PlatformsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; compare?: string }>;
+}) {
+  const period = parsePeriod(await searchParams);
   const [platforms, clicks, splits] = await Promise.all([
-    getPlatformComparison(),
-    getClicksByPlatform(),
-    getSplits(),
+    getPlatformComparison(period.days),
+    getClicksByPlatform(period.days),
+    getSplits(period.days),
   ]);
 
   const viewSlices: Slice[] = splits.byPlatform.map((r) => ({
@@ -110,9 +117,11 @@ export default async function PlatformsPage() {
         lead="Which platform earns attention per post published, and which one actually sends clicks. Colour here says which platform, never how well it did."
       />
 
+      <PeriodPicker period={period} />
+
       <Panel
-        title="Average views per post"
-        description="The fair comparison. Total views rewards whichever platform you posted to more often."
+        title="Average lifetime views per post"
+        description={`Posts published in the ${period.label.toLowerCase()}, lifetime views as of today. Posts earlier in the window have had longer to accumulate. For a like-for-like read at the same age, use Recent Posts.`}
       >
         <BarList
           data={measured.map((r) => bar(r, 'avg_views'))}
@@ -127,13 +136,13 @@ export default async function PlatformsPage() {
         <Donut data={viewSlices} valueLabel="Share of views" emptyMessage="No views recorded yet." />
       </Panel>
 
-      <Panel title="Total views" description="Raw volume, for context only.">
+      <Panel title="Total lifetime views" description={`Raw volume across posts published in the ${period.label.toLowerCase()}, for context only.`}>
         <BarList data={measured.map((r) => bar(r, 'views'))} valueLabel="Total views" />
       </Panel>
 
       <Panel
         title="Clicks by link platform"
-        description="First party clicks, attributed by the platform you tagged on each /go/ link. This works for every platform, including the ones with no post integration."
+        description={`First party clicks that happened in the ${period.label.toLowerCase()}, attributed by the platform tagged on each /go/ link. Works for every platform, including those with no post integration.`}
       >
         <BarList
           data={clickBars}

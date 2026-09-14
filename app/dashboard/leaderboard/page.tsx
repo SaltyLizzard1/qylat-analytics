@@ -1,4 +1,6 @@
 import { getLeaderboard, getPlatformMedians } from '@/lib/queries';
+import { parsePeriod } from '@/lib/period';
+import { PeriodPicker } from '@/components/PeriodPicker';
 import { Panel, Empty, Note, PageHeader } from '@/components/charts';
 import { StatusBadge } from '@/components/status';
 import { PostThumb } from '@/components/PostThumb';
@@ -26,8 +28,16 @@ const ENGAGEMENT_SHORT: Record<Level, string> = {
   bad: 'Low',
 };
 
-export default async function LeaderboardPage() {
-  const [rows, medians] = await Promise.all([getLeaderboard(30), getPlatformMedians()]);
+export default async function LeaderboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; compare?: string }>;
+}) {
+  const period = parsePeriod(await searchParams);
+  const [rows, medians] = await Promise.all([
+    getLeaderboard(30, period.days),
+    getPlatformMedians(period.days),
+  ]);
 
   const topViews = Math.max(...rows.map((r) => (r.views as number) ?? 0), 1);
 
@@ -37,6 +47,8 @@ export default async function LeaderboardPage() {
         title="Post Leaderboard"
         lead="Ranked by views. The badge measures engagement rate against your own median for that platform, so it describes interaction, not the post. A top post with low engagement reached plenty of people who did not react, which is a finding rather than a failure."
       />
+
+      <PeriodPicker period={period} />
 
       {/*
         Legend names the dimension. "Weak" on its own reads as a verdict on the
@@ -64,7 +76,10 @@ export default async function LeaderboardPage() {
         </span>
       </div>
 
-      <Panel title={`Top ${Math.min(rows.length, 30)} posts`}>
+      <Panel
+        title={`Top ${Math.min(rows.length, 30)} posts published in the ${period.label.toLowerCase()}`}
+        description="Ranked by lifetime views as they stand today. Posts earlier in the window have had longer to accumulate, so for a like-for-like read use Recent Posts."
+      >
         {rows.length === 0 ? (
           <Empty message="No posts synced yet. Run the Meta sync first." />
         ) : (

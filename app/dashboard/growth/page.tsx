@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { parsePeriod } from '@/lib/period';
+import { PeriodPicker } from '@/components/PeriodPicker';
 import {
   getThemeFollowerAttribution,
   getWeeklyGrowthOverlap,
@@ -14,10 +16,15 @@ export const dynamic = 'force-dynamic';
 
 const LOOKAHEAD_DAYS = 2;
 
-export default async function GrowthPage() {
+export default async function GrowthPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; compare?: string }>;
+}) {
+  const period = parsePeriod(await searchParams);
   const [themes, weekly, untagged, signal] = await Promise.all([
     getThemeFollowerAttribution(LOOKAHEAD_DAYS),
-    getWeeklyGrowthOverlap(),
+    getWeeklyGrowthOverlap(period.days),
     getUntaggedPostCount(),
     getFollowerSignalStrength(),
   ]);
@@ -40,6 +47,8 @@ export default async function GrowthPage() {
         title="Growth"
         lead="Follower gain set against what you published. Instagram only, because the Facebook Page has no followers and your personal profile has no API."
       />
+
+      <PeriodPicker period={period} />
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <StatusLegend />
