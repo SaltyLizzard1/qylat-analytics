@@ -36,7 +36,7 @@ export async function getAttentionItems(): Promise<AttentionItem[]> {
   const funnel = await sql(`
     WITH clicks AS (
       SELECT l.platform, COUNT(c.id)::int AS clicks
-      FROM links l LEFT JOIN click_events c ON c.slug = l.slug
+      FROM links l LEFT JOIN human_clicks c ON c.slug = l.slug
       GROUP BY l.platform
     ),
     ga AS (
@@ -125,7 +125,7 @@ export async function getAttentionItems(): Promise<AttentionItem[]> {
   // Links created but never clicked.
   const idle = await sql(`
     SELECT l.slug, l.created_at, COUNT(c.id)::int AS clicks
-    FROM links l LEFT JOIN click_events c ON c.slug = l.slug
+    FROM links l LEFT JOIN human_clicks c ON c.slug = l.slug
     GROUP BY l.slug, l.created_at
   `);
 

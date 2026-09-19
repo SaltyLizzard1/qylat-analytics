@@ -26,11 +26,22 @@ CREATE TABLE IF NOT EXISTS click_events (
   referrer    TEXT,
   user_agent  TEXT,
   country     VARCHAR(10),
-  session_id  VARCHAR(255)  -- first-party cookie value for joining to on-site behaviour
+  session_id  VARCHAR(255), -- first-party cookie value for joining to on-site behaviour
+  is_bot      BOOLEAN      NOT NULL DEFAULT FALSE  -- set at insert from lib/bots.ts
 );
 
 CREATE INDEX IF NOT EXISTS click_events_slug_idx       ON click_events (slug);
 CREATE INDEX IF NOT EXISTS click_events_clicked_at_idx ON click_events (clicked_at DESC);
+CREATE INDEX IF NOT EXISTS click_events_human_idx
+  ON click_events (slug, clicked_at DESC) WHERE is_bot = FALSE;
+
+-- Human clicks only. Every figure reads this rather than click_events, so
+-- link preview crawlers are stored but never counted. deleteLink is the one
+-- exception: the foreign key to links.slug covers crawler rows too.
+CREATE OR REPLACE VIEW human_clicks AS
+  SELECT id, slug, clicked_at, referrer, user_agent, country, session_id
+  FROM click_events
+  WHERE is_bot = FALSE;
 
 -- Posts table
 -- One row per social post. Facebook and Instagram rows are written by

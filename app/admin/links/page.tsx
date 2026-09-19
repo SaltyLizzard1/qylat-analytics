@@ -24,7 +24,7 @@ export default async function LinksPage() {
       l.created_at,
       COUNT(ce.id)::int AS click_count
     FROM links l
-    LEFT JOIN click_events ce ON l.slug = ce.slug
+    LEFT JOIN human_clicks ce ON l.slug = ce.slug
     GROUP BY l.slug, l.platform, l.format, l.content_theme, l.cta_type, l.created_at
     ORDER BY l.created_at DESC
   `;

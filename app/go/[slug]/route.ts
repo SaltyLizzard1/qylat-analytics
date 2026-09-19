@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { isBotUserAgent } from '@/lib/bots';
 
 export async function GET(
   request: NextRequest,
@@ -21,16 +22,22 @@ export async function GET(
   const existingSession = request.cookies.get('qylat_session')?.value;
   const sessionId = existingSession ?? crypto.randomUUID();
 
+  // Crawlers are logged and redirected like anyone else, since a link preview
+  // needs the destination. The flag keeps them out of every click figure.
+  const userAgent = request.headers.get('user-agent');
+  const isBot = isBotUserAgent(userAgent);
+
   // Log the click
   try {
     await sql`
-      INSERT INTO click_events (slug, referrer, user_agent, country, session_id)
+      INSERT INTO click_events (slug, referrer, user_agent, country, session_id, is_bot)
       VALUES (
         ${slug},
         ${request.headers.get('referer')},
-        ${request.headers.get('user-agent')},
+        ${userAgent},
         ${request.headers.get('x-vercel-ip-country')},
-        ${sessionId}
+        ${sessionId},
+        ${isBot}
       )
     `;
   } catch (e) {

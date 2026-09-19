@@ -17,6 +17,7 @@ export default async function ClicksPage() {
       ce.clicked_at,
       ce.referrer,
       ce.country,
+      ce.is_bot,
       l.platform,
       l.format,
       l.cta_type
@@ -26,8 +27,15 @@ export default async function ClicksPage() {
     LIMIT 200
   `;
 
-  const total = await sql`SELECT COUNT(*)::int AS n FROM click_events`;
-  const totalCount = total[0]?.n ?? 0;
+  // This is the raw log, so it reads click_events and shows crawlers, marked.
+  // Every figure elsewhere reads human_clicks.
+  const total = await sql`
+    SELECT COUNT(*) FILTER (WHERE NOT is_bot)::int AS humans,
+           COUNT(*) FILTER (WHERE is_bot)::int     AS bots
+    FROM click_events
+  `;
+  const humanCount = (total[0]?.humans as number) ?? 0;
+  const botCount = (total[0]?.bots as number) ?? 0;
 
   return (
     <div>
@@ -37,7 +45,8 @@ export default async function ClicksPage() {
             Click Log
           </h1>
           <p className="text-sm mt-0.5" style={{ color: '#555555' }}>
-            {totalCount} total clicks. Showing the most recent 200.
+            {humanCount} clicks from people, {botCount} crawler hits that are logged but never
+            counted. Showing the most recent 200 of both.
           </p>
         </div>
       </div>
@@ -72,6 +81,7 @@ function ClickRow({ click }: { click: Record<string, unknown> }) {
   const ctaType = click.cta_type as string | null;
   const country = click.country as string | null;
   const referrer = click.referrer as string | null;
+  const isBot = click.is_bot === true;
   const clickedAt = new Date(click.clicked_at as string);
 
   const shortReferrer = (() => {
@@ -100,6 +110,7 @@ function ClickRow({ click }: { click: Record<string, unknown> }) {
       <div className="flex gap-1.5 flex-shrink-0">
         {format && <SmallTag>{format}</SmallTag>}
         {ctaType && <SmallTag>{ctaType}</SmallTag>}
+        {isBot && <SmallTag>crawler, not counted</SmallTag>}
       </div>
 
       {country && (

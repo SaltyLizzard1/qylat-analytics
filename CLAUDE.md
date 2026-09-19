@@ -152,6 +152,13 @@ These are not derivable from the code and have each caused a real failure.
   foreign key to `links.slug` with no cascade rule. `deleteLink` counts the
   clicks first and refuses with the count rather than letting the constraint
   throw. Click history outlives the link. Do not add a cascade.
+- **Count clicks from `human_clicks`, never from `click_events`.** Meta fetches
+  every shared /go/ link with `facebookexternalhit` to build the preview, and
+  those hits were 30 of the first 50 rows, which turned 13 real Instagram
+  clicks into 35 and raised a false "traffic is not arriving" alert. Crawler
+  rows are stored and flagged `is_bot` at insert from `lib/bots.ts`, and the
+  view filters them. Only `deleteLink` and the raw click log read the table,
+  because the foreign key covers crawler rows too.
 - **Never compare cumulative views across posts of different age.** Views
   roughly double in the first 48 hours, so a post from yesterday against one
   from June measures age, not performance. Compare posts at the same age

@@ -16,6 +16,10 @@ import { sinceSql } from '@/lib/period';
  *    (post_total_media_view_unique is accepted but never populated), so any
  *    cross platform comparison built on reach shows Facebook as dead. Views is
  *    populated on both platforms.
+ *
+ * 3. Clicks come from the human_clicks view, never from click_events. The
+ *    table also holds link preview crawlers, which were 30 of the first 50
+ *    rows. See lib/bots.ts.
  */
 
 /** Latest metrics snapshot per post, joined to its post row. */
@@ -42,7 +46,7 @@ export async function getOverview() {
       MAX(p.published_at)                    AS latest_post
     FROM posts p JOIN latest l ON l.post_id = p.id
   `);
-  const clicks = await sql`SELECT COUNT(*)::int AS n FROM click_events`;
+  const clicks = await sql`SELECT COUNT(*)::int AS n FROM human_clicks`;
   const links = await sql`SELECT COUNT(*)::int AS n FROM links`;
   const synced = await sql`SELECT MAX(last_synced_at) AS at FROM posts`;
 
@@ -105,7 +109,7 @@ export async function getPeriodDeltas(days = 30): Promise<{
       COUNT(*) FILTER (WHERE clicked_at >= NOW() - INTERVAL '${d} days')::int AS cur,
       COUNT(*) FILTER (WHERE clicked_at >= NOW() - INTERVAL '${d * 2} days'
                          AND clicked_at <  NOW() - INTERVAL '${d} days')::int AS prev
-    FROM click_events
+    FROM human_clicks
   `);
 
   const sessions = await sql(`
@@ -179,13 +183,13 @@ export async function getWeeklyViews(days?: number | null): Promise<Row[]> {
   `);
 }
 
-/** First party clicks per ISO week, from click_events. */
+/** First party clicks per ISO week, crawlers excluded. */
 export async function getWeeklyClicks(days?: number | null): Promise<Row[]> {
   return sql(`
     SELECT
       TO_CHAR(DATE_TRUNC('week', clicked_at), 'YYYY-MM-DD') AS week,
       COUNT(*)::int AS clicks
-    FROM click_events
+    FROM human_clicks
     WHERE TRUE ${sinceSql(days ?? null, 'clicked_at')}
     GROUP BY 1 ORDER BY 1
   `);
@@ -285,7 +289,7 @@ export async function getClicksByPlatform(days?: number | null): Promise<Row[]> 
       k.platform,
       COUNT(DISTINCT k.slug)::int AS links,
       COUNT(c.id)::int            AS clicks
-    FROM links k LEFT JOIN click_events c
+    FROM links k LEFT JOIN human_clicks c
       ON c.slug = k.slug ${sinceSql(days ?? null, 'c.clicked_at')}
     GROUP BY k.platform
     ORDER BY clicks DESC
@@ -333,7 +337,7 @@ export async function getThemePerformance(days?: number | null): Promise<Row[]> 
       SELECT k.content_theme AS theme,
              COUNT(DISTINCT k.slug)::int AS links,
              COUNT(c.id)::int AS clicks
-      FROM links k LEFT JOIN click_events c
+      FROM links k LEFT JOIN human_clicks c
         ON c.slug = k.slug ${sinceSql(days ?? null, 'c.clicked_at')}
       WHERE k.content_theme IS NOT NULL AND k.content_theme <> ''
       GROUP BY k.content_theme
@@ -403,7 +407,7 @@ export async function getCtaPerformance(days?: number | null): Promise<Row[]> {
       COALESCE(k.cta_type, 'unset')  AS cta_type,
       COUNT(DISTINCT k.slug)::int    AS links,
       COUNT(c.id)::int               AS clicks
-    FROM links k LEFT JOIN click_events c
+    FROM links k LEFT JOIN human_clicks c
       ON c.slug = k.slug ${sinceSql(days ?? null, 'c.clicked_at')}
     GROUP BY k.cta_type
     ORDER BY clicks DESC
@@ -466,7 +470,7 @@ export async function getPostTagCounts(): Promise<{ all: number; tagged: number;
 export async function getLinkFunnel(days?: number | null): Promise<Row[]> {
   return sql(`
     WITH clicks AS (
-      SELECT slug, COUNT(*)::int AS clicks FROM click_events
+      SELECT slug, COUNT(*)::int AS clicks FROM human_clicks
       WHERE TRUE ${sinceSql(days ?? null, 'clicked_at')}
       GROUP BY slug
     ),
@@ -497,7 +501,7 @@ export async function getPlatformFunnel(days?: number | null): Promise<Row[]> {
   return sql(`
     WITH clicks AS (
       SELECT l.platform, COUNT(c.id)::int AS clicks
-      FROM links l LEFT JOIN click_events c
+      FROM links l LEFT JOIN human_clicks c
         ON c.slug = l.slug ${sinceSql(days ?? null, 'c.clicked_at')}
       GROUP BY l.platform
     ),
