@@ -168,6 +168,17 @@ These are not derivable from the code and have each caused a real failure.
   and the admin posts screen shows them under Page updates. Nothing is
   deleted. The Page stories edge returned nothing while no Page Story
   existed; it is untested against a live one.
+- **Instagram `views` under-counts images and carousels against the app.**
+  Checked side by side on 2026-09-19: reels matched (391 in the app, 391 from
+  the API), but a 17 Sept image showed 430 in the app against 105 from the
+  API, and a carousel 1,234 against 106, with API reach 49. The account level
+  seven day totals agree with the per media figures, so the API is consistent
+  with itself and does not expose the app's number for static posts. Any
+  Instagram comparison across formats by views is biased against images and
+  carousels; say so wherever it is shown, and prefer reach for that
+  comparison. A cross posted carousel's insights screen in the app shows one
+  combined Facebook plus Instagram figure (1,234 views, 53 reactions) that no
+  API call returns either.
 - **Instagram Stories live only on `/{ig-user-id}/stories`** and never
   appear in `/media`. The edge returns what is live right now, so the daily
   sync sees each story once, at whatever age it has then. Meta withholds

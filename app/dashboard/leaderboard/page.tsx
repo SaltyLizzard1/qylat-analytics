@@ -4,7 +4,7 @@ import { PeriodPicker } from '@/components/PeriodPicker';
 import { Panel, Empty, Note, PageHeader } from '@/components/charts';
 import { StatusBadge } from '@/components/status';
 import { PostThumb } from '@/components/PostThumb';
-import { performanceStatus, type Level } from '@/lib/status';
+import { performanceStatus, THRESHOLDS, type Level } from '@/lib/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import { pillarLabel } from '@/lib/pillars';
 import { C, RADIUS, compact, pct, shortDate, platformLabel, formatLabel, platformColor } from '@/lib/theme';
@@ -123,11 +123,8 @@ export default async function LeaderboardPage({
                 views && views > 0 && engagement !== null && engagement !== undefined
                   ? engagement / views
                   : null;
-              const base = performanceStatus(
-                rate,
-                medians[platform]?.engagementRate ?? null,
-                'engagement rate'
-              );
+              const median = medians[platform]?.engagementRate ?? null;
+              const base = performanceStatus(rate, median, 'engagement rate');
               const status = base
                 ? {
                     ...base,
@@ -135,6 +132,15 @@ export default async function LeaderboardPage({
                     shortLabel: ENGAGEMENT_SHORT[base.level],
                   }
                 : null;
+              // Below the floor there is no baseline, which is a different
+              // thing from too little data, and the badge should say which.
+              const noBaseline =
+                median !== null && median < THRESHOLDS.minMedianRate
+                  ? {
+                      label: 'No baseline',
+                      reason: `${platformLabel(platform)}'s median engagement rate is ${(median * 100).toFixed(1)}%, below the ${(THRESHOLDS.minMedianRate * 100).toFixed(0)}% floor, so there is nothing to judge against yet`,
+                    }
+                  : undefined;
               const theme = r.content_theme as string | null;
 
               return (
@@ -216,7 +222,7 @@ export default async function LeaderboardPage({
                   </div>
 
                   <div className="flex-shrink-0" style={{ width: '5.2rem' }}>
-                    <StatusBadge status={status} compact />
+                    <StatusBadge status={status} compact empty={noBaseline} />
                     <p className="text-xs mt-0.5 tabular-nums" style={{ color: C.muted }}>
                       {pct(engagement, views)}
                     </p>
@@ -234,7 +240,8 @@ export default async function LeaderboardPage({
           already tells you which posts got seen, so a badge repeating it would be noise. This tells
           you which ones got seen <em>and</em> landed, which is the more useful question and the one
           that separates rows near the top. Strong is at least 1.3 times your median rate, weak is
-          below 0.7 times.
+          below 0.7 times. A platform whose median rate sits below 1% shows No baseline instead,
+          because a comparison against nearly nothing would call every post High.
         </Note>
       </Panel>
     </div>

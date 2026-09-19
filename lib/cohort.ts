@@ -1,5 +1,5 @@
 import { sql } from '@/lib/db';
-import { windowExpr, type Period } from '@/lib/period';
+import { windowExpr, windowSql, type Period, type TimeWindow } from '@/lib/period';
 
 /**
  * Age-normalised post performance.
@@ -196,8 +196,14 @@ export type FormatAtAge = {
  *
  * Only posts at least `ageHours` old qualify. Otherwise a post published this
  * morning would enter at its current age and drag its format down.
+ *
+ * With a window, only posts published inside it count, on both sides of the
+ * ratio. The overview alert passes none and reads all time.
  */
-export async function getFormatBenchmarkAtAge(ageHours: number): Promise<FormatAtAge[]> {
+export async function getFormatBenchmarkAtAge(
+  ageHours: number,
+  w?: TimeWindow | null
+): Promise<FormatAtAge[]> {
   const age = Number(ageHours);
   const rows = await sql(`
     WITH ${AT_AGE(age)},
@@ -207,6 +213,7 @@ export async function getFormatBenchmarkAtAge(ageHours: number): Promise<FormatA
         -- A story gets one snapshot at whatever age the sync caught it, never
         -- one at ${age} hours, so it cannot be measured here.
         AND format IS DISTINCT FROM 'story'
+        ${windowSql(w ?? null, 'published_at')}
     ),
     per_format AS (
       SELECT platform, format, COUNT(*)::int AS posts,
@@ -230,6 +237,69 @@ export async function getFormatBenchmarkAtAge(ageHours: number): Promise<FormatA
     medianViews: Number(r.median_views) || 0,
     platformPosts: Number(r.platform_posts) || 0,
     platformMedian: Number(r.platform_median) || 0,
+  }));
+}
+
+export type FormatPost = {
+  id: number;
+  platform: string;
+  format: string;
+  caption: string | null;
+  permalink: string | null;
+  thumbnail_url: string | null;
+  published_at: string;
+  /** Views at the target age, or null when there is no snapshot young enough. */
+  views_at_age: number | null;
+  /** False when the post is younger than the target age, so no figure is possible yet. */
+  old_enough: boolean;
+  views: number | null;
+  reach: number | null;
+  engagement: number | null;
+};
+
+/**
+ * Every post in the window with its views at the target age beside its
+ * lifetime figures, for the formats page.
+ *
+ * An average per format hid everything that mattered: one Reel at 479 and
+ * three at 60 averaged to a number no post had. Listing each post with its
+ * own figure shows the spread, and the median in the header is the honest
+ * single number.
+ */
+export async function getFormatPosts(w: TimeWindow | null, ageHours: number): Promise<FormatPost[]> {
+  const age = Number(ageHours);
+  const rows = await sql(`
+    WITH ${AT_AGE(age)},
+    latest AS (
+      SELECT DISTINCT ON (post_id) post_id, views, reach, engagement
+      FROM post_metrics ORDER BY post_id, recorded_on DESC
+    )
+    SELECT
+      p.id, p.platform, p.format, LEFT(p.caption, 120) AS caption, p.permalink,
+      p.thumbnail_url, p.published_at,
+      (p.published_at <= NOW() - INTERVAL '${age} hours') AS old_enough,
+      CASE WHEN p.published_at <= NOW() - INTERVAL '${age} hours' THEN a.views END AS views_at_age,
+      l.views, l.reach, l.engagement
+    FROM content_posts p
+    LEFT JOIN at_age a ON a.post_id = p.id
+    LEFT JOIN latest l ON l.post_id = p.id
+    WHERE p.published_at IS NOT NULL ${windowSql(w, 'p.published_at')}
+    ORDER BY p.platform, p.format, views_at_age DESC NULLS LAST, l.views DESC NULLS LAST
+  `);
+  const n = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+  return rows.map((r) => ({
+    id: Number(r.id),
+    platform: String(r.platform),
+    format: String(r.format ?? 'other'),
+    caption: (r.caption as string) ?? null,
+    permalink: (r.permalink as string) ?? null,
+    thumbnail_url: (r.thumbnail_url as string) ?? null,
+    published_at: String(r.published_at),
+    views_at_age: n(r.views_at_age),
+    old_enough: r.old_enough === true,
+    views: n(r.views),
+    reach: n(r.reach),
+    engagement: n(r.engagement),
   }));
 }
 

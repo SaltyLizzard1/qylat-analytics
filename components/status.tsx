@@ -17,15 +17,27 @@ const STYLE: Record<Level, { color: string; background: string; border: string }
   bad: severityBad,
 };
 
-/** Filled dot plus label. The default way to show a status. */
+/**
+ * Filled dot plus label. The default way to show a status.
+ *
+ * A null status has more than one cause: too few events, or no baseline to
+ * judge against. The default wording covers the first. A caller that knows
+ * the second passes `empty` so the badge says so, because "n/a" on every
+ * Facebook post read as missing data when the data was all there.
+ */
 export function StatusBadge({
   status,
   compact = false,
+  empty,
 }: {
   status: Status | null;
   compact?: boolean;
+  /** Wording for a null status when the caller knows why it is null. */
+  empty?: { label: string; shortLabel?: string; reason: string };
 }) {
   if (!status) {
+    const label = empty?.label ?? 'Not enough data';
+    const short = empty?.shortLabel ?? (empty ? empty.label : 'n/a');
     return (
       <span
         className="inline-flex items-center gap-1.5 rounded-full text-xs whitespace-nowrap"
@@ -35,13 +47,13 @@ export function StatusBadge({
           color: C.muted,
           border: `1px solid ${C.border}`,
         }}
-        title="Not enough data to judge this yet"
+        title={empty?.reason ?? 'Not enough data to judge this yet'}
       >
         <span
           aria-hidden
           style={{ width: 6, height: 6, borderRadius: 999, background: C.border }}
         />
-        {compact ? 'n/a' : 'Not enough data'}
+        {compact ? short : label}
       </span>
     );
   }
