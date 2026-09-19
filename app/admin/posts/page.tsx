@@ -16,6 +16,7 @@ const FILTERS: { value: PostFilter; label: string }[] = [
   { value: 'untagged', label: 'Untagged' },
   { value: 'tagged', label: 'Tagged' },
   { value: 'all', label: 'All' },
+  { value: 'updates', label: 'Page updates' },
 ];
 
 export default async function PostsPage({
@@ -27,7 +28,7 @@ export default async function PostsPage({
   const raw = params.filter;
   // Untagged is the default, because that is the pile that needs work.
   const filter: PostFilter =
-    raw === 'all' || raw === 'tagged' || raw === 'untagged' ? raw : 'untagged';
+    raw === 'all' || raw === 'tagged' || raw === 'untagged' || raw === 'updates' ? raw : 'untagged';
 
   const [posts, knownThemes, counts] = await Promise.all([
     getPostsForTagging(filter),
@@ -36,7 +37,13 @@ export default async function PostsPage({
   ]);
 
   const countFor = (f: PostFilter) =>
-    f === 'all' ? counts.all : f === 'tagged' ? counts.tagged : counts.untagged;
+    f === 'all'
+      ? counts.all
+      : f === 'tagged'
+        ? counts.tagged
+        : f === 'updates'
+          ? counts.updates
+          : counts.untagged;
 
   return (
     <div>
@@ -45,8 +52,9 @@ export default async function PostsPage({
           Posts
         </h1>
         <p className="text-sm" style={{ color: C.muted, maxWidth: '70ch' }}>
-          {counts.tagged} of {counts.all} tagged. Tagging a post is what connects what you published
-          to what people viewed and clicked. One click, then Save.
+          {filter === 'updates'
+            ? 'Cover photo and profile picture changes that Facebook returned as posts. They stay here so nothing is hidden, and they count towards no figure. If one of them is a real post, its caption was lost on the way in.'
+            : `${counts.tagged} of ${counts.all} tagged. Tagging a post is what connects what you published to what people viewed and clicked. One click, then Save.`}
         </p>
       </div>
 
@@ -80,12 +88,18 @@ export default async function PostsPage({
           style={{ background: C.neutral, border: `1px dashed ${C.border}`, borderRadius: RADIUS.md }}
         >
           <p className="text-xl mb-2" style={{ fontWeight: 600, color: C.text }}>
-            {filter === 'untagged' ? 'Everything is tagged' : 'Nothing here'}
+            {filter === 'untagged'
+              ? 'Everything is tagged'
+              : filter === 'updates'
+                ? 'No Page updates'
+                : 'Nothing here'}
           </p>
           <p className="text-sm" style={{ color: C.muted }}>
             {filter === 'untagged'
               ? 'Every synced post carries a tag. The Themes and Growth views are working from a complete set.'
-              : 'Run the Meta sync and your Facebook and Instagram posts appear here.'}
+              : filter === 'updates'
+                ? 'Facebook has returned no cover or profile photo change as a post.'
+                : 'Run the Meta sync and your Facebook and Instagram posts appear here.'}
           </p>
         </div>
       ) : (
@@ -94,6 +108,7 @@ export default async function PostsPage({
             const caption = ((p.caption as string) ?? '').replace(/\s+/g, ' ').trim();
             const permalink = p.permalink as string | null;
             const theme = p.content_theme as string | null;
+            const pageUpdate = p.page_update as string | null;
             return (
               <div
                 key={p.id as number}
@@ -131,16 +146,30 @@ export default async function PostsPage({
                         <span style={{ color: C.text, fontWeight: 600 }}>{pillarLabel(theme)}</span>
                       </>
                     )}
+                    {pageUpdate && (
+                      <>
+                        {' · '}
+                        <span
+                          className="px-1.5 py-0.5"
+                          style={{ background: C.neutral, color: C.text, borderRadius: RADIUS.sm }}
+                        >
+                          Page update: {pageUpdate}
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
 
-                <div className="flex-shrink-0">
-                  <ThemePicker
-                    postId={p.id as number}
-                    current={theme}
-                    knownThemes={knownThemes}
-                  />
-                </div>
+                {/* A cover photo change has nothing to tag. */}
+                {!pageUpdate && (
+                  <div className="flex-shrink-0">
+                    <ThemePicker
+                      postId={p.id as number}
+                      current={theme}
+                      knownThemes={knownThemes}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}

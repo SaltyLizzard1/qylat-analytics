@@ -4,10 +4,15 @@ import {
   engagementStatus,
   formatStatus,
   idleLinkStatus,
+  pageUpdateStatus,
   taggingStatus,
   LEVEL_RANK,
+  THRESHOLDS,
   type Level,
 } from '@/lib/status';
+import { getFormatBenchmarkAtAge } from '@/lib/cohort';
+import { getPageUpdates } from '@/lib/queries';
+import { platformLabel, formatLabel } from '@/lib/theme';
 
 /**
  * The attention list on the overview.
@@ -53,7 +58,7 @@ export async function getAttentionItems(): Promise<AttentionItem[]> {
     if (status && status.level !== 'good') {
       items.push({
         level: status.level,
-        title: `${row.platform} traffic is not arriving`,
+        title: `${platformLabel(row.platform as string)} traffic is not arriving`,
         detail: status.reason,
         href: '/dashboard/funnel',
         action: 'Check where the link points and whether the page loads in the in-app browser',
@@ -68,7 +73,7 @@ export async function getAttentionItems(): Promise<AttentionItem[]> {
       FROM post_metrics ORDER BY post_id, recorded_on DESC
     )
     SELECT p.platform, SUM(l.views)::int AS views, SUM(l.engagement)::int AS engagement
-    FROM posts p JOIN latest l ON l.post_id = p.id
+    FROM content_posts p JOIN latest l ON l.post_id = p.id
     GROUP BY p.platform
   `);
 
@@ -77,7 +82,7 @@ export async function getAttentionItems(): Promise<AttentionItem[]> {
     if (status && status.level !== 'good') {
       items.push({
         level: status.level,
-        title: `${row.platform} engagement is low`,
+        title: `${platformLabel(row.platform as string)} engagement is low`,
         detail: status.reason,
         href: '/dashboard/platforms',
         action: 'Views are landing but nobody is reacting. Look at what the posts ask people to do',
@@ -85,38 +90,25 @@ export async function getAttentionItems(): Promise<AttentionItem[]> {
     }
   }
 
-  // Formats performing below their platform average.
-  const formats = await sql(`
-    WITH latest AS (
-      SELECT DISTINCT ON (post_id) post_id, views
-      FROM post_metrics ORDER BY post_id, recorded_on DESC
-    ),
-    per_format AS (
-      SELECT p.platform, p.format, COUNT(*)::int AS posts, AVG(l.views) AS avg_views
-      FROM posts p JOIN latest l ON l.post_id = p.id
-      GROUP BY p.platform, p.format
-    ),
-    per_platform AS (
-      SELECT p.platform, AVG(l.views) AS avg_views
-      FROM posts p JOIN latest l ON l.post_id = p.id
-      GROUP BY p.platform
-    )
-    SELECT f.platform, f.format, f.posts, f.avg_views, pp.avg_views AS platform_avg
-    FROM per_format f JOIN per_platform pp ON pp.platform = f.platform
-  `);
+  // Formats below their platform median, measured at the same age. Lifetime
+  // averages were tried first and flagged Facebook carousels that sat above
+  // the platform median, because a few large Reels had lifted the mean.
+  const ageHours = THRESHOLDS.formatAgeHours;
+  const formats = await getFormatBenchmarkAtAge(ageHours);
 
   for (const row of formats) {
     const status = formatStatus(
-      Number(row.avg_views),
-      Number(row.platform_avg),
-      row.posts as number
+      row.medianViews,
+      row.platformMedian,
+      row.posts,
+      `the platform median at ${ageHours} hours`
     );
     if (status && status.level === 'bad') {
       items.push({
         level: status.level,
-        title: `${row.platform} ${row.format} underperforms`,
+        title: `${platformLabel(row.platform)} ${formatLabel(row.format)} underperforms`,
         detail: status.reason,
-        href: '/dashboard/formats',
+        href: '/dashboard/recent',
         action: 'Consider posting less of this format and more of what is working',
       });
     }
@@ -150,7 +142,7 @@ export async function getAttentionItems(): Promise<AttentionItem[]> {
   const tagging = await sql`
     SELECT COUNT(*)::int AS total,
            COUNT(*) FILTER (WHERE content_theme IS NULL OR content_theme = '')::int AS untagged
-    FROM posts
+    FROM content_posts
   `;
   const tagStatus = taggingStatus(
     (tagging[0]?.untagged as number) ?? 0,
@@ -163,6 +155,22 @@ export async function getAttentionItems(): Promise<AttentionItem[]> {
       detail: tagStatus.reason,
       href: '/admin/posts',
       action: 'Tag posts to connect what you published to what people clicked',
+    });
+  }
+
+  // Cover photo and profile picture changes that Facebook returned as posts.
+  // Kept, flagged and listed, never silently dropped.
+  const updates = await getPageUpdates();
+  const updateCount = updates.reduce((n, u) => n + u.posts, 0);
+  const breakdown = updates.map((u) => `${u.posts} ${u.reason}`).join(', ');
+  const updateStatus = pageUpdateStatus(updateCount, breakdown);
+  if (updateStatus) {
+    items.push({
+      level: updateStatus.level,
+      title: `${updateCount} blank Facebook ${updateCount === 1 ? 'post is a Page update' : 'posts are Page updates'}`,
+      detail: updateStatus.reason,
+      href: '/admin/posts?filter=updates',
+      action: 'Check none of them is a real post that lost its caption. They are kept out of every figure',
     });
   }
 

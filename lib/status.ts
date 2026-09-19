@@ -78,8 +78,22 @@ export const THRESHOLDS = {
   /** Engagement per view on a post. */
   engagementRate: { good: 0.05, warning: 0.02 },
 
-  /** A format's average views as a ratio of its platform's average. */
+  /** A format's views as a ratio of its platform's benchmark. */
   formatVsPlatform: { good: 1.0, warning: 0.6 },
+
+  /**
+   * Age at which the overview compares formats, in hours. 72 rather than 24
+   * because the daily sync samples once a day, and at 24 hours a post caught
+   * one hour after publishing sits beside one caught at 23.
+   */
+  formatAgeHours: 72,
+
+  /**
+   * Cover photo and profile picture changes that Facebook returned as posts.
+   * Any at all is worth a look, since one could be a real post that lost its
+   * caption.
+   */
+  pageUpdates: { warning: 1 },
 
   /** Days a link can sit with zero clicks before it is worth asking why. */
   idleLinkDays: { warning: 14, bad: 30 },
@@ -184,20 +198,39 @@ export function engagementStatus(engagement: number | null, views: number | null
   };
 }
 
-/** A format measured against its own platform's average views per post. */
+/**
+ * A format measured against its own platform's benchmark. `basis` names the
+ * benchmark in the reason, since the format page uses lifetime averages and
+ * the overview uses medians at the same age, and the sentence must say which.
+ */
 export function formatStatus(
-  avgViews: number | null,
-  platformAvg: number | null,
-  posts: number | null
+  views: number | null,
+  platformBenchmark: number | null,
+  posts: number | null,
+  basis = 'the platform average'
 ): Status | null {
-  if (!platformAvg || !posts || posts < THRESHOLDS.minSamplePosts) return null;
-  const ratio = (avgViews ?? 0) / platformAvg;
+  if (!platformBenchmark || !posts || posts < THRESHOLDS.minSamplePosts) return null;
+  const ratio = (views ?? 0) / platformBenchmark;
   const l = level(ratio, THRESHOLDS.formatVsPlatform.good, THRESHOLDS.formatVsPlatform.warning);
   return {
     level: l,
     label: LEVEL_LABEL[l],
     shortLabel: LEVEL_SHORT[l],
-    reason: `${fmtPct(ratio)} of the platform average, over ${posts} posts`,
+    reason: `${fmtPct(ratio)} of ${basis}, over ${posts} posts`,
+  };
+}
+
+/**
+ * Facebook rows that are cover photo or profile picture changes, not posts.
+ * `breakdown` is the count per reason, e.g. "3 cover photo, 1 profile picture".
+ */
+export function pageUpdateStatus(count: number, breakdown: string): Status | null {
+  if (count < THRESHOLDS.pageUpdates.warning) return null;
+  return {
+    level: 'warning',
+    label: LEVEL_LABEL.warning,
+    shortLabel: LEVEL_SHORT.warning,
+    reason: `Facebook returned them through the posts edge: ${breakdown}`,
   };
 }
 

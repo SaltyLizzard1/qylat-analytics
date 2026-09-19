@@ -243,24 +243,27 @@ export type FacebookPost = {
   id: string;
   created_time: string;
   message?: string;
+  /** Facebook's own line for a row with no message, e.g. "X updated their cover photo." */
+  story?: string;
   permalink_url?: string;
   full_picture?: string;
   shares?: { count?: number };
   comments?: { summary?: { total_count?: number } };
   reactions?: { summary?: { total_count?: number } };
-  attachments?: { data?: { media_type?: string }[] };
+  attachments?: { data?: { media_type?: string; type?: string; title?: string }[] };
 };
 
 const FACEBOOK_POST_FIELDS = [
   'id',
   'created_time',
   'message',
+  'story',
   'permalink_url',
   'full_picture',
   'shares',
   'comments.summary(total_count).limit(0)',
   'reactions.summary(total_count).limit(0)',
-  'attachments{media_type}',
+  'attachments{media_type,type,title}',
 ].join(',');
 
 const FACEBOOK_POST_METRICS = [
@@ -502,6 +505,37 @@ export function facebookFormat(post: FacebookPost): string {
 /** Raw attachment media_type, stored for debugging what Meta actually said. */
 export function facebookMediaType(post: FacebookPost): string | null {
   return post.attachments?.data?.[0]?.media_type ?? null;
+}
+
+/**
+ * Why a Page row is not a post, in Facebook's words, or null for a real post.
+ *
+ * The /posts edge returns a row for every cover photo and profile picture
+ * change. Measured on production on 2026-09-19: all 8 such rows had a
+ * permalink carrying `substory_index=`, none of the 18 real posts did, and
+ * asked directly, Facebook described them as "updated their cover photo" and
+ * "added a new photo" into the Profile pictures album.
+ *
+ * Two signals again, because neither is enough alone. The permalink marker
+ * says "this is a Page update"; the attachment type and title say which kind.
+ * The `story` field is not a marker by itself: a real post checked into a
+ * location carries one too ("X is in All Over Thailand"), so it is only read
+ * once the row is already known to be an update.
+ */
+export function facebookPageUpdate(post: FacebookPost): string | null {
+  const attachment = post.attachments?.data?.[0];
+  const type = (attachment?.type ?? '').toLowerCase();
+  const title = attachment?.title ?? '';
+  const story = (post.story ?? '').trim();
+  const marked =
+    (post.permalink_url ?? '').includes('substory_index=') ||
+    type === 'cover_photo' ||
+    type === 'profile_media';
+
+  if (!marked) return null;
+  if (type === 'cover_photo' || /cover photo/i.test(story)) return 'cover photo';
+  if (type === 'profile_media' || /profile picture/i.test(`${title} ${story}`)) return 'profile picture';
+  return story || 'no reason given by Facebook';
 }
 
 const GO_SLUG_PATTERN = /\/go\/([a-z0-9-]{2,50})/i;

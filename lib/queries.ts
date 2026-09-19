@@ -20,6 +20,11 @@ import { sinceSql } from '@/lib/period';
  * 3. Clicks come from the human_clicks view, never from click_events. The
  *    table also holds link preview crawlers, which were 30 of the first 50
  *    rows. See lib/bots.ts.
+ *
+ * 4. Posts come from the content_posts view, never from posts. Facebook
+ *    returns cover photo and profile picture changes through the posts edge,
+ *    and they were 8 of the first 26 Facebook rows. See facebookPageUpdate in
+ *    lib/meta.ts. Only the admin Page updates filter reads the table.
  */
 
 /** Latest metrics snapshot per post, joined to its post row. */
@@ -44,7 +49,7 @@ export async function getOverview() {
       COALESCE(SUM(l.engagement), 0)::int    AS engagement,
       MIN(p.published_at)                    AS earliest,
       MAX(p.published_at)                    AS latest_post
-    FROM posts p JOIN latest l ON l.post_id = p.id
+    FROM content_posts p JOIN latest l ON l.post_id = p.id
   `);
   const clicks = await sql`SELECT COUNT(*)::int AS n FROM human_clicks`;
   const links = await sql`SELECT COUNT(*)::int AS n FROM links`;
@@ -101,7 +106,7 @@ export async function getPeriodDeltas(days = 30): Promise<{
       COALESCE(SUM(l.engagement) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${d} days'), 0)::int AS cur_eng,
       COALESCE(SUM(l.engagement) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${d * 2} days'
                                            AND p.published_at <  NOW() - INTERVAL '${d} days'), 0)::int AS prev_eng
-    FROM posts p JOIN latest l ON l.post_id = p.id
+    FROM content_posts p JOIN latest l ON l.post_id = p.id
   `);
 
   const clicks = await sql(`
@@ -149,20 +154,20 @@ export async function getSplits(days?: number | null): Promise<{
   const byPlatform = await sql(`
     ${LATEST}
     SELECT p.platform AS key, COALESCE(SUM(l.views), 0)::int AS value
-    FROM posts p JOIN latest l ON l.post_id = p.id
+    FROM content_posts p JOIN latest l ON l.post_id = p.id
     WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY p.platform HAVING SUM(l.views) > 0 ORDER BY value DESC
   `);
 
   const byFormat = await sql(`
     SELECT format AS key, COUNT(*)::int AS value
-    FROM posts WHERE format IS NOT NULL ${sinceSql(days ?? null, 'published_at')}
+    FROM content_posts WHERE format IS NOT NULL ${sinceSql(days ?? null, 'published_at')}
     GROUP BY format ORDER BY value DESC
   `);
 
   const byTag = await sql(`
     SELECT content_theme AS key, COUNT(*)::int AS value
-    FROM posts WHERE content_theme IS NOT NULL AND content_theme <> '' ${sinceSql(days ?? null, 'published_at')}
+    FROM content_posts WHERE content_theme IS NOT NULL AND content_theme <> '' ${sinceSql(days ?? null, 'published_at')}
     GROUP BY content_theme ORDER BY value DESC
   `);
 
@@ -177,7 +182,7 @@ export async function getWeeklyViews(days?: number | null): Promise<Row[]> {
       TO_CHAR(DATE_TRUNC('week', p.published_at), 'YYYY-MM-DD') AS week,
       COUNT(*)::int                       AS posts,
       COALESCE(SUM(l.views), 0)::int      AS views
-    FROM posts p JOIN latest l ON l.post_id = p.id
+    FROM content_posts p JOIN latest l ON l.post_id = p.id
     WHERE p.published_at IS NOT NULL ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY 1 ORDER BY 1
   `);
@@ -202,7 +207,7 @@ export async function getLeaderboard(limit = 30, days?: number | null): Promise<
       p.id, p.platform, p.format, p.permalink, p.published_at, p.caption,
       p.content_theme, p.thumbnail_url,
       l.views, l.reach, l.engagement, l.likes, l.comments, l.saves, l.shares
-    FROM posts p JOIN latest l ON l.post_id = p.id
+    FROM content_posts p JOIN latest l ON l.post_id = p.id
     WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
     ORDER BY l.views DESC NULLS LAST, p.published_at DESC
     LIMIT ${Number(limit)}
@@ -227,7 +232,7 @@ export async function getPlatformMedians(days?: number | null): Promise<Record<s
            PERCENTILE_CONT(0.5) WITHIN GROUP (
              ORDER BY CASE WHEN l.views > 0 THEN l.engagement::float / l.views ELSE 0 END
            ) AS median_eng_rate
-    FROM posts p JOIN latest l ON l.post_id = p.id
+    FROM content_posts p JOIN latest l ON l.post_id = p.id
     WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY p.platform
   `);
@@ -257,7 +262,7 @@ export async function getPlatformComparison(days?: number | null): Promise<Row[]
   return sql(`
     ${LATEST},
     used AS (
-      SELECT DISTINCT platform FROM posts
+      SELECT DISTINCT platform FROM content_posts
       UNION
       SELECT DISTINCT platform FROM links
     ),
@@ -269,7 +274,7 @@ export async function getPlatformComparison(days?: number | null): Promise<Row[]
         COALESCE(ROUND(AVG(l.views)), 0)::int  AS avg_views,
         COALESCE(SUM(l.engagement), 0)::int    AS engagement,
         COALESCE(SUM(l.reach), 0)::int         AS reach
-      FROM posts p JOIN latest l ON l.post_id = p.id
+      FROM content_posts p JOIN latest l ON l.post_id = p.id
       WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
       GROUP BY p.platform
     )
@@ -305,7 +310,7 @@ export async function getFormatComparison(days?: number | null): Promise<Row[]> 
       COALESCE(ROUND(AVG(l.views)), 0)::int    AS avg_views,
       COALESCE(ROUND(AVG(l.engagement)), 0)::int AS avg_engagement,
       COALESCE(SUM(l.views), 0)::int           AS views
-    FROM posts p JOIN latest l ON l.post_id = p.id
+    FROM content_posts p JOIN latest l ON l.post_id = p.id
     WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY p.platform, p.format
     ORDER BY avg_views DESC
@@ -328,7 +333,7 @@ export async function getThemePerformance(days?: number | null): Promise<Row[]> 
              COUNT(*)::int AS posts,
              COALESCE(SUM(l.views), 0)::int AS views,
              COALESCE(SUM(l.engagement), 0)::int AS engagement
-      FROM posts p JOIN latest l ON l.post_id = p.id
+      FROM content_posts p JOIN latest l ON l.post_id = p.id
       WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
         ${sinceSql(days ?? null, 'p.published_at')}
       GROUP BY p.content_theme
@@ -372,7 +377,7 @@ export async function getPillarMix(days?: number | null): Promise<{ rows: Row[];
            COALESCE(SUM(l.views), 0)::int       AS views,
            COALESCE(SUM(l.engagement), 0)::int  AS engagement,
            COALESCE(ROUND(AVG(l.views)), 0)::int AS avg_views
-    FROM posts p JOIN latest l ON l.post_id = p.id
+    FROM content_posts p JOIN latest l ON l.post_id = p.id
     WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
       ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY p.content_theme
@@ -382,7 +387,7 @@ export async function getPillarMix(days?: number | null): Promise<{ rows: Row[];
   const counts = await sql(`
     SELECT COUNT(*)::int AS total,
            COUNT(*) FILTER (WHERE content_theme IS NOT NULL AND content_theme <> '')::int AS tagged
-    FROM posts WHERE TRUE ${sinceSql(days ?? null, 'published_at')}
+    FROM content_posts WHERE TRUE ${sinceSql(days ?? null, 'published_at')}
   `);
 
   return {
@@ -395,7 +400,7 @@ export async function getPillarMix(days?: number | null): Promise<{ rows: Row[];
 /** How many posts still need a theme, for the empty state prompt. */
 export async function getUntaggedPostCount(): Promise<number> {
   const rows = await sql`
-    SELECT COUNT(*)::int AS n FROM posts
+    SELECT COUNT(*)::int AS n FROM content_posts
     WHERE content_theme IS NULL OR content_theme = ''
   `;
   return (rows[0]?.n as number) ?? 0;
@@ -414,43 +419,70 @@ export async function getCtaPerformance(days?: number | null): Promise<Row[]> {
   `);
 }
 
-export type PostFilter = 'all' | 'untagged' | 'tagged';
+export type PostFilter = 'all' | 'untagged' | 'tagged' | 'updates';
 
 /**
  * Posts for the admin tagging screen, newest first.
  *
  * The untagged filter exists so working through a backlog is a countdown
  * rather than a re-scan: a row leaves the list the moment it is saved.
+ *
+ * The updates filter is the one place that reads posts rather than
+ * content_posts: it lists the cover and profile photo changes Facebook
+ * returned as posts, with the reason it gave, so they are seen rather than
+ * silently kept out of every figure.
  */
 export async function getPostsForTagging(filter: PostFilter = 'all'): Promise<Row[]> {
+  const source = filter === 'updates' ? 'posts' : 'content_posts';
   const where =
     filter === 'untagged'
       ? `WHERE p.content_theme IS NULL OR p.content_theme = ''`
       : filter === 'tagged'
         ? `WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''`
-        : '';
+        : filter === 'updates'
+          ? `WHERE p.page_update IS NOT NULL`
+          : '';
+  const pageUpdate = filter === 'updates' ? 'p.page_update,' : 'NULL::text AS page_update,';
 
   return sql(`
     ${LATEST}
     SELECT
-      p.id, p.platform, p.format, p.permalink, p.published_at,
+      p.id, p.platform, p.format, p.permalink, p.published_at, ${pageUpdate}
       p.caption, p.content_theme, p.thumbnail_url, l.views, l.engagement
-    FROM posts p LEFT JOIN latest l ON l.post_id = p.id
+    FROM ${source} p LEFT JOIN latest l ON l.post_id = p.id
     ${where}
     ORDER BY p.published_at DESC
   `);
 }
 
 /** Counts for the filter tabs, so each one shows how much work is left. */
-export async function getPostTagCounts(): Promise<{ all: number; tagged: number; untagged: number }> {
+export async function getPostTagCounts(): Promise<{
+  all: number;
+  tagged: number;
+  untagged: number;
+  updates: number;
+}> {
   const rows = await sql`
-    SELECT COUNT(*)::int AS all_posts,
-           COUNT(*) FILTER (WHERE content_theme IS NOT NULL AND content_theme <> '')::int AS tagged
+    SELECT COUNT(*) FILTER (WHERE page_update IS NULL)::int AS all_posts,
+           COUNT(*) FILTER (WHERE page_update IS NULL
+                              AND content_theme IS NOT NULL AND content_theme <> '')::int AS tagged,
+           COUNT(*) FILTER (WHERE page_update IS NOT NULL)::int AS updates
     FROM posts
   `;
   const all = (rows[0]?.all_posts as number) ?? 0;
   const tagged = (rows[0]?.tagged as number) ?? 0;
-  return { all, tagged, untagged: all - tagged };
+  const updates = (rows[0]?.updates as number) ?? 0;
+  return { all, tagged, untagged: all - tagged, updates };
+}
+
+/** The Page updates Facebook returned as posts, grouped by the reason it gave. */
+export async function getPageUpdates(): Promise<{ reason: string; posts: number }[]> {
+  const rows = await sql`
+    SELECT page_update AS reason, COUNT(*)::int AS posts
+    FROM posts WHERE page_update IS NOT NULL
+    GROUP BY page_update ORDER BY posts DESC, page_update
+  `;
+  return rows.map((r) => ({ reason: String(r.reason), posts: (r.posts as number) ?? 0 }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -626,7 +658,7 @@ export async function getThemeFollowerAttribution(lookaheadDays = 2): Promise<Ro
     ),
     tagged AS (
       SELECT p.content_theme AS theme, p.published_at::date AS day
-      FROM posts p
+      FROM content_posts p
       WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
         AND p.published_at IS NOT NULL
     ),
@@ -649,7 +681,7 @@ export async function getThemeFollowerAttribution(lookaheadDays = 2): Promise<Ro
       SELECT p.content_theme AS theme,
              COUNT(*)::int                    AS posts,
              COALESCE(SUM(l.views), 0)::int   AS views
-      FROM posts p JOIN latest l ON l.post_id = p.id
+      FROM content_posts p JOIN latest l ON l.post_id = p.id
       WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
       GROUP BY p.content_theme
     )
@@ -675,7 +707,7 @@ export async function getWeeklyGrowthOverlap(days?: number | null): Promise<Row[
       SELECT DATE_TRUNC('week', p.published_at)::date AS week,
              COUNT(*)::int                  AS posts,
              COALESCE(SUM(l.views), 0)::int AS views
-      FROM posts p JOIN latest l ON l.post_id = p.id
+      FROM content_posts p JOIN latest l ON l.post_id = p.id
       WHERE p.published_at IS NOT NULL ${sinceSql(days ?? null, 'p.published_at')}
       GROUP BY 1
     ),
@@ -722,7 +754,7 @@ export async function getKnownThemes(): Promise<string[]> {
     SELECT DISTINCT theme FROM (
       SELECT content_theme AS theme FROM links WHERE content_theme IS NOT NULL AND content_theme <> ''
       UNION
-      SELECT content_theme AS theme FROM posts WHERE content_theme IS NOT NULL AND content_theme <> ''
+      SELECT content_theme AS theme FROM content_posts WHERE content_theme IS NOT NULL AND content_theme <> ''
     ) t ORDER BY theme
   `;
   return rows.map((r) => r.theme as string);

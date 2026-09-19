@@ -159,6 +159,15 @@ These are not derivable from the code and have each caused a real failure.
   rows are stored and flagged `is_bot` at insert from `lib/bots.ts`, and the
   view filters them. Only `deleteLink` and the raw click log read the table,
   because the foreign key covers crawler rows too.
+- **Count posts from `content_posts`, never from `posts`.** The Page `/posts`
+  edge returns a row for every cover photo and profile picture change: no
+  caption, a permalink carrying `substory_index=`, and 0 to 9 views. They were
+  8 of the first 26 Facebook rows and dragged the Facebook median from 42 to
+  24. `facebookPageUpdate` in `lib/meta.ts` stores Facebook's own reason in
+  `posts.page_update`, the view excludes those rows, the overview lists them,
+  and the admin posts screen shows them under Page updates. Nothing is
+  deleted. The Page stories edge returns nothing for this Page, so no Story
+  reaches the database from either platform.
 - **Never compare cumulative views across posts of different age.** Views
   roughly double in the first 48 hours, so a post from yesterday against one
   from June measures age, not performance. Compare posts at the same age

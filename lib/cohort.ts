@@ -66,7 +66,7 @@ const AT_AGE = (ageHours: number) => `
       m.shares,
       EXTRACT(EPOCH FROM (m.recorded_at - p.published_at)) / 3600.0 AS age_hours
     FROM post_metrics m
-    JOIN posts p ON p.id = m.post_id
+    JOIN content_posts p ON p.id = m.post_id
     WHERE p.published_at IS NOT NULL
       AND m.recorded_at >= p.published_at
       AND EXTRACT(EPOCH FROM (m.recorded_at - p.published_at)) / 3600.0 <= ${Number(ageHours)}
@@ -159,7 +159,7 @@ export async function getAgeNormalisedComparison(opts: {
       COUNT(*) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${cur} days')::int AS cur_total,
       COUNT(*) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${cur + prev} days'
                          AND p.published_at <  NOW() - INTERVAL '${cur} days')::int AS prev_total
-    FROM posts p
+    FROM content_posts p
     WHERE p.published_at IS NOT NULL
       ${whereP}
   `, params);
@@ -174,6 +174,61 @@ export async function getAgeNormalisedComparison(opts: {
     currentMissing: Math.max(((missing[0]?.cur_total as number) ?? 0) - current.posts, 0),
     previousMissing: Math.max(((missing[0]?.prev_total as number) ?? 0) - previous.posts, 0),
   };
+}
+
+export type FormatAtAge = {
+  platform: string;
+  format: string;
+  posts: number;
+  medianViews: number;
+  platformPosts: number;
+  platformMedian: number;
+};
+
+/**
+ * Median views per format against the platform median, both at the same age.
+ *
+ * Feeds the format alert on the overview. The earlier version compared
+ * lifetime means across posts of every age, and two things went wrong at
+ * once: a two week old Reel was measured against a two day old photo, and a
+ * few large Reels lifted the platform mean so far that every other format
+ * failed. Facebook carousels were flagged while sitting above the platform
+ * median.
+ *
+ * Only posts at least `ageHours` old qualify. Otherwise a post published this
+ * morning would enter at its current age and drag its format down.
+ */
+export async function getFormatBenchmarkAtAge(ageHours: number): Promise<FormatAtAge[]> {
+  const age = Number(ageHours);
+  const rows = await sql(`
+    WITH ${AT_AGE(age)},
+    eligible AS (
+      SELECT * FROM at_age
+      WHERE published_at <= NOW() - INTERVAL '${age} hours'
+    ),
+    per_format AS (
+      SELECT platform, format, COUNT(*)::int AS posts,
+             PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY views) AS median_views
+      FROM eligible GROUP BY platform, format
+    ),
+    per_platform AS (
+      SELECT platform, COUNT(*)::int AS posts,
+             PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY views) AS median_views
+      FROM eligible GROUP BY platform
+    )
+    SELECT f.platform, f.format, f.posts, f.median_views,
+           pp.posts AS platform_posts, pp.median_views AS platform_median
+    FROM per_format f JOIN per_platform pp ON pp.platform = f.platform
+    ORDER BY f.platform, f.format
+  `);
+  return rows.map((r) => ({
+    platform: String(r.platform),
+    format: String(r.format ?? 'other'),
+    posts: Number(r.posts) || 0,
+    medianViews: Number(r.median_views) || 0,
+    platformPosts: Number(r.platform_posts) || 0,
+    platformMedian: Number(r.platform_median) || 0,
+  }));
 }
 
 export type RecentPost = {
@@ -210,7 +265,7 @@ export async function getRecentPosts(days = 14): Promise<RecentPost[]> {
     at24 AS (SELECT post_id, platform, format, views AS v24 FROM at_age),
     a72 AS (
       SELECT DISTINCT ON (m.post_id) m.post_id, m.views AS v72
-      FROM post_metrics m JOIN posts p ON p.id = m.post_id
+      FROM post_metrics m JOIN content_posts p ON p.id = m.post_id
       WHERE p.published_at IS NOT NULL
         AND m.recorded_at >= p.published_at
         AND EXTRACT(EPOCH FROM (m.recorded_at - p.published_at)) / 3600.0 <= 72
@@ -235,7 +290,7 @@ export async function getRecentPosts(days = 14): Promise<RecentPost[]> {
       a72.v72 AS views_72h,
       pe.peer_median AS peer_median_24h,
       pe.peer_n      AS peer_count_24h
-    FROM posts p
+    FROM content_posts p
     LEFT JOIN latest l ON l.post_id = p.id
     LEFT JOIN at24 a24 ON a24.post_id = p.id
     LEFT JOIN a72     ON a72.post_id = p.id
@@ -278,14 +333,14 @@ export async function getAgeCoverage(): Promise<{
     WITH ages AS (
       SELECT m.post_id,
              MIN(EXTRACT(EPOCH FROM (m.recorded_at - p.published_at)) / 3600.0) AS youngest
-      FROM post_metrics m JOIN posts p ON p.id = m.post_id
+      FROM post_metrics m JOIN content_posts p ON p.id = m.post_id
       WHERE p.published_at IS NOT NULL AND m.recorded_at >= p.published_at
       GROUP BY m.post_id
     )
     SELECT
       COUNT(*) FILTER (WHERE youngest <= 24)::int  AS with_24h,
       COUNT(*) FILTER (WHERE youngest <= 72)::int  AS with_72h,
-      (SELECT COUNT(*)::int FROM posts)            AS total,
+      (SELECT COUNT(*)::int FROM content_posts)    AS total,
       (SELECT MIN(recorded_on) FROM post_metrics)  AS first_snapshot
     FROM ages
   `;

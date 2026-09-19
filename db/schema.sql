@@ -59,11 +59,22 @@ CREATE TABLE IF NOT EXISTS posts (
   permalink          TEXT,                        -- public URL of the post
   link_slug          VARCHAR(50)  REFERENCES links(slug),  -- the /go/ link used for this post
   last_synced_at     TIMESTAMPTZ,
-  created_at         TIMESTAMPTZ  DEFAULT NOW()
+  created_at         TIMESTAMPTZ  DEFAULT NOW(),
+  page_update        TEXT                          -- set when Facebook returned a cover or profile photo change as a post; the reason it gave
 );
 
 CREATE INDEX IF NOT EXISTS posts_platform_idx     ON posts (platform);
 CREATE INDEX IF NOT EXISTS posts_published_at_idx ON posts (published_at DESC);
+
+-- Posts that count. Facebook returns cover photo and profile picture changes
+-- through the same edge as posts, so every figure reads this view. The rows
+-- stay in posts, flagged, and the overview lists them.
+CREATE OR REPLACE VIEW content_posts AS
+  SELECT id, platform, platform_post_id, format, media_product_type, content_theme,
+         published_at, caption, thumbnail_url, permalink, link_slug,
+         last_synced_at, created_at
+  FROM posts
+  WHERE page_update IS NULL;
 
 -- Post metrics table
 -- One snapshot per post per calendar day, written by /api/sync/meta.

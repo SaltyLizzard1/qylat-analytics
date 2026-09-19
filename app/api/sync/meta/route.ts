@@ -10,6 +10,7 @@ import {
   instagramFormat,
   facebookFormat,
   facebookMediaType,
+  facebookPageUpdate,
   fetchInstagramAudience,
   fetchPageAudience,
   fetchInstagramFollowerHistory,
@@ -60,16 +61,18 @@ async function upsertPost(input: {
   thumbnailUrl: string | null;
   permalink: string | null;
   linkSlug: string | null;
+  /** Facebook's reason when the row is a cover or profile photo change, else null. */
+  pageUpdate: string | null;
 }): Promise<number> {
   const rows = await sql`
     INSERT INTO posts (
       platform, platform_post_id, format, media_product_type,
-      published_at, caption, thumbnail_url, permalink, link_slug, last_synced_at
+      published_at, caption, thumbnail_url, permalink, link_slug, page_update, last_synced_at
     )
     VALUES (
       ${input.platform}, ${input.platformPostId}, ${input.format}, ${input.mediaProductType},
       ${input.publishedAt}, ${input.caption}, ${input.thumbnailUrl}, ${input.permalink},
-      ${input.linkSlug}, NOW()
+      ${input.linkSlug}, ${input.pageUpdate}, NOW()
     )
     ON CONFLICT (platform_post_id) DO UPDATE SET
       format             = EXCLUDED.format,
@@ -80,6 +83,8 @@ async function upsertPost(input: {
       permalink          = EXCLUDED.permalink,
       -- Never clear a link_slug that was set by hand.
       link_slug          = COALESCE(EXCLUDED.link_slug, posts.link_slug),
+      -- Refreshed every run, so a backfilled "not fetched yet" gets its reason.
+      page_update        = EXCLUDED.page_update,
       last_synced_at     = NOW()
     RETURNING id
   `;
@@ -171,6 +176,7 @@ async function syncFacebook(cfg: MetaConfig, since: Date): Promise<PlatformRepor
         thumbnailUrl: post.full_picture ?? null,
         permalink: post.permalink_url ?? null,
         linkSlug,
+        pageUpdate: facebookPageUpdate(post),
       });
       report.postsUpserted += 1;
 
@@ -223,6 +229,7 @@ async function syncInstagram(cfg: MetaConfig, since: Date): Promise<PlatformRepo
         thumbnailUrl: item.thumbnail_url ?? item.media_url ?? null,
         permalink: item.permalink ?? null,
         linkSlug,
+        pageUpdate: null, // Instagram media has no equivalent.
       });
       report.postsUpserted += 1;
 
