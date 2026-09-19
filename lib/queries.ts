@@ -233,7 +233,10 @@ export async function getPlatformMedians(days?: number | null): Promise<Record<s
              ORDER BY CASE WHEN l.views > 0 THEN l.engagement::float / l.views ELSE 0 END
            ) AS median_eng_rate
     FROM content_posts p JOIN latest l ON l.post_id = p.id
-    WHERE TRUE ${sinceSql(days ?? null, 'p.published_at')}
+    -- A story is seen by one sync at whatever age it happens to have, and its
+    -- views are not comparable with a feed post's, so it stays out of the
+    -- benchmark every post is judged against.
+    WHERE p.format IS DISTINCT FROM 'story' ${sinceSql(days ?? null, 'p.published_at')}
     GROUP BY p.platform
   `);
 

@@ -6,6 +6,7 @@ import {
   fetchFacebookPosts,
   fetchFacebookPostInsights,
   fetchInstagramMedia,
+  fetchInstagramStories,
   fetchInstagramMediaInsights,
   instagramFormat,
   facebookFormat,
@@ -18,6 +19,7 @@ import {
   slugFromCaption,
   type MetaConfig,
   type InsightResult,
+  type InstagramMedia,
 } from '@/lib/meta';
 
 export const dynamic = 'force-dynamic';
@@ -30,14 +32,26 @@ const DEFAULT_LOOKBACK_DAYS = 30;
 
 type PlatformReport = {
   fetched: number;
+  /** Instagram only: live stories read from their own edge. */
+  stories: number;
   postsUpserted: number;
   metricsWritten: number;
   errors: { object: string; reason: string }[];
   metricsUnavailable: { object: string; metric: string; reason: string }[];
+  /** Objects Meta withheld every insight on for having too few viewers. A state, not a fault. */
+  insightsWithheld: string[];
 };
 
 function emptyReport(): PlatformReport {
-  return { fetched: 0, postsUpserted: 0, metricsWritten: 0, errors: [], metricsUnavailable: [] };
+  return {
+    fetched: 0,
+    stories: 0,
+    postsUpserted: 0,
+    metricsWritten: 0,
+    errors: [],
+    metricsUnavailable: [],
+    insightsWithheld: [],
+  };
 }
 
 /**
@@ -144,6 +158,10 @@ function recordUnavailable(
   insights: InsightResult
 ): void {
   for (const f of insights.failed) {
+    if (/not enough viewers/i.test(f.reason)) {
+      if (!report.insightsWithheld.includes(objectId)) report.insightsWithheld.push(objectId);
+      continue;
+    }
     report.metricsUnavailable.push({ object: objectId, metric: f.metric, reason: f.reason });
   }
 }
@@ -209,58 +227,74 @@ async function syncFacebook(cfg: MetaConfig, since: Date): Promise<PlatformRepor
   return report;
 }
 
+/** One Instagram media object, feed post or story, into posts and post_metrics. */
+async function syncInstagramItem(cfg: MetaConfig, item: InstagramMedia, report: PlatformReport): Promise<void> {
+  try {
+    const linkSlug = await resolveKnownSlug(item.caption);
+
+    const postId = await upsertPost({
+      platform: 'instagram',
+      platformPostId: item.id,
+      format: instagramFormat(item),
+      mediaProductType: item.media_product_type ?? null,
+      publishedAt: item.timestamp,
+      caption: item.caption ?? null,
+      thumbnailUrl: item.thumbnail_url ?? item.media_url ?? null,
+      permalink: item.permalink ?? null,
+      linkSlug,
+      pageUpdate: null, // Instagram media has no equivalent.
+    });
+    report.postsUpserted += 1;
+
+    const insights = await fetchInstagramMediaInsights(cfg, item);
+    recordUnavailable(report, item.id, insights);
+
+    const likes = item.like_count ?? null;
+    const comments = item.comments_count ?? null;
+    const saves = num(insights.values, 'saved');
+    const shares = num(insights.values, 'shares');
+    // A story has replies where a post has comments.
+    const replies = num(insights.values, 'replies');
+
+    await writeMetrics(postId, {
+      views: num(insights.values, 'views'),
+      reach: num(insights.values, 'reach'),
+      // total_interactions is Meta's own roll-up. Fall back to a manual sum
+      // when the account does not return it.
+      engagement:
+        num(insights.values, 'total_interactions') ??
+        sumDefined(likes, comments ?? replies, saves, shares),
+      likes,
+      comments: comments ?? replies,
+      saves,
+      shares,
+      profileVisits: num(insights.values, 'profile_visits'),
+      linkClicks: null, // Instagram exposes no link tap count on stories or posts.
+    });
+    report.metricsWritten += 1;
+  } catch (e) {
+    report.errors.push({ object: item.id, reason: errText(e) });
+  }
+}
+
 async function syncInstagram(cfg: MetaConfig, since: Date): Promise<PlatformReport> {
   const report = emptyReport();
 
   const media = await fetchInstagramMedia(cfg, since);
   report.fetched = media.length;
+  for (const item of media) await syncInstagramItem(cfg, item, report);
 
-  for (const item of media) {
-    try {
-      const linkSlug = await resolveKnownSlug(item.caption);
-
-      const postId = await upsertPost({
-        platform: 'instagram',
-        platformPostId: item.id,
-        format: instagramFormat(item),
-        mediaProductType: item.media_product_type ?? null,
-        publishedAt: item.timestamp,
-        caption: item.caption ?? null,
-        thumbnailUrl: item.thumbnail_url ?? item.media_url ?? null,
-        permalink: item.permalink ?? null,
-        linkSlug,
-        pageUpdate: null, // Instagram media has no equivalent.
-      });
-      report.postsUpserted += 1;
-
-      const insights = await fetchInstagramMediaInsights(cfg, item);
-      recordUnavailable(report, item.id, insights);
-
-      const likes = item.like_count ?? null;
-      const comments = item.comments_count ?? null;
-      const saves = num(insights.values, 'saved');
-      const shares = num(insights.values, 'shares');
-
-      await writeMetrics(postId, {
-        views: num(insights.values, 'views'),
-        reach: num(insights.values, 'reach'),
-        // total_interactions is Meta's own roll-up. Fall back to a manual sum
-        // when the account does not return it.
-        engagement:
-          num(insights.values, 'total_interactions') ??
-          sumDefined(likes, comments, saves, shares),
-        likes,
-        comments,
-        saves,
-        shares,
-        profileVisits: num(insights.values, 'profile_visits'),
-        linkClicks: null, // Instagram reports link clicks on Stories only.
-      });
-      report.metricsWritten += 1;
-    } catch (e) {
-      report.errors.push({ object: item.id, reason: errText(e) });
-    }
+  // Stories are on their own edge and never in /media. Only live ones come
+  // back, so a story is written once, at whatever age this run catches it. A
+  // failure here is reported and must not cost the media already written.
+  let stories: InstagramMedia[] = [];
+  try {
+    stories = await fetchInstagramStories(cfg);
+  } catch (e) {
+    report.errors.push({ object: 'stories', reason: errText(e) });
   }
+  report.stories = stories.length;
+  for (const item of stories) await syncInstagramItem(cfg, item, report);
 
   return report;
 }

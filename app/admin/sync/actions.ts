@@ -69,7 +69,10 @@ export async function runSync(_prev: SyncState, formData: FormData): Promise<Syn
     const part = (label: string, p?: Record<string, unknown>) => {
       if (!p) return `${label} did not run`;
       if (p.failed) return `${label} failed`;
-      return `${label} ${p.fetched ?? 0}`;
+      const stories = typeof p.stories === 'number' && p.stories > 0
+        ? ` and ${p.stories} ${p.stories === 1 ? 'story' : 'stories'}`
+        : '';
+      return `${label} ${p.fetched ?? 0}${stories}`;
     };
     summary = `${part('Facebook', fb)}, ${part('Instagram', ig)}, ${aud?.written ?? 0} follower counts.`;
 
@@ -81,6 +84,12 @@ export async function runSync(_prev: SyncState, formData: FormData): Promise<Syn
       const refused = (p?.metricsUnavailable as { metric: string }[]) ?? [];
       if (refused.length) {
         warnings.push(`${label}: Meta refused ${[...new Set(refused.map((r) => r.metric))].join(', ')}`);
+      }
+      const withheld = (p?.insightsWithheld as string[]) ?? [];
+      if (withheld.length) {
+        warnings.push(
+          `${label}: Meta withheld insights on ${withheld.length} ${withheld.length === 1 ? 'item' : 'items'} for having too few viewers. Stored without numbers.`
+        );
       }
     }
     const audErrs = (aud?.errors as { reason: string }[]) ?? [];

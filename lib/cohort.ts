@@ -205,6 +205,9 @@ export async function getFormatBenchmarkAtAge(ageHours: number): Promise<FormatA
     eligible AS (
       SELECT * FROM at_age
       WHERE published_at <= NOW() - INTERVAL '${age} hours'
+        -- A story gets one snapshot at whatever age the sync caught it, never
+        -- one at ${age} hours, so it cannot be measured here.
+        AND format IS DISTINCT FROM 'story'
     ),
     per_format AS (
       SELECT platform, format, COUNT(*)::int AS posts,

@@ -166,8 +166,15 @@ These are not derivable from the code and have each caused a real failure.
   24. `facebookPageUpdate` in `lib/meta.ts` stores Facebook's own reason in
   `posts.page_update`, the view excludes those rows, the overview lists them,
   and the admin posts screen shows them under Page updates. Nothing is
-  deleted. The Page stories edge returns nothing for this Page, so no Story
-  reaches the database from either platform.
+  deleted. The Page stories edge returned nothing while no Page Story
+  existed; it is untested against a live one.
+- **Instagram Stories live only on `/{ig-user-id}/stories`** and never
+  appear in `/media`. The edge returns what is live right now, so the daily
+  sync sees each story once, at whatever age it has then. Meta withholds
+  every insight on media seen by too few people, code 10 "Not enough
+  viewers", which the sync records as withheld rather than as a failure. Story
+  views stay out of the platform median and the format alert, because one
+  early snapshot is not comparable with a post measured at 72 hours.
 - **Never compare cumulative views across posts of different age.** Views
   roughly double in the first 48 hours, so a post from yesterday against one
   from June measures age, not performance. Compare posts at the same age

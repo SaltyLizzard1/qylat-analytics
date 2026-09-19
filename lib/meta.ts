@@ -70,6 +70,16 @@ export function errText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+/**
+ * Meta withholds insights on media seen by too few people, with code 10 and
+ * "Not enough viewers for the media to show insights". Seen on every metric
+ * of a live Story on 2026-09-19. It is a state, not a fault: the media exists,
+ * the numbers are simply not released yet, or ever for a small story.
+ */
+export function isViewerThreshold(e: unknown): boolean {
+  return e instanceof MetaApiError && e.code === 10 && /not enough viewers/i.test(e.message);
+}
+
 type GraphErrorBody = {
   error?: {
     message?: string;
@@ -215,6 +225,12 @@ async function fetchInsights(
     });
     return { values: reduceInsights(body.data ?? []), failed: [] };
   } catch (batchError) {
+    // Withheld for every metric at once, so retrying one by one costs six
+    // calls to learn the same thing.
+    if (isViewerThreshold(batchError)) {
+      return { values: {}, failed: [{ metric: metrics.join(','), reason: errText(batchError) }] };
+    }
+
     const values: Record<string, number> = {};
     const failed: { metric: string; reason: string }[] = [];
 
@@ -327,7 +343,10 @@ function instagramMetricsFor(media: InstagramMedia): string[] {
   const productType = (media.media_product_type ?? '').toUpperCase();
 
   if (productType === 'STORY') {
-    return ['views', 'reach', 'replies', 'shares', 'profile_visits', 'follows'];
+    // total_interactions is in the current reference for stories but could not
+    // be confirmed on this account: the only live story sat below the viewer
+    // threshold, which refuses every metric alike. Dropped alone if wrong.
+    return ['views', 'reach', 'replies', 'shares', 'profile_visits', 'follows', 'total_interactions'];
   }
 
   if (productType === 'REELS') {
@@ -350,6 +369,37 @@ export async function fetchInstagramMediaInsights(
   media: InstagramMedia
 ): Promise<InsightResult> {
   return fetchInsights(cfg, media.id, instagramMetricsFor(media));
+}
+
+/**
+ * The fields a story accepts. like_count and comments_count are left off
+ * because the stories edge was only ever read without them, and one rejected
+ * field fails the whole request.
+ */
+const INSTAGRAM_STORY_FIELDS = [
+  'id',
+  'caption',
+  'media_type',
+  'media_product_type',
+  'permalink',
+  'thumbnail_url',
+  'media_url',
+  'timestamp',
+].join(',');
+
+/**
+ * Stories live on their own edge and never appear in /media, verified on
+ * 2026-09-19 with a live story absent from the newest media. The edge returns
+ * only what is currently live, so there is no `since`, and each story is seen
+ * by at most one daily sync, at whatever age it has when that sync runs. A
+ * story posted just before the 08:00 UTC run is caught an hour old; one posted
+ * just after is caught at twenty three hours, or missed if it has expired.
+ */
+export async function fetchInstagramStories(cfg: MetaConfig): Promise<InstagramMedia[]> {
+  return graphGetAll<InstagramMedia>(cfg, `${cfg.igUserId}/stories`, {
+    fields: INSTAGRAM_STORY_FIELDS,
+    limit: '50',
+  });
 }
 
 /* ------------------------------------------------------------------ */
