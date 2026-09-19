@@ -6,12 +6,14 @@ import {
   idleLinkStatus,
   pageUpdateStatus,
   taggingStatus,
+  trendStatus,
   LEVEL_RANK,
   THRESHOLDS,
   type Level,
 } from '@/lib/status';
 import { getFormatBenchmarkAtAge } from '@/lib/cohort';
 import { getPageUpdates } from '@/lib/queries';
+import { windowExpr, windowDateExpr, type Period } from '@/lib/period';
 import { platformLabel, formatLabel } from '@/lib/theme';
 
 /**
@@ -24,6 +26,9 @@ import { platformLabel, formatLabel } from '@/lib/theme';
  * Nothing here invents a finding. Every check refuses to report below the
  * minimum sample in lib/status.ts, so a quiet week reads as quiet rather than
  * as a crisis.
+ *
+ * Most checks read all time. The trend checks read the selected period against
+ * the one before it, so they follow the period control like the tiles do.
  */
 
 export type AttentionItem = {
@@ -34,8 +39,68 @@ export type AttentionItem = {
   action: string;
 };
 
-export async function getAttentionItems(): Promise<AttentionItem[]> {
+export async function getAttentionItems(period: Period): Promise<AttentionItem[]> {
   const items: AttentionItem[] = [];
+
+  // Falls in clicks, sessions and followers, per platform, this window
+  // against the previous one. Hidden along with the comparison, since a drop
+  // "against nothing" is not a statement.
+  if (period.compare === 'previous') {
+    const trends: {
+      what: string;
+      href: string;
+      rows: Record<string, unknown>[];
+    }[] = [
+      {
+        what: 'clicks',
+        href: '/dashboard/funnel',
+        rows: await sql(`
+          SELECT l.platform,
+                 COUNT(c.id) FILTER (WHERE ${windowExpr(period, 'c.clicked_at')})::int AS cur,
+                 COUNT(c.id) FILTER (WHERE ${windowExpr(period.previous, 'c.clicked_at')})::int AS prev
+          FROM links l LEFT JOIN human_clicks c ON c.slug = l.slug
+          GROUP BY l.platform
+        `),
+      },
+      {
+        what: 'sessions',
+        href: '/dashboard/funnel',
+        rows: await sql(`
+          SELECT l.platform,
+                 COALESCE(SUM(s.sessions) FILTER (WHERE ${windowDateExpr(period, 's.session_date')}), 0)::int AS cur,
+                 COALESCE(SUM(s.sessions) FILTER (WHERE ${windowDateExpr(period.previous, 's.session_date')}), 0)::int AS prev
+          FROM site_sessions s JOIN links l ON l.slug = s.content
+          GROUP BY l.platform
+        `),
+      },
+      {
+        what: 'new followers',
+        href: '/dashboard/audience',
+        rows: await sql(`
+          SELECT platform,
+                 COALESCE(SUM(new_followers) FILTER (WHERE ${windowDateExpr(period, 'recorded_on')}), 0)::int AS cur,
+                 COALESCE(SUM(new_followers) FILTER (WHERE ${windowDateExpr(period.previous, 'recorded_on')}), 0)::int AS prev
+          FROM audience_snapshots WHERE new_followers IS NOT NULL
+          GROUP BY platform
+        `),
+      },
+    ];
+
+    for (const t of trends) {
+      for (const row of t.rows) {
+        const status = trendStatus(row.cur as number, row.prev as number, t.what, period.compareLabel);
+        if (status && status.level !== 'good') {
+          items.push({
+            level: status.level,
+            title: `${platformLabel(row.platform as string)} ${t.what} are down`,
+            detail: `${status.reason}, ${period.label.toLowerCase()}`,
+            href: t.href,
+            action: 'Compare what was posted in the two windows. A quieter posting week explains most drops',
+          });
+        }
+      }
+    }
+  }
 
   // Funnel: arrival rate per platform.
   const funnel = await sql(`

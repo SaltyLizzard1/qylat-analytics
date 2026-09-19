@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { PERIOD_CHOICES, MAX_CUSTOM_DAYS, dayLabel, type Period } from '@/lib/period';
+import { PERIOD_CHOICES, applyPeriod, type Period, type PeriodKind } from '@/lib/period';
 import { C, RADIUS } from '@/lib/theme';
 
 /**
@@ -11,27 +11,41 @@ import { C, RADIUS } from '@/lib/theme';
  * Writing to the query string rather than to local state is what makes a view
  * reproducible and shareable, and it is what lets every page read one period
  * instead of each keeping its own.
+ *
+ * Three ways to pick a window: rolling presets, calendar months, and a custom
+ * date range. All three resolve in lib/period.ts, so this component only
+ * writes parameters and never does date arithmetic of its own.
  */
 export function PeriodPicker({ period }: { period: Period }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const [customOpen, setCustomOpen] = useState(period.custom);
-  const [customValue, setCustomValue] = useState(String(period.days));
+  const [from, setFrom] = useState(period.startDate);
+  const [to, setTo] = useState(period.endDate);
 
-  function go(days: number, compare = period.compare) {
+  function push(next: Partial<Pick<Period, 'kind' | 'days' | 'compare' | 'startDate' | 'endDate'>>) {
     const q = new URLSearchParams(params.toString());
-    q.set('period', String(days));
-    if (compare === 'previous') q.delete('compare');
-    else q.set('compare', compare);
+    applyPeriod(q, {
+      kind: period.kind,
+      days: period.days,
+      compare: period.compare,
+      startDate: period.startDate,
+      endDate: period.endDate,
+      ...next,
+    });
     router.push(`${pathname}?${q.toString()}`);
   }
 
   function applyCustom() {
-    const n = Math.min(Math.max(Math.floor(Number(customValue) || 0), 1), MAX_CUSTOM_DAYS);
-    setCustomValue(String(n));
-    go(n);
+    if (!from || !to) return;
+    push({ kind: 'custom', startDate: from, endDate: to });
   }
+
+  const calendar: { kind: PeriodKind; label: string }[] = [
+    { kind: 'this-month', label: 'This month' },
+    { kind: 'last-month', label: 'Last month' },
+  ];
 
   return (
     <div
@@ -43,70 +57,42 @@ export function PeriodPicker({ period }: { period: Period }) {
       </span>
 
       <div className="flex flex-wrap gap-1">
-        {PERIOD_CHOICES.map((d) => {
-          const active = !period.custom && period.days === d;
-          return (
-            <button
-              key={d}
-              type="button"
-              onClick={() => {
-                setCustomOpen(false);
-                go(d);
-              }}
-              className="text-xs px-2.5 py-1"
-              style={{
-                borderRadius: RADIUS.sm,
-                border: `1px solid ${active ? C.text : C.border}`,
-                background: active ? C.text : C.card,
-                color: active ? C.page : C.muted,
-                fontWeight: active ? 600 : 400,
-              }}
-            >
-              {d === 1 ? '24h' : `${d}d`}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => setCustomOpen((v) => !v)}
-          className="text-xs px-2.5 py-1"
-          style={{
-            borderRadius: RADIUS.sm,
-            border: `1px solid ${period.custom ? C.text : C.border}`,
-            background: period.custom ? C.text : C.card,
-            color: period.custom ? C.page : C.muted,
-            fontWeight: period.custom ? 600 : 400,
-          }}
-        >
+        {PERIOD_CHOICES.map((d) => (
+          <Chip
+            key={d}
+            active={period.kind === 'rolling' && period.days === d}
+            onClick={() => {
+              setCustomOpen(false);
+              push({ kind: 'rolling', days: d });
+            }}
+          >
+            {d === 1 ? '24h' : `${d}d`}
+          </Chip>
+        ))}
+        {calendar.map((c) => (
+          <Chip
+            key={c.kind}
+            active={period.kind === c.kind}
+            onClick={() => {
+              setCustomOpen(false);
+              push({ kind: c.kind });
+            }}
+          >
+            {c.label}
+          </Chip>
+        ))}
+        <Chip active={period.custom} onClick={() => setCustomOpen((v) => !v)}>
           Custom
-        </button>
+        </Chip>
       </div>
 
       {customOpen && (
-        <span className="flex items-center gap-1.5">
-          <input
-            type="number"
-            min={1}
-            max={MAX_CUSTOM_DAYS}
-            value={customValue}
-            onChange={(e) => setCustomValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') applyCustom();
-            }}
-            aria-label="Custom period in days"
-            style={{
-              width: '4.2rem',
-              background: C.card,
-              border: `1px solid ${C.border}`,
-              borderRadius: RADIUS.sm,
-              color: C.text,
-              fontSize: '0.78rem',
-              padding: '0.2rem 0.45rem',
-            }}
-          />
+        <span className="flex flex-wrap items-center gap-1.5">
+          <DateInput value={from} onChange={setFrom} label="From" />
           <span className="text-xs" style={{ color: C.muted }}>
-            days
+            to
           </span>
+          <DateInput value={to} onChange={setTo} label="To" />
           <button
             type="button"
             onClick={applyCustom}
@@ -120,18 +106,73 @@ export function PeriodPicker({ period }: { period: Period }) {
 
       {/* The window is never implicit. */}
       <span className="text-xs" style={{ color: C.muted }}>
-        {dayLabel(period.days)}
+        {period.label}
         {period.compare === 'previous' ? ` against ${period.compareLabel}` : ', no comparison'}
       </span>
 
       <button
         type="button"
-        onClick={() => go(period.days, period.compare === 'previous' ? 'none' : 'previous')}
+        onClick={() => push({ compare: period.compare === 'previous' ? 'none' : 'previous' })}
         className="text-xs px-2 py-1 ml-auto"
         style={{ border: `1px solid ${C.border}`, borderRadius: RADIUS.sm, color: C.muted, background: C.card }}
       >
         {period.compare === 'previous' ? 'Hide comparison' : 'Show comparison'}
       </button>
     </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs px-2.5 py-1"
+      style={{
+        borderRadius: RADIUS.sm,
+        border: `1px solid ${active ? C.text : C.border}`,
+        background: active ? C.text : C.card,
+        color: active ? C.page : C.muted,
+        fontWeight: active ? 600 : 400,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Native date input. No library: the browser's own picker is enough and weighs nothing. */
+function DateInput({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+}) {
+  return (
+    <input
+      type="date"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label={label}
+      style={{
+        background: C.card,
+        border: `1px solid ${C.border}`,
+        borderRadius: RADIUS.sm,
+        color: C.text,
+        fontSize: '0.78rem',
+        padding: '0.2rem 0.45rem',
+      }}
+    />
   );
 }

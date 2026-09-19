@@ -28,8 +28,8 @@ export default async function AudiencePage({
   const period = parsePeriod(await searchParams);
   const [latest, igHistory, igGains, signal] = await Promise.all([
     getLatestAudience(),
-    getAudienceHistory('instagram', period.days),
-    getWeeklyFollowerGains('instagram', period.days),
+    getAudienceHistory('instagram', period),
+    getWeeklyFollowerGains('instagram', period),
     getFollowerSignalStrength(),
   ]);
 

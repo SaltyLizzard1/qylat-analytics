@@ -35,8 +35,8 @@ export default async function LeaderboardPage({
 }) {
   const period = parsePeriod(await searchParams);
   const [rows, medians] = await Promise.all([
-    getLeaderboard(30, period.days),
-    getPlatformMedians(period.days),
+    getLeaderboard(30, period),
+    getPlatformMedians(period),
   ]);
 
   const topViews = Math.max(...rows.map((r) => (r.views as number) ?? 0), 1);

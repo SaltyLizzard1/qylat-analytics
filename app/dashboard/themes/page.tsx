@@ -19,9 +19,9 @@ export default async function ThemesPage({
 }) {
   const period = parsePeriod(await searchParams);
   const [rows, untagged, mix] = await Promise.all([
-    getThemePerformance(period.days),
+    getThemePerformance(period),
     getUntaggedPostCount(),
-    getPillarMix(period.days),
+    getPillarMix(period),
   ]);
 
   const clickBars: BarDatum[] = rows

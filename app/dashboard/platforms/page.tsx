@@ -16,9 +16,9 @@ export default async function PlatformsPage({
 }) {
   const period = parsePeriod(await searchParams);
   const [platforms, clicks, splits] = await Promise.all([
-    getPlatformComparison(period.days),
-    getClicksByPlatform(period.days),
-    getSplits(period.days),
+    getPlatformComparison(period),
+    getClicksByPlatform(period),
+    getSplits(period),
   ]);
 
   const viewSlices: Slice[] = splits.byPlatform.map((r) => ({

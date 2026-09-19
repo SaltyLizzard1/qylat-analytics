@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db';
+import { windowExpr, type Period } from '@/lib/period';
 
 /**
  * Age-normalised post performance.
@@ -96,14 +97,14 @@ function statsFrom(row: Record<string, unknown> | undefined): CohortStats {
  */
 export async function getAgeNormalisedComparison(opts: {
   ageHours: number;
-  currentDays: number;
-  previousDays?: number;
+  /** Current and previous windows, from lib/period.ts. */
+  period: Period;
   platform?: string;
   format?: string;
 }): Promise<CohortComparison> {
   const age = Number(opts.ageHours);
-  const cur = Number(opts.currentDays);
-  const prev = Number(opts.previousDays ?? opts.currentDays);
+  const inCurrent = windowExpr(opts.period, 'published_at');
+  const inPrevious = windowExpr(opts.period.previous, 'published_at');
 
   /*
    * Bound parameters, not string splicing. An earlier version escaped quotes
@@ -129,9 +130,8 @@ export async function getAgeNormalisedComparison(opts: {
     tagged AS (
       SELECT *,
         CASE
-          WHEN published_at >= NOW() - INTERVAL '${cur} days' THEN 'current'
-          WHEN published_at >= NOW() - INTERVAL '${cur + prev} days'
-           AND published_at <  NOW() - INTERVAL '${cur} days' THEN 'previous'
+          WHEN ${inCurrent} THEN 'current'
+          WHEN ${inPrevious} THEN 'previous'
           ELSE NULL
         END AS cohort
       FROM at_age
@@ -156,9 +156,8 @@ export async function getAgeNormalisedComparison(opts: {
   // claim from a cohort of 2.
   const missing = await sql(`
     SELECT
-      COUNT(*) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${cur} days')::int AS cur_total,
-      COUNT(*) FILTER (WHERE p.published_at >= NOW() - INTERVAL '${cur + prev} days'
-                         AND p.published_at <  NOW() - INTERVAL '${cur} days')::int AS prev_total
+      COUNT(*) FILTER (WHERE ${windowExpr(opts.period, 'p.published_at')})::int AS cur_total,
+      COUNT(*) FILTER (WHERE ${windowExpr(opts.period.previous, 'p.published_at')})::int AS prev_total
     FROM content_posts p
     WHERE p.published_at IS NOT NULL
       ${whereP}

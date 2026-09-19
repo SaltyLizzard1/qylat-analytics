@@ -1,4 +1,5 @@
 import { severityGood, severityBad } from '@/lib/severity';
+import { pctChange } from '@/lib/status';
 import { C } from '@/lib/theme';
 
 /**
@@ -11,6 +12,9 @@ import { C } from '@/lib/theme';
  *
  * The arrow is a second, non-colour encoding of direction, so the change is
  * readable in greyscale and to anyone who cannot separate red from green.
+ *
+ * The arithmetic is pctChange in lib/status.ts, shared with trendStatus, so
+ * the badge on a tile and the arrow under it can never disagree.
  */
 export function Delta({
   current,
@@ -23,9 +27,11 @@ export function Delta({
   invert?: boolean;
   suffix?: string;
 }) {
+  const change = pctChange(current, previous);
+
   // No prior period to compare against. Saying "+100%" from a base of zero is
   // meaningless, and "infinite growth" is worse.
-  if (previous === 0) {
+  if (change === null) {
     return (
       <span className="text-xs whitespace-nowrap" style={{ color: C.muted }}>
         {current > 0 ? 'no prior period to compare' : 'no data yet'}
@@ -33,7 +39,6 @@ export function Delta({
     );
   }
 
-  const change = (current - previous) / previous;
   const flat = Math.abs(change) < 0.005;
   const good = invert ? change < 0 : change > 0;
   const colour = flat ? C.muted : good ? severityGood.color : severityBad.color;

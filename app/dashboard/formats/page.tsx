@@ -16,8 +16,8 @@ export default async function FormatsPage({
 }) {
   const period = parsePeriod(await searchParams);
   const [rows, splits] = await Promise.all([
-    getFormatComparison(period.days),
-    getSplits(period.days),
+    getFormatComparison(period),
+    getSplits(period),
   ]);
 
   const formatSlices: Slice[] = splits.byFormat.map((r) => ({

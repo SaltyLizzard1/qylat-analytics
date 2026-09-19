@@ -25,7 +25,7 @@ export default async function CtasPage({
   searchParams: Promise<{ period?: string; compare?: string }>;
 }) {
   const period = parsePeriod(await searchParams);
-  const rows = await getCtaPerformance(period.days);
+  const rows = await getCtaPerformance(period);
 
   const bars: BarDatum[] = rows.map((r) => ({
     key: r.cta_type as string,

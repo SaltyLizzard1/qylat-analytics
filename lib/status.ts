@@ -105,6 +105,15 @@ export const THRESHOLDS = {
   followerGrowth: { good: 30, warning: 10 },
 
   /**
+   * Period over period fall in clicks, sessions or followers. A 20% fall is
+   * worth a look, a 40% fall is worth acting on. A rise never alerts.
+   */
+  trendDrop: { warning: 0.2, bad: 0.4 },
+
+  /** Minimum count in the previous window before a movement is called a trend. */
+  minSampleTrend: 5,
+
+  /**
    * A platform median below this is treated as no baseline at all. Facebook's
    * median engagement rate is 0.0%, and judging posts against nothing made
    * 0.5% read as High.
@@ -263,6 +272,42 @@ export function taggingStatus(untagged: number, total: number): Status | null {
     label: LEVEL_LABEL[l],
     shortLabel: LEVEL_SHORT[l],
     reason: `${untagged} of ${total} posts have no theme, so theme views stay empty`,
+  };
+}
+
+/** Change from previous to current as a fraction, or null when there is no base to measure from. */
+export function pctChange(current: number, previous: number): number | null {
+  if (!previous) return null;
+  return (current - previous) / previous;
+}
+
+/**
+ * Period over period movement of an event count: clicks, sessions, followers.
+ *
+ * Only a fall alerts, and only against a previous window large enough that a
+ * swing of one or two events is not a trend. ACTION wording, because a drop
+ * this period is still something to act on. `against` names the previous
+ * window, since "down 30%" means nothing without saying against what.
+ */
+export function trendStatus(
+  current: number,
+  previous: number,
+  what: string,
+  against: string
+): Status | null {
+  if (previous < THRESHOLDS.minSampleTrend) return null;
+  const change = pctChange(current, previous);
+  if (change === null) return null;
+  const drop = -change;
+  const l: Level =
+    drop >= THRESHOLDS.trendDrop.bad ? 'bad' : drop >= THRESHOLDS.trendDrop.warning ? 'warning' : 'good';
+  const movement =
+    Math.abs(change) < 0.005 ? 'level' : `${change < 0 ? 'down' : 'up'} ${fmtPct(Math.abs(change))}`;
+  return {
+    level: l,
+    label: LEVEL_LABEL[l],
+    shortLabel: LEVEL_SHORT[l],
+    reason: `${what} ${movement}: ${current.toLocaleString()} against ${previous.toLocaleString()} in ${against}`,
   };
 }
 

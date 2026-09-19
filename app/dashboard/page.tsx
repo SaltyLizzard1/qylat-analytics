@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { getOverview, getWeeklyViews, getWeeklyClicks, getPeriodDeltas } from '@/lib/queries';
-import { parsePeriod, withPeriod } from '@/lib/period';
+import { parsePeriod, withPeriod, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { getAttentionItems } from '@/lib/attention';
 import { StatTile, TrendChart, Panel, PageHeader, Note, SectionHeading } from '@/components/charts';
 import { Delta } from '@/components/Delta';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
-import type { Level } from '@/lib/status';
+import { trendStatus, type Level, type Status } from '@/lib/status';
 import { C, CARD, RADIUS, compact, shortDate } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -21,15 +21,15 @@ const LEVEL_STYLE: Record<Level, { color: string; background: string; border: st
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string; compare?: string }>;
+  searchParams: Promise<PeriodParams>;
 }) {
   const period = parsePeriod(await searchParams);
   const [overview, weeklyViews, weeklyClicks, attention, d] = await Promise.all([
     getOverview(),
-    getWeeklyViews(period.days),
-    getWeeklyClicks(period.days),
-    getAttentionItems(),
-    getPeriodDeltas(period.days),
+    getWeeklyViews(period),
+    getWeeklyClicks(period),
+    getAttentionItems(period),
+    getPeriodDeltas(period),
   ]);
 
   const viewPoints = weeklyViews.map((r) => ({
@@ -43,6 +43,23 @@ export default async function DashboardPage({
 
   const urgent = attention.filter((a) => a.level === 'bad').length;
   const watch = attention.filter((a) => a.level === 'warning').length;
+
+  const comparing = period.compare === 'previous';
+
+  /**
+   * A tile carries a status badge only when the movement crosses a threshold
+   * in lib/status.ts. A "Good" badge on every tile would be noise, and the
+   * Delta arrow already says which way it went. Posts published gets no
+   * badge: posting less is a choice, not a fault.
+   */
+  const trend = (current: number, previous: number, what: string): Status | undefined => {
+    if (!comparing) return undefined;
+    const st = trendStatus(current, previous, what, period.compareLabel);
+    return st && st.level !== 'good' ? st : undefined;
+  };
+
+  const delta = (current: number, previous: number) =>
+    comparing ? <Delta current={current} previous={previous} suffix={`vs ${period.compareLabel}`} /> : undefined;
 
   return (
     <div className="space-y-5">
@@ -145,41 +162,28 @@ export default async function DashboardPage({
         <StatTile
           label="Posts published"
           value={compact(d.publishedPosts.current)}
-          delta={
-            period.compare === 'previous' ? (
-              <Delta current={d.publishedPosts.current} previous={d.publishedPosts.previous} suffix={`vs ${period.compareLabel}`} />
-            ) : undefined
-          }
+          delta={delta(d.publishedPosts.current, d.publishedPosts.previous)}
           sub="published in the window"
         />
         <StatTile
           label="Link clicks"
           value={compact(d.clicks.current)}
-          delta={
-            period.compare === 'previous' ? (
-              <Delta current={d.clicks.current} previous={d.clicks.previous} suffix={`vs ${period.compareLabel}`} />
-            ) : undefined
-          }
+          status={trend(d.clicks.current, d.clicks.previous, 'clicks')}
+          delta={delta(d.clicks.current, d.clicks.previous)}
           sub="clicks that happened in the window"
         />
         <StatTile
           label="New followers"
           value={compact(d.followers.current)}
-          delta={
-            period.compare === 'previous' ? (
-              <Delta current={d.followers.current} previous={d.followers.previous} suffix={`vs ${period.compareLabel}`} />
-            ) : undefined
-          }
+          status={trend(d.followers.current, d.followers.previous, 'new followers')}
+          delta={delta(d.followers.current, d.followers.previous)}
           sub="Instagram, gained in the window"
         />
         <StatTile
           label="Sessions"
           value={compact(d.sessions.current)}
-          delta={
-            period.compare === 'previous' ? (
-              <Delta current={d.sessions.current} previous={d.sessions.previous} suffix={`vs ${period.compareLabel}`} />
-            ) : undefined
-          }
+          status={trend(d.sessions.current, d.sessions.previous, 'sessions')}
+          delta={delta(d.sessions.current, d.sessions.previous)}
           sub="site visits in the window"
         />
       </div>
@@ -192,7 +196,7 @@ export default async function DashboardPage({
         <StatTile
           label="Posts published"
           value={compact(d.publishedPosts.current)}
-          sub={`in the ${period.label.toLowerCase()}`}
+          sub={`in ${period.label.toLowerCase()}`}
         />
         <StatTile
           label="Current lifetime views of those posts"
@@ -238,14 +242,14 @@ export default async function DashboardPage({
 
       <Panel
         title="Lifetime views by publish week"
-        description={`Posts published in the ${period.label.toLowerCase()}, grouped by the week they went out, lifetime views as of today. Older weeks have had longer to accumulate, so this is not views that happened each week.`}
+        description={`Posts published in ${period.label.toLowerCase()}, grouped by the week they went out, lifetime views as of today. Older weeks have had longer to accumulate, so this is not views that happened each week.`}
       >
         <TrendChart points={viewPoints} valueLabel="Views" />
       </Panel>
 
       <Panel
         title="Link clicks per week"
-        description={`First party clicks on your /go/ links that happened in the ${period.label.toLowerCase()}. A real period figure, unlike the chart above.`}
+        description={`First party clicks on your /go/ links that happened in ${period.label.toLowerCase()}. A real period figure, unlike the chart above.`}
       >
         <TrendChart
           points={clickPoints}

@@ -24,7 +24,7 @@ export default async function GrowthPage({
   const period = parsePeriod(await searchParams);
   const [themes, weekly, untagged, signal] = await Promise.all([
     getThemeFollowerAttribution(LOOKAHEAD_DAYS),
-    getWeeklyGrowthOverlap(period.days),
+    getWeeklyGrowthOverlap(period),
     getUntaggedPostCount(),
     getFollowerSignalStrength(),
   ]);

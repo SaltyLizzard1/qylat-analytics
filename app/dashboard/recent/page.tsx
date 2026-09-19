@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getAgeNormalisedComparison, getRecentPosts, getAgeCoverage } from '@/lib/cohort';
-import { parsePeriod, parseAge, AGE_CHOICES, withPeriod } from '@/lib/period';
+import { parsePeriod, parseAge, applyPeriod, AGE_CHOICES, withPeriod } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { PageHeader, Panel, Empty, Note, StatTile } from '@/components/charts';
 import { StatusBadge } from '@/components/status';
@@ -49,7 +49,7 @@ export default async function RecentPage({
   const age = parseAge(sp.age);
 
   const [cmp, posts, coverage] = await Promise.all([
-    getAgeNormalisedComparison({ ageHours: age.hours, currentDays: period.days }),
+    getAgeNormalisedComparison({ ageHours: age.hours, period }),
     getRecentPosts(Math.max(period.days, 14)),
     getAgeCoverage(),
   ]);
@@ -77,8 +77,8 @@ export default async function RecentPage({
         <div className="flex gap-1">
           {AGE_CHOICES.map((a) => {
             const active = a.hours === age.hours;
-            const q = new URLSearchParams({ period: String(period.days), age: String(a.hours) });
-            if (period.compare !== 'previous') q.set('compare', period.compare);
+            const q = new URLSearchParams({ age: String(a.hours) });
+            applyPeriod(q, period);
             return (
               <Link
                 key={a.hours}

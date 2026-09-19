@@ -22,9 +22,9 @@ export default async function FunnelPage({
 }) {
   const period = parsePeriod(await searchParams);
   const [links, platforms, unmatched, status] = await Promise.all([
-    getLinkFunnel(period.days),
-    getPlatformFunnel(period.days),
-    getUnmatchedTraffic(period.days),
+    getLinkFunnel(period),
+    getPlatformFunnel(period),
+    getUnmatchedTraffic(period),
     getGaStatus(),
   ]);
 
