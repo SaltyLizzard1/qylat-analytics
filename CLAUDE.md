@@ -168,6 +168,17 @@ These are not derivable from the code and have each caused a real failure.
   and the admin posts screen shows them under Page updates. Nothing is
   deleted. The Page stories edge returned nothing while no Page Story
   existed; it is untested against a live one.
+- **`page_follows` is a running total, not a daily gain.** The Page follower
+  history once read it and stored 14, 14, 14 as three days of new followers, so
+  a Page with 14 followers showed 90 new followers in a week and the
+  overview's new follower tile read 108 when Instagram had gained about 10.
+  Daily gains come from `page_daily_follows_unique`. Any figure that sums
+  `audience_snapshots.new_followers` must name its platform in the query, not
+  only in the label.
+- **The server renders in UTC, the reader is in Chiang Mai.** Format every
+  date and time through `shortDate` or `shortDateTime` in `lib/theme.ts`, which
+  name `DASHBOARD_TZ`. A bare `toLocaleString` showed an 18:41 sync as 11:41 and
+  dated a Reel published at 05:30 on the 15th as the 14th.
 - **Instagram `views` under-counts images and carousels against the app.**
   Checked side by side on 2026-09-19: reels matched (391 in the app, 391 from
   the API), but a 17 Sept image showed 430 in the app against 105 from the

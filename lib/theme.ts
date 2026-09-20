@@ -1,3 +1,5 @@
+import { DASHBOARD_TZ } from '@/lib/period';
+
 /**
  * The only colors allowed in this project. Plain black and white.
  * No cream, gold, tan or any warm tint. Severity states come from lib/severity.ts.
@@ -73,10 +75,31 @@ export function pct(numerator: number | null | undefined, denominator: number | 
   return `${((numerator / denominator) * 100).toFixed(1)}%`;
 }
 
+/**
+ * Dates and times are shown in the dashboard's own zone, never the server's.
+ *
+ * Vercel renders in UTC, so without a zone a Reel published at 05:30 on the
+ * 15th in Chiang Mai read "14 Sept", and a sync at 18:41 read "11:41". A
+ * date only value is midnight UTC, which is 07:00 the same day in Bangkok, so
+ * naming the zone is safe for those too.
+ */
 export function shortDate(value: string | Date | null): string {
   if (!value) return '--';
   const d = value instanceof Date ? value : new Date(value);
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: DASHBOARD_TZ });
+}
+
+/** "19 Sept, 18:41" in the dashboard's zone. */
+export function shortDateTime(value: string | Date | null | undefined): string {
+  if (!value) return '--';
+  const d = value instanceof Date ? value : new Date(value);
+  return d.toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: DASHBOARD_TZ,
+  });
 }
 
 export const PLATFORM_LABEL: Record<string, string> = {

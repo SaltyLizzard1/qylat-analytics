@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { parsePeriod } from '@/lib/period';
+import { parsePeriod, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import {
   getLatestAudience,
@@ -7,7 +7,7 @@ import {
   getWeeklyFollowerGains,
   getFollowerSignalStrength,
 } from '@/lib/queries';
-import { StatTile, TrendChart, Panel, Empty, Note } from '@/components/charts';
+import { StatTile, TrendChart, Panel, Empty, Note, SectionHeading } from '@/components/charts';
 import { C, compact, shortDate } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -20,28 +20,30 @@ const LABEL: Record<string, string> = {
   youtube: 'YouTube',
 };
 
+/**
+ * The accounts an API can read. Each gets the same pair of charts, so the
+ * Facebook Page is inspected the same way Instagram is rather than showing a
+ * single current number with no history behind it.
+ */
+const TRACKED = [
+  { platform: 'instagram', name: 'Instagram', gainsNote: 'Daily gains reported by Instagram, grouped by week. Backfilled 30 days on first sync, which is as far back as the API goes.' },
+  { platform: 'facebook', name: 'Facebook Page', gainsNote: 'Daily follows reported by the Page, grouped by week. Backfilled 30 days on first sync.' },
+] as const;
+
 export default async function AudiencePage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string; compare?: string }>;
+  searchParams: Promise<PeriodParams>;
 }) {
   const period = parsePeriod(await searchParams);
-  const [latest, igHistory, igGains, signal] = await Promise.all([
+  const [latest, signal, ...series] = await Promise.all([
     getLatestAudience(),
-    getAudienceHistory('instagram', period),
-    getWeeklyFollowerGains('instagram', period),
     getFollowerSignalStrength(),
+    ...TRACKED.flatMap((t) => [
+      getAudienceHistory(t.platform, period),
+      getWeeklyFollowerGains(t.platform, period),
+    ]),
   ]);
-
-  const totalPoints = igHistory.map((r) => ({
-    label: shortDate(r.recorded_on as string),
-    value: (r.followers as number) ?? 0,
-  }));
-
-  const gainPoints = igGains.map((r) => ({
-    label: shortDate(r.week as string),
-    value: (r.gained as number) ?? 0,
-  }));
 
   return (
     <div className="space-y-5">
@@ -74,27 +76,43 @@ export default async function AudiencePage({
         </div>
       )}
 
-      <Panel
-        title="Instagram followers over time"
-        description="Total followers at each daily snapshot."
-      >
-        <TrendChart
-          points={totalPoints}
-          valueLabel="Followers"
-          emptyMessage="Needs at least two daily snapshots. This chart fills in as the sync runs."
-        />
-      </Panel>
+      {TRACKED.map((t, i) => {
+        const history = series[i * 2] as Record<string, unknown>[];
+        const gains = series[i * 2 + 1] as Record<string, unknown>[];
+        const totalPoints = history.map((r) => ({
+          label: shortDate(r.recorded_on as string),
+          value: (r.followers as number) ?? 0,
+        }));
+        const gainPoints = gains.map((r) => ({
+          label: shortDate(r.week as string),
+          value: (r.gained as number) ?? 0,
+        }));
 
-      <Panel
-        title="New Instagram followers per week"
-        description="Daily gains reported by Instagram, grouped by week. Backfilled 30 days on first sync, which is as far back as the API goes."
-      >
-        <TrendChart
-          points={gainPoints}
-          valueLabel="New followers"
-          emptyMessage="No follower gain history available yet."
-        />
-      </Panel>
+        return (
+          <div key={t.platform} id={t.platform} className="space-y-5">
+            <SectionHeading note={period.label.toLowerCase()}>{t.name}</SectionHeading>
+
+            <Panel
+              title={`${t.name} followers over time`}
+              description="Total followers at each daily snapshot."
+            >
+              <TrendChart
+                points={totalPoints}
+                valueLabel="Followers"
+                emptyMessage="Needs at least two daily snapshots in this window. This chart fills in as the sync runs."
+              />
+            </Panel>
+
+            <Panel title={`New ${t.name} followers per week`} description={t.gainsNote}>
+              <TrendChart
+                points={gainPoints}
+                valueLabel="New followers"
+                emptyMessage="No follower gain history in this window yet."
+              />
+            </Panel>
+          </div>
+        );
+      })}
 
       <Panel title="Why there is no theme correlation here">
         <p className="text-sm leading-relaxed" style={{ color: C.muted }}>

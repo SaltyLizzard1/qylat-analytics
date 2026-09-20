@@ -451,6 +451,14 @@ export async function fetchPageAudience(cfg: MetaConfig): Promise<AudienceReadin
  * Instagram had this from the start and the Page did not, so Page growth was
  * only ever a running total with no history. Best effort: a missing history
  * must never fail the sync.
+ *
+ * The metric is page_daily_follows_unique, the follows that happened on the
+ * day. An earlier version read page_follows, which is the running TOTAL, and
+ * stored it as a daily gain: a Page with 14 followers showed 90 new followers
+ * in a week, and the overview's new follower tile summed it in. Verified on
+ * 2026-09-19, when page_follows returned 14, 14, 14 on consecutive days and
+ * page_daily_follows_unique returned 1, 0, 0. The upsert re-reads 30 days, so
+ * the first run after this change overwrites the bad rows.
  */
 export async function fetchPageFollowerHistory(
   cfg: MetaConfig,
@@ -463,7 +471,7 @@ export async function fetchPageFollowerHistory(
     const body = await graphGet<{
       data?: { values?: { value?: number; end_time?: string }[] }[];
     }>(cfg, `${cfg.pageId}/insights`, {
-      metric: 'page_follows',
+      metric: 'page_daily_follows_unique',
       period: 'day',
       since: String(since),
       until: String(until),

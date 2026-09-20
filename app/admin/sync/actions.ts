@@ -6,7 +6,15 @@ import { revalidatePath } from 'next/cache';
 export type SyncState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
-  | { status: 'done'; which: string; summary: string; warnings: string[] };
+  | {
+      status: 'done';
+      which: string;
+      summary: string;
+      warnings: string[];
+      /** Where the data this run wrote can be inspected. The result box links there. */
+      href: string;
+      linkText: string;
+    };
 
 /**
  * Runs a sync on demand from the admin screen.
@@ -120,5 +128,21 @@ export async function runSync(_prev: SyncState, formData: FormData): Promise<Syn
     revalidatePath(p);
   }
 
-  return { status: 'done', which: which === 'ga' ? 'Google Analytics' : 'Meta', summary, warnings };
+  return which === 'ga'
+    ? {
+        status: 'done',
+        which: 'Google Analytics',
+        summary,
+        warnings,
+        href: '/dashboard/funnel?period=14',
+        linkText: 'View traffic',
+      }
+    : {
+        status: 'done',
+        which: 'Meta',
+        summary,
+        warnings,
+        href: '/admin/posts?filter=all',
+        linkText: 'View posts',
+      };
 }

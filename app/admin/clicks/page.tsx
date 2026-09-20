@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db';
+import { shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,12 +127,7 @@ function ClickRow({ click }: { click: Record<string, unknown> }) {
       )}
 
       <span className="flex-shrink-0 text-xs tabular-nums" style={{ color: '#555555' }}>
-        {clickedAt.toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-        })}
+        {shortDateTime(clickedAt)}
       </span>
     </div>
   );

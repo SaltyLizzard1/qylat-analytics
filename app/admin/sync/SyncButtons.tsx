@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState } from 'react';
 import { runSync, type SyncState } from './actions';
 import { severityGood, severityBad, severityWarning } from '@/lib/severity';
@@ -54,15 +55,24 @@ export function SyncButtons() {
 
       {state.status === 'done' && (
         <div className="mt-3 flex flex-col gap-2">
-          <div
-            className="text-sm px-3 py-2"
+          {/*
+            The whole result is the link. Right after a run, the thing you want
+            is the data it just wrote, so the box that reports it opens it.
+          */}
+          <Link
+            href={state.href}
+            className="group block text-sm px-3 py-2"
             style={{
               ...(state.warnings.length ? severityWarning : severityGood),
               borderRadius: RADIUS.sm,
+              textDecoration: 'none',
             }}
           >
-            <b>{state.which} sync finished.</b> {state.summary}
-          </div>
+            <b>{state.which} sync finished.</b> {state.summary}{' '}
+            <span className="group-hover:underline" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+              {state.linkText} <span aria-hidden>→</span>
+            </span>
+          </Link>
           {state.warnings.map((w, i) => (
             <div
               key={i}

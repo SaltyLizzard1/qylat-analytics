@@ -133,11 +133,14 @@ export async function getPeriodDeltas(period: DashboardPeriod): Promise<{
     FROM site_sessions
   `);
 
+  // Instagram only, because the tile that shows this says Instagram. Summed
+  // across platforms it once took in a Facebook running total stored as a
+  // daily gain, and read 108 when the real figure was closer to 10.
   const followers = await sql(`
     SELECT
       COALESCE(SUM(new_followers) FILTER (WHERE ${windowDateExpr(period, 'recorded_on')}), 0)::int AS cur,
       COALESCE(SUM(new_followers) FILTER (WHERE ${windowDateExpr(period.previous, 'recorded_on')}), 0)::int AS prev
-    FROM audience_snapshots WHERE new_followers IS NOT NULL
+    FROM audience_snapshots WHERE new_followers IS NOT NULL AND platform = 'instagram'
   `);
 
   const p = published[0] ?? {};
@@ -748,12 +751,16 @@ export async function getManualAudienceEntries(): Promise<Row[]> {
   `;
 }
 
-/** How many distinct days carry a follower gain, to gate the theme view. */
+/**
+ * How many distinct days carry an Instagram follower gain, to gate the theme
+ * view. Instagram only: the sentence this feeds says "Instagram reported",
+ * and theme attribution reads Instagram alone.
+ */
 export async function getFollowerSignalStrength(): Promise<{ days: number; total: number }> {
   const rows = await sql`
     SELECT COUNT(*) FILTER (WHERE new_followers > 0)::int AS days,
            COALESCE(SUM(new_followers), 0)::int AS total
-    FROM audience_snapshots WHERE new_followers IS NOT NULL
+    FROM audience_snapshots WHERE new_followers IS NOT NULL AND platform = 'instagram'
   `;
   return { days: (rows[0]?.days as number) ?? 0, total: (rows[0]?.total as number) ?? 0 };
 }

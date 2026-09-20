@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/status';
 import { PostThumb } from '@/components/PostThumb';
 import { PERFORMANCE_SHORT, PERFORMANCE_LABEL, type Level } from '@/lib/status';
 import { pillarLabel } from '@/lib/pillars';
-import { C, RADIUS, compact, pct, platformLabel, formatLabel, platformColor } from '@/lib/theme';
+import { C, RADIUS, compact, pct, platformLabel, formatLabel, platformColor, shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -306,12 +306,7 @@ export default async function RecentPage({
                               {formatLabel(p.format)}
                             </span>
                             <span className="text-xs" style={{ color: C.muted }}>
-                              {new Date(p.published_at).toLocaleString('en-GB', {
-                                day: 'numeric',
-                                month: 'short',
-                                hour: 'numeric',
-                                minute: '2-digit',
-                              })}
+                              {shortDateTime(p.published_at)}
                             </span>
                           </span>
                         </span>

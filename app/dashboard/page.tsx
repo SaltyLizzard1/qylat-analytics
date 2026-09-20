@@ -8,7 +8,7 @@ import { Delta } from '@/components/Delta';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import { trendStatus, type Level, type Status } from '@/lib/status';
-import { C, CARD, RADIUS, compact, shortDate } from '@/lib/theme';
+import { C, CARD, RADIUS, compact, shortDate, shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,14 +70,7 @@ export default async function DashboardPage({
             ? `${overview.posts} posts from ${shortDate(overview.earliest)} to ${shortDate(
                 overview.latestPost
               )}.${
-                overview.lastSyncedAt
-                  ? ` Last synced ${new Date(overview.lastSyncedAt).toLocaleString('en-GB', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}.`
-                  : ''
+                overview.lastSyncedAt ? ` Last synced ${shortDateTime(overview.lastSyncedAt)}.` : ''
               }`
             : 'No posts synced yet.'
         }
@@ -124,8 +117,9 @@ export default async function DashboardPage({
                 }}
               >
                 <div className="flex items-start justify-between gap-3 mb-1">
+                  {/* A dashboard link keeps the selected window, custom ranges included. */}
                   <Link
-                    href={item.href}
+                    href={item.href.startsWith('/dashboard') ? withPeriod(item.href, period) : item.href}
                     className="text-sm"
                     style={{ fontWeight: 600, color: C.text, textDecoration: 'none' }}
                   >
