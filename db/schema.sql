@@ -18,30 +18,87 @@ CREATE TABLE IF NOT EXISTS links (
 );
 
 -- Click events table
--- One row per redirect hit on a /go/ link.
+-- One row per redirect hit on a /go/ link. Rows are never deleted or edited.
+--
+-- classification, rules_version and is_bot are all DERIVED from the raw
+-- request and are set by the click_events_classify trigger below, not by the
+-- application. Storing the raw user agent and deriving the verdict is what
+-- makes a rule change apply to history instead of splitting the totals into a
+-- before and an after. is_test is the one flag a human sets, from the Click Log.
+--
+-- is_bot is a legacy column kept only so code predating migration 008 keeps
+-- working. Nothing reads it. Migration 009 drops it.
 CREATE TABLE IF NOT EXISTS click_events (
-  id          BIGSERIAL    PRIMARY KEY,
-  slug        VARCHAR(50)  NOT NULL REFERENCES links(slug),
-  clicked_at  TIMESTAMPTZ  DEFAULT NOW(),
-  referrer    TEXT,
-  user_agent  TEXT,
-  country     VARCHAR(10),
-  session_id  VARCHAR(255), -- first-party cookie value for joining to on-site behaviour
-  is_bot      BOOLEAN      NOT NULL DEFAULT FALSE  -- set at insert from lib/bots.ts
+  id             BIGSERIAL    PRIMARY KEY,
+  slug           VARCHAR(50)  NOT NULL REFERENCES links(slug),
+  clicked_at     TIMESTAMPTZ  DEFAULT NOW(),
+  referrer       TEXT,
+  user_agent     TEXT,
+  country        VARCHAR(10),
+  session_id     VARCHAR(255), -- first-party cookie value, identifies one browser over time
+  classification VARCHAR(16)  NOT NULL DEFAULT 'uncertain', -- human | uncertain | crawler
+  rules_version  INTEGER      NOT NULL DEFAULT 0,           -- which rules produced it
+  is_test        BOOLEAN      NOT NULL DEFAULT FALSE,       -- Liz's own test click
+  is_bot         BOOLEAN      NOT NULL DEFAULT FALSE        -- legacy, dropped by migration 009
 );
 
 CREATE INDEX IF NOT EXISTS click_events_slug_idx       ON click_events (slug);
 CREATE INDEX IF NOT EXISTS click_events_clicked_at_idx ON click_events (clicked_at DESC);
+CREATE INDEX IF NOT EXISTS click_events_session_idx    ON click_events (session_id);
 CREATE INDEX IF NOT EXISTS click_events_human_idx
-  ON click_events (slug, clicked_at DESC) WHERE is_bot = FALSE;
+  ON click_events (slug, clicked_at DESC) WHERE classification = 'human' AND NOT is_test;
 
--- Human clicks only. Every figure reads this rather than click_events, so
--- link preview crawlers are stored but never counted. deleteLink is the one
--- exception: the foreign key to links.slug covers crawler rows too.
+-- When the classification rules last changed. The Links page and the Click Log
+-- both show this date beside the figures, so totals can never move without a
+-- visible reason the way they did when migration 005 backfilled in place.
+CREATE TABLE IF NOT EXISTS classification_rules (
+  version    INTEGER     PRIMARY KEY,
+  changed_on DATE        NOT NULL,
+  note       TEXT        NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Hits that could not be recorded. A click that fails to insert still
+-- redirects, but it is never swallowed: it lands here and the Click Log shows
+-- it. reason is insert_failed, unknown_slug, malformed_path or lookup_failed.
+-- slug has no foreign key here on purpose, because an unknown slug is the point.
+CREATE TABLE IF NOT EXISTS click_failures (
+  id        BIGSERIAL    PRIMARY KEY,
+  failed_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  slug      VARCHAR(255),
+  path      TEXT,
+  reason    VARCHAR(40)  NOT NULL,
+  detail    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS click_failures_failed_at_idx ON click_failures (failed_at DESC);
+
+-- The classifier, and the only place a click is judged. Defined in full in
+-- db/migrations/008_click_classification.sql, which is the authoritative copy.
+-- Order is load bearing: crawler evidence before human evidence, and positive
+-- human evidence before the ambiguous referrer case.
+
+-- Counted clicks. Every figure on every page reads this rather than
+-- click_events, so there is one definition of a counted click and no two pages
+-- can disagree. deleteLink is the one exception: the foreign key to links.slug
+-- covers crawler, uncertain and test rows too.
 CREATE OR REPLACE VIEW human_clicks AS
   SELECT id, slug, clicked_at, referrer, user_agent, country, session_id
   FROM click_events
-  WHERE is_bot = FALSE;
+  WHERE classification = 'human' AND NOT is_test;
+
+-- The four states per slug. Mutually exclusive, and they sum to total, so the
+-- arithmetic on the Links page is checkable by eye.
+CREATE OR REPLACE VIEW click_counts AS
+  SELECT
+    slug,
+    COUNT(*) FILTER (WHERE NOT is_test AND classification = 'human')::int     AS human,
+    COUNT(*) FILTER (WHERE NOT is_test AND classification = 'uncertain')::int AS uncertain,
+    COUNT(*) FILTER (WHERE NOT is_test AND classification = 'crawler')::int   AS crawler,
+    COUNT(*) FILTER (WHERE is_test)::int                                      AS test,
+    COUNT(*)::int                                                             AS total
+  FROM click_events
+  GROUP BY slug;
 
 -- Posts table
 -- One row per social post. Facebook and Instagram rows are written by
@@ -75,6 +132,25 @@ CREATE OR REPLACE VIEW content_posts AS
          last_synced_at, created_at
   FROM posts
   WHERE page_update IS NULL;
+
+-- Account level insights, one row per day per metric per breakdown value.
+-- Written by /api/sync/account. `metric` is Meta's own name, so a new metric
+-- needs no schema change. `dimension` is 'total', or a breakdown value such as
+-- FOLLOWER, NON_FOLLOWER or REEL. Reach is unique accounts within the day and
+-- must never be summed across days. Views are additive.
+CREATE TABLE IF NOT EXISTS account_daily (
+  id         SERIAL       PRIMARY KEY,
+  platform   VARCHAR(50)  NOT NULL CHECK (platform IN ('instagram','facebook')),
+  day        DATE         NOT NULL,
+  metric     VARCHAR(80)  NOT NULL,
+  dimension  VARCHAR(80)  NOT NULL DEFAULT 'total',
+  value      INTEGER,
+  synced_at  TIMESTAMPTZ  DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS account_daily_key
+  ON account_daily (platform, day, metric, dimension);
+CREATE INDEX IF NOT EXISTS account_daily_day_idx ON account_daily (day DESC);
 
 -- Post metrics table
 -- One snapshot per post per calendar day, written by /api/sync/meta.

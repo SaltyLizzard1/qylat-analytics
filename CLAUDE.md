@@ -154,11 +154,43 @@ These are not derivable from the code and have each caused a real failure.
   throw. Click history outlives the link. Do not add a cascade.
 - **Count clicks from `human_clicks`, never from `click_events`.** Meta fetches
   every shared /go/ link with `facebookexternalhit` to build the preview, and
-  those hits were 30 of the first 50 rows, which turned 13 real Instagram
-  clicks into 35 and raised a false "traffic is not arriving" alert. Crawler
-  rows are stored and flagged `is_bot` at insert from `lib/bots.ts`, and the
-  view filters them. Only `deleteLink` and the raw click log read the table,
-  because the foreign key covers crawler rows too.
+  those hits were 38 of the first 58 rows, which turned 13 real Instagram
+  clicks into 35 and raised a false "traffic is not arriving" alert. Only
+  `deleteLink` and the raw click log read the table, because the foreign key
+  covers every row whatever its state.
+- **A click has three states and a test flag, and the classifier lives in the
+  database.** `classify_click(user_agent, referrer)` in migration 008 is the
+  only place a click is judged, called by a BEFORE INSERT trigger and by the
+  reclassify action. There is no copy in TypeScript. The previous design kept
+  the list in `lib/bots.ts` and a second copy inlined in migration 005, and
+  they drifted immediately. `human` needs positive evidence: an in-app browser
+  token (`FBAN`, `FBAV`, `FB_IAB`, `FBCX`, `IABMV`, `Instagram <version>`), or
+  an ordinary browser that did not arrive from a Meta domain. `crawler` is a
+  self-declared agent, a missing user agent, or the exact pinned string
+  `Chrome/74.0.3729.131`, which is Meta fetching while presenting as a browser.
+  `uncertain` is a plain browser arriving from facebook.com or instagram.com,
+  which Meta's own fetchers and a person on desktop web produce identically.
+  Never classify on timing: same-second bursts are a hint, not evidence.
+- **Classification is derived, never authoritative.** The raw `user_agent` is
+  the stored fact. `classification` and `rules_version` are recomputed from it,
+  so a rule change rejudges history instead of splitting the totals into a
+  before and an after. Migration 005 backfilled in place and silently rewrote
+  the 16 Sept totals on 19 Sept. Both the Links page and the Click Log show the
+  rules version date beside the figures so that can never happen unseen again.
+- **`is_test` rows are Liz's own clicks and are excluded from every count.**
+  Marked by browser cookie from the Click Log, not by row, because one test
+  session is several clicks over several days from the same machine. The insert
+  trigger carries the flag forward to later hits from a marked cookie. Six of
+  the 21 clicks the dashboard once called people were hers.
+- **A /go hit that misses the rewrite becomes a phantom GA4 page view.** The
+  route lives in this repo but is reached through a rewrite in qylat-next's
+  `next.config.ts`. When that rewrite does not match, the QYLAT site serves its
+  own 404, which renders the normal layout and loads GA4, so the hit shows as a
+  GA4 page view at the /go path with no click row and no error. That is what
+  /go/fb-page-quiz did on 23 Aug 2026. The rewrite is `/go/:slug*` and the
+  route is a catch-all so the two cannot disagree. Unknown slugs, malformed
+  paths and failed inserts all land in `click_failures` and show on the Click
+  Log. A failed insert never blocks the redirect and is never swallowed.
 - **Count posts from `content_posts`, never from `posts`.** The Page `/posts`
   edge returns a row for every cover photo and profile picture change: no
   caption, a permalink carrying `substory_index=`, and 0 to 9 views. They were
@@ -179,6 +211,17 @@ These are not derivable from the code and have each caused a real failure.
   date and time through `shortDate` or `shortDateTime` in `lib/theme.ts`, which
   name `DASHBOARD_TZ`. A bare `toLocaleString` showed an 18:41 sync as 11:41 and
   dated a Reel published at 05:30 on the 15th as the 14th.
+- **Instagram account insights are read one UTC day at a time.** Breakdowns
+  such as followers against non-followers exist only on `metric_type=total_value`
+  reads, which return one figure for the whole range, so a daily series is one
+  request per day with `until = since + 86400`. An inclusive pair where `until`
+  equals `since` returns an empty array, not an error, and so does the current
+  incomplete day: the sync writes nothing for such a day rather than zeros.
+  `total_interactions` by `follow_type` fails with Meta's "unknown error".
+  **Reach is unique accounts within a day and must never be summed across
+  days.** Views are additive. `page_impressions`, `page_impressions_unique`,
+  `page_fans` and the `page_posts_impressions` family are refused as invalid
+  now; the Page has no follower split at all.
 - **Instagram `views` under-counts images and carousels against the app.**
   Checked side by side on 2026-09-19: reels matched (391 in the app, 391 from
   the API), but a 17 Sept image showed 430 in the app against 105 from the

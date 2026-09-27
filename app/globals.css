@@ -1,11 +1,14 @@
 @import "tailwindcss";
 
-@theme {
-  --color-instagram: #E1306C;
-  --color-facebook: #1877F2;
-  --color-tiktok: #69C9D0;
-  --color-youtube: #FF0000;
-}
+/*
+  Platform colour is not defined here.
+  It lives in the IDENTITY palette in lib/theme.ts and is read through
+  platformColor(). This block used to declare brand hues as Tailwind theme
+  variables, three of which the palette rejects with numbers: #E1306C is 14.2
+  from status red, #FF0000 collides with status red outright, and #69C9D0 is
+  below the chroma floor and reads as grey. Nothing referenced them, and a
+  rejected hue sitting in the theme is an invitation to use it.
+*/
 
 * {
   box-sizing: border-box;

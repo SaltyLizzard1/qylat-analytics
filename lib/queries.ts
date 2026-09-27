@@ -25,8 +25,12 @@ import {
  *    populated on both platforms.
  *
  * 3. Clicks come from the human_clicks view, never from click_events. The
- *    table also holds link preview crawlers, which were 30 of the first 50
- *    rows. See lib/bots.ts.
+ *    table also holds link preview crawlers, which were 38 of the first 58
+ *    rows, hits the classifier could not decide about, and Liz's own test
+ *    clicks. The view is the single definition of a counted click, so no two
+ *    pages can disagree. The classifier lives in the database as
+ *    classify_click(); see db/migrations/008_click_classification.sql and
+ *    lib/clicks.ts.
  *
  * 4. Posts come from the content_posts view, never from posts. Facebook
  *    returns cover photo and profile picture changes through the posts edge,
