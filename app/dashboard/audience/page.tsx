@@ -7,8 +7,16 @@ import {
   getWeeklyFollowerGains,
   getFollowerSignalStrength,
 } from '@/lib/queries';
-import { StatTile, TrendChart, Panel, Empty, Note, SectionHeading } from '@/components/charts';
-import { C, compact, shortDate } from '@/lib/theme';
+import {
+  StatTile,
+  TrendChart,
+  Panel,
+  Empty,
+  SectionHeading,
+  PageHeader,
+  Disclosure,
+} from '@/components/charts';
+import { C, full, shortDate } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,17 +53,32 @@ export default async function AudiencePage({
     ]),
   ]);
 
+  /**
+   * The most recent snapshot across every account. getLatestAudience returns one
+   * row per platform and promises no particular order, so the newest date is
+   * taken rather than assumed to be first.
+   */
+  const newestSnapshot = latest
+    .map((r) => r.recorded_on as string)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl mb-1" style={{ fontWeight: 600, color: C.text }}>
-          Audience
-        </h1>
-        <p className="text-sm" style={{ color: C.muted }}>
-          Follower counts, captured daily. These numbers have no history in the platform APIs, so
-          they only exist from the day recording started.
-        </p>
-      </div>
+      <PageHeader
+        title="Audience"
+        meta={[
+          { label: 'Accounts tracked', value: String(latest.length) },
+          { label: 'Latest snapshot', value: newestSnapshot ? shortDate(newestSnapshot) : '--' },
+        ]}
+      />
+
+      <Disclosure summary="Why this history only goes back so far">
+        Follower counts have no history in the platform APIs, so they exist only from the day
+        recording started. Instagram and the Facebook Page were each backfilled 30 days on the first
+        sync, which is as far back as Meta goes. Everything after that is a daily snapshot.
+      </Disclosure>
 
       <PeriodPicker period={period} />
 
@@ -66,8 +89,9 @@ export default async function AudiencePage({
           {latest.map((r) => (
             <StatTile
               key={r.platform as string}
+              size="hero"
               label={LABEL[r.platform as string] ?? (r.platform as string)}
-              value={compact(r.followers as number)}
+              value={full(r.followers as number)}
               sub={`${r.source === 'manual' ? 'entered by hand' : 'from the API'}, ${shortDate(
                 r.recorded_on as string
               )}`}
@@ -90,7 +114,7 @@ export default async function AudiencePage({
 
         return (
           <div key={t.platform} id={t.platform} className="space-y-5">
-            <SectionHeading note={period.label.toLowerCase()}>{t.name}</SectionHeading>
+            <SectionHeading note={period.label}>{t.name}</SectionHeading>
 
             <Panel
               title={`${t.name} followers over time`}
@@ -114,25 +138,32 @@ export default async function AudiencePage({
         );
       })}
 
-      <Panel title="Why there is no theme correlation here">
-        <p className="text-sm leading-relaxed" style={{ color: C.muted }}>
-          Instagram reported{' '}
-          <span style={{ color: C.text, fontWeight: 600 }}>
-            {signal.total} new followers across {signal.days} days
-          </span>{' '}
-          in the recorded window. Splitting that across content themes would be fitting a story to a
-          handful of events, and you would make content decisions on noise. The snapshots are being
-          recorded now so the question becomes answerable later, once follower events outnumber
-          themes by enough to tell them apart.
+      <Panel
+        title="No theme correlation yet"
+        description={`Instagram reported ${signal.total} new followers across ${signal.days} days. Too few events to split across themes without inventing a pattern.`}
+        detail={{
+          summary: 'What it would take, and the account this page cannot see',
+          children: (
+            <>
+              Splitting {signal.total} follower events across content themes would be fitting a
+              story to a handful of events, and you would make content decisions on noise. The
+              snapshots are being recorded now so the question becomes answerable later, once
+              follower events outnumber themes by enough to tell them apart.
+              <br />
+              <br />
+              Separately, your personal Facebook profile is where your actual audience is, and Meta
+              exposes no API for personal profiles at all. It can only be tracked by hand on the{' '}
+              <Link href="/admin/audience" style={{ color: C.text, textDecoration: 'underline' }}>
+                audience entry screen
+              </Link>
+              . Nothing on this page reflects it unless you enter it.
+            </>
+          ),
+        }}
+      >
+        <p className="text-sm" style={{ color: C.muted }}>
+          Recording continues daily, so this becomes answerable without any action from you.
         </p>
-        <Note>
-          Your personal Facebook profile is where your actual audience is, and Meta exposes no API
-          for personal profiles at all. It can only be tracked by hand on the{' '}
-          <Link href="/admin/audience" style={{ color: C.text, textDecoration: 'underline' }}>
-            audience entry screen
-          </Link>
-          . Nothing on this page reflects it unless you enter it.
-        </Note>
       </Panel>
     </div>
   );

@@ -1,7 +1,7 @@
 import { getPlatformComparison, getClicksByPlatform, getSplits } from '@/lib/queries';
-import { parsePeriod } from '@/lib/period';
+import { parsePeriod, periodPhrase } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
-import { BarList, Panel, Note, PageHeader, type BarDatum } from '@/components/charts';
+import { BarList, Panel, Note, PageHeader, Disclosure, type BarDatum } from '@/components/charts';
 import { DataRows, Chip, Sub, type Column } from '@/components/DataRows';
 import { Donut, type Slice } from '@/components/Donut';
 import { C, compact, platformLabel, platformColor } from '@/lib/theme';
@@ -114,14 +114,30 @@ export default async function PlatformsPage({
     <div className="space-y-5">
       <PageHeader
         title="Platform Comparison"
-        lead="Which platform earns attention per post published, and which one actually sends clicks. Colour here says which platform, never how well it did."
+        meta={[
+          { label: 'Measured', value: String(measured.length) },
+          { label: 'Not integrated', value: String(unmeasured.length) },
+          { label: 'Window', value: period.label },
+        ]}
       />
+
+      <Disclosure summary="How to read this page, and what colour means here">
+        Two different questions sit on this page: which platform earns attention per post published,
+        and which one actually sends clicks. They have different answers. Colour says which platform
+        and nothing about quality, so a hue here is never a verdict. Every bar is labelled, so the
+        chart still reads with the colour removed.
+      </Disclosure>
 
       <PeriodPicker period={period} />
 
       <Panel
         title="Average lifetime views per post"
-        description={`Posts published in the ${period.label.toLowerCase()}, lifetime views as of today. Posts earlier in the window have had longer to accumulate. For a like-for-like read at the same age, use Recent Posts.`}
+        description={`Posts published ${periodPhrase(period)}, lifetime views as of today.`}
+        detail={{
+          summary: 'Why this is not a like-for-like comparison',
+          children:
+            'Posts published earlier in the window have had longer to accumulate views, so part of what separates these bars is age rather than performance. Recent Posts compares posts at the same age and answers the question this chart cannot.',
+        }}
       >
         <BarList
           data={measured.map((r) => bar(r, 'avg_views'))}
@@ -136,13 +152,18 @@ export default async function PlatformsPage({
         <Donut data={viewSlices} valueLabel="Share of views" emptyMessage="No views recorded yet." />
       </Panel>
 
-      <Panel title="Total lifetime views" description={`Raw volume across posts published in the ${period.label.toLowerCase()}, for context only.`}>
+      <Panel title="Total lifetime views" description={`Raw volume across posts published ${periodPhrase(period)}, for context only.`}>
         <BarList data={measured.map((r) => bar(r, 'views'))} valueLabel="Total views" />
       </Panel>
 
       <Panel
         title="Clicks by link platform"
-        description={`First party clicks that happened in the ${period.label.toLowerCase()}, attributed by the platform tagged on each /go/ link. Works for every platform, including those with no post integration.`}
+        description={`First party clicks that happened ${periodPhrase(period)}, attributed by the platform tagged on each /go/ link.`}
+        detail={{
+          summary: 'Why this covers platforms the charts above cannot',
+          children:
+            'A click is attributed by the platform you tagged on the /go/ link, not by any platform API, so it works for TikTok and YouTube exactly as well as for Instagram. Counted from human_clicks, so Meta fetching a link to build its preview is excluded.',
+        }}
       >
         <BarList
           data={clickBars}
@@ -161,18 +182,17 @@ export default async function PlatformsPage({
         {unmeasured.length > 0 && (
           <Note>
             {unmeasured.map((r) => platformLabel(r.platform as string)).join(' and ')}{' '}
-            {unmeasured.length === 1 ? 'shows' : 'show'} a dash rather than a zero on the post
-            columns. There is no API integration for{' '}
-            {unmeasured.length === 1 ? 'it' : 'them'}, so views and engagement are unknown, not
-            absent. Clicks on {unmeasured.length === 1 ? 'its' : 'their'} /go/ links are still
-            tracked and appear above.
+            {unmeasured.length === 1 ? 'shows' : 'show'} a dash, not a zero: views and engagement are
+            unknown rather than absent. Clicks on {unmeasured.length === 1 ? 'its' : 'their'} /go/
+            links are still tracked and appear above.
           </Note>
         )}
-        <Note>
-          Facebook reach is excluded from this page entirely. Meta accepts the reach metric for Page
-          posts and returns zero for all of them, so any reach based comparison would show Facebook
-          as dead when it is not. Instagram reach is populated and appears on the leaderboard.
-        </Note>
+        <Disclosure summary="Why reach appears nowhere on this page">
+          Meta accepts the reach metric for Facebook Page posts and returns zero for every one of
+          them, so any reach based comparison would show Facebook as dead when it is not. Every
+          comparison here uses views instead. Instagram reach is populated and appears on the
+          leaderboard.
+        </Disclosure>
       </Panel>
     </div>
   );

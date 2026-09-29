@@ -1,5 +1,6 @@
-import { C, CARD, RADIUS, TITLE, compact } from '@/lib/theme';
-import { StatusBadge } from '@/components/status';
+import { C, CARD, FIGURE, RADIUS, TITLE, compact } from '@/lib/theme';
+import { StatusBadge, StatusLegend } from '@/components/status';
+import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import type { Status } from '@/lib/status';
 
 /**
@@ -20,6 +21,7 @@ export function StatTile({
   sub,
   status,
   delta,
+  size = 'standard',
 }: {
   label: string;
   value: string;
@@ -27,9 +29,20 @@ export function StatTile({
   status?: Status | null;
   /** Period over period change, rendered under the number. */
   delta?: React.ReactNode;
+  /**
+   * Which tier of figure this is. `standard` is the default so every existing
+   * caller keeps the size it had.
+   *
+   * `hero` is for the handful of numbers that answer the question the page
+   * exists to answer. Twelve tiles at one size is why nothing stood out on the
+   * overview: the eye needs somewhere to land before it starts reading, and
+   * uniform weight denies it that.
+   */
+  size?: 'hero' | 'standard';
 }) {
+  const hero = size === 'hero';
   return (
-    <div className="px-4 py-3.5" style={CARD}>
+    <div className={hero ? 'px-4 py-4' : 'px-4 py-3.5'} style={CARD}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <p
           className="text-xs uppercase"
@@ -39,13 +52,10 @@ export function StatTile({
         </p>
         {status !== undefined && <StatusBadge status={status} compact />}
       </div>
-      <p
-        className="tabular-nums"
-        style={{ ...TITLE, fontSize: '1.75rem', lineHeight: 1.1 }}
-      >
+      <p className="tabular-nums" style={{ ...TITLE, ...FIGURE[size] }}>
         {value}
       </p>
-      {delta && <div className="mt-1.5">{delta}</div>}
+      {delta && <div className={hero ? 'mt-2' : 'mt-1.5'}>{delta}</div>}
       {sub && (
         <p className="text-xs mt-1" style={{ color: C.muted }}>
           {sub}
@@ -345,11 +355,17 @@ export function Panel({
   title,
   description,
   status,
+  detail,
   children,
 }: {
   title: string;
   description?: string;
   status?: Status | null;
+  /**
+   * The long version, folded away. See Disclosure: the caveat stays on the
+   * page and stays findable, it just stops being the first thing read.
+   */
+  detail?: { summary: string; children: React.ReactNode };
   children: React.ReactNode;
 }) {
   return (
@@ -367,7 +383,66 @@ export function Panel({
       )}
       {!description && <div className="mb-4" />}
       {children}
+      {detail && (
+        <div className="mt-4">
+          <Disclosure summary={detail.summary}>{detail.children}</Disclosure>
+        </div>
+      )}
     </section>
+  );
+}
+
+/**
+ * A caveat that stays on the page without being read every time.
+ *
+ * This dashboard has expensive lessons written into it: which figure is a
+ * lifetime total, which platform returns zero for a metric it accepts, why a
+ * number cannot be summed across days. Deleting that text would be the third
+ * time the same mistake gets made. Leaving all of it open turned the overview
+ * into 1,500 words of prose.
+ *
+ * Native details and summary, so it is server rendered, needs no JavaScript,
+ * is keyboard operable and searchable by the browser's own find.
+ *
+ * The summary is written as the question it answers, not as "more info". A
+ * reader decides whether to open it from the summary alone, which only works
+ * if the summary says what is inside.
+ */
+export function Disclosure({
+  summary,
+  children,
+}: {
+  summary: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group">
+      <summary
+        className="text-xs cursor-pointer inline-flex items-center gap-1.5 select-none"
+        style={{ color: C.muted }}
+      >
+        <span
+          aria-hidden
+          className="transition-transform group-open:rotate-90"
+          style={{ display: 'inline-block', fontSize: '0.6rem', lineHeight: 1 }}
+        >
+          ▶
+        </span>
+        <span style={{ textDecoration: 'underline', textDecorationColor: C.border }}>{summary}</span>
+      </summary>
+      <div
+        className="text-xs leading-relaxed mt-2 px-3 py-2.5"
+        style={{
+          background: C.neutral,
+          color: C.muted,
+          borderRadius: RADIUS.sm,
+          borderLeft: `2px solid ${C.border}`,
+          maxWidth: '68ch',
+        }}
+      >
+        {children}
+      </div>
+    </details>
   );
 }
 
@@ -388,17 +463,127 @@ export function Note({ children }: { children: React.ReactNode }) {
 }
 
 /** Page header, so every view opens the same way. */
-export function PageHeader({ title, lead }: { title: string; lead?: string }) {
+export function PageHeader({
+  title,
+  lead,
+  meta,
+}: {
+  title: string;
+  lead?: string;
+  /**
+   * Facts about the data rather than a sentence about it.
+   *
+   * The overview used to open "18 posts from 12 Jun to 25 Sept. Last synced 27
+   * Sept, 18:41." Three figures wearing a sentence as a disguise. As separate
+   * labelled items the eye takes all three at once instead of reading left to
+   * right, which is the whole point of a dashboard.
+   */
+  meta?: { label: string; value: string }[];
+}) {
   return (
     <div>
-      <h1 className="mb-1" style={{ ...TITLE, fontSize: '1.6rem' }}>
+      <h1 className={meta?.length || lead ? 'mb-1.5' : ''} style={{ ...TITLE, fontSize: '1.6rem' }}>
         {title}
       </h1>
+      {meta && meta.length > 0 && (
+        <dl className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+          {meta.map((m) => (
+            <div key={m.label} className="flex items-baseline gap-1.5">
+              <dt className="text-xs uppercase" style={{ color: C.muted, letterSpacing: '0.08em' }}>
+                {m.label}
+              </dt>
+              <dd className="text-xs tabular-nums" style={{ color: C.text, fontWeight: 600 }}>
+                {m.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
       {lead && (
         <p className="text-sm leading-relaxed" style={{ color: C.muted, maxWidth: '70ch' }}>
           {lead}
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * The glance answer, and the reason this page exists.
+ *
+ * Before this, the most important fact on the overview ("2 urgent, 3 to watch")
+ * rendered at 1rem inside a card, the same size as the heading "Known blind
+ * spots". You had to read the page to find out whether anything was wrong.
+ * Now the count is the largest thing on the screen and it is the first thing
+ * the eye lands on.
+ *
+ * Colour is the status colour and nothing else, carried on a dot beside a word
+ * that says the same thing, so it survives greyscale and colour blindness. The
+ * card itself stays white: an earlier version of the overview took the worst
+ * item's severity colour as a full card background and turned the top of the
+ * dashboard into one large red block, which made a background the loudest
+ * thing on the page.
+ */
+export function Verdict({
+  urgent,
+  watch,
+  children,
+}: {
+  urgent: number;
+  watch: number;
+  children?: React.ReactNode;
+}) {
+  const clear = urgent === 0 && watch === 0;
+
+  const counts: { n: number; word: string; color: string }[] = [
+    { n: urgent, word: urgent === 1 ? 'needs work now' : 'need work now', color: severityBad.color },
+    { n: watch, word: 'to watch', color: severityWarning.color },
+  ].filter((c) => c.n > 0);
+
+  return (
+    <section className="px-5 py-4" style={CARD}>
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
+        <p className="text-xs uppercase" style={{ color: C.muted, letterSpacing: '0.08em' }}>
+          Where you stand
+        </p>
+        <StatusLegend />
+      </div>
+
+      {clear ? (
+        <div className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            style={{ width: 12, height: 12, borderRadius: 999, background: severityGood.color, flexShrink: 0 }}
+          />
+          <p style={{ ...TITLE, ...FIGURE.standard }}>All clear</p>
+        </div>
+      ) : (
+        <div className="flex items-end flex-wrap gap-x-8 gap-y-3">
+          {counts.map((c) => (
+            <div key={c.word} className="flex items-end gap-2.5">
+              <span
+                aria-hidden
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 999,
+                  background: c.color,
+                  flexShrink: 0,
+                  marginBottom: '0.6rem',
+                }}
+              />
+              <p className="tabular-nums" style={{ ...TITLE, ...FIGURE.hero }}>
+                {c.n}
+              </p>
+              <p className="text-sm" style={{ color: C.muted, marginBottom: '0.45rem' }}>
+                {c.word}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {children && <div className="mt-4">{children}</div>}
+    </section>
   );
 }

@@ -7,10 +7,10 @@ import {
   getUntaggedPostCount,
   getFollowerSignalStrength,
 } from '@/lib/queries';
-import { PageHeader, Panel, PairedTrend, Empty, Note, StatTile } from '@/components/charts';
+import { PageHeader, Panel, PairedTrend, Empty, StatTile, Disclosure } from '@/components/charts';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { growthStatus } from '@/lib/status';
-import { C, compact, shortDate } from '@/lib/theme';
+import { C, compact, full, shortDate } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,8 +45,19 @@ export default async function GrowthPage({
     <div className="space-y-5">
       <PageHeader
         title="Growth"
-        lead="Follower gain set against what you published. Instagram only, because the Facebook Page has no followers and your personal profile has no API."
+        meta={[
+          { label: 'Account', value: 'Instagram only' },
+          { label: 'Weeks of overlap', value: String(weeks) },
+          { label: 'Days with a gain', value: String(signal.days) },
+        ]}
       />
+
+      <Disclosure summary="Why this page is Instagram only">
+        Follower gain set against what you published. The Facebook Page has almost no followers to
+        gain, and your personal Facebook profile, which is where your audience actually is, has no
+        API at all. Mixing them in would put a running total beside a daily gain, which is the fault
+        that once reported 108 new followers in a week when the real figure was closer to ten.
+      </Disclosure>
 
       <PeriodPicker period={period} />
 
@@ -56,13 +67,20 @@ export default async function GrowthPage({
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <StatTile
+          size="hero"
           label="New followers"
-          value={compact(signal.total)}
+          value={full(signal.total)}
           sub={`across ${signal.days} days with any gain`}
           status={growth}
         />
-        <StatTile label="Weeks of overlap" value={String(weeks)} sub="weeks with both post and follower data" />
         <StatTile
+          size="hero"
+          label="Weeks of overlap"
+          value={String(weeks)}
+          sub="weeks with both post and follower data"
+        />
+        <StatTile
+          size="hero"
           label="Themes tagged"
           value={String(themes.length)}
           sub={untagged > 0 ? `${untagged} posts still untagged` : 'all posts tagged'}
@@ -71,7 +89,12 @@ export default async function GrowthPage({
 
       <Panel
         title="Publishing against follower gain, by week"
-        description="Two charts sharing an x axis rather than one chart with two y axes. Posts and followers are different quantities, and a shared scale would assert a relationship the data has not earned."
+        description="Two charts sharing an x axis, never one chart with two y axes."
+        detail={{
+          summary: 'Why these are two charts and not one',
+          children:
+            'Posts and followers are different quantities on different scales. A shared y axis would assert a relationship the data has not earned, which is the most common way a chart lies. Aligning the x axis lets you compare the shapes without the chart claiming they move together.',
+        }}
       >
         {weeks < 2 ? (
           <Empty message="Needs at least two weeks with both post and follower data." />
@@ -85,7 +108,7 @@ export default async function GrowthPage({
 
       <Panel
         title="Follower gain by content theme"
-        description={`Each post is credited with the follower gain from its publish day through the next ${LOOKAHEAD_DAYS} days. Days are counted once per theme, so two posts of one theme in the same week do not double count.`}
+        description={`Each post is credited with the follower gain from its publish day through the next ${LOOKAHEAD_DAYS} days.`}
       >
         {themes.length === 0 ? (
           <div>
@@ -164,17 +187,15 @@ export default async function GrowthPage({
           </div>
         )}
 
-        <Note>
-          This is attribution, not causation. A follower who arrives the day after a reel may have
-          come from that reel, from a story, from a search, or from someone else sharing you.
-          Instagram reported{' '}
-          <span style={{ color: C.text, fontWeight: 600 }}>
-            {signal.total} new followers across {signal.days} days
-          </span>{' '}
-          in the recorded window. At that volume, the Evidence column will read thin for a while,
-          and it is telling you the truth. The numbers get trustworthy as the snapshots accumulate,
-          which is why they are being recorded daily now.
-        </Note>
+        <Disclosure
+          summary={`Attribution, not causation: ${signal.total} follower events across ${signal.days} days`}
+        >
+          A follower who arrives the day after a reel may have come from that reel, from a story,
+          from a search, or from someone else sharing you. Days are counted once per theme, so two
+          posts of one theme in the same week do not double count. At this volume the Evidence column
+          will read thin for a while, and it is telling you the truth. It firms up as the daily
+          snapshots accumulate.
+        </Disclosure>
       </Panel>
     </div>
   );

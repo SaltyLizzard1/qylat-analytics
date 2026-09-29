@@ -1,14 +1,14 @@
 import Link from 'next/link';
-import { parsePeriod } from '@/lib/period';
+import { parsePeriod, periodPhrase } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { getThemePerformance, getUntaggedPostCount, getPillarMix } from '@/lib/queries';
-import { BarList, Panel, Empty, Note, PageHeader, type BarDatum } from '@/components/charts';
+import { BarList, Panel, Empty, PageHeader, Disclosure, type BarDatum } from '@/components/charts';
 import { DataRows, type Column } from '@/components/DataRows';
 import { Donut, type Slice } from '@/components/Donut';
 import type { Row } from '@/lib/queries';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { PILLARS, pillarLabel, HAS_TARGETS } from '@/lib/pillars';
-import { C, compact, tagColor } from '@/lib/theme';
+import { C, compact, full, tagColor } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +51,8 @@ export default async function ThemesPage({
     color: tagColor(r.theme as string),
   }));
 
+  const totalClicks = rows.reduce((n, r) => n + ((r.clicks as number) ?? 0), 0);
+
   const num = (key: string, label: string, width: string, bold = false): Column<Row> => ({
     key,
     label,
@@ -78,8 +80,18 @@ export default async function ThemesPage({
     <div className="space-y-5">
       <PageHeader
         title="Content Theme Performance"
-        lead="Which tags earn attention and which ones actually send people to the site. A tag joins what you published to what people clicked."
+        meta={[
+          { label: 'Tagged posts', value: `${mix.taggedPosts} of ${mix.totalPosts}` },
+          { label: 'Themes seen', value: String(rows.length) },
+          { label: 'Clicks', value: full(totalClicks) },
+        ]}
       />
+
+      <Disclosure summary="What a theme tag buys you">
+        A tag is the only thing that joins what you published to what people clicked. Meta has no
+        such field, so both sides are yours to fill in: the tag on a post drives the views half, the
+        tag on a /go/ link drives the clicks half, and either works without the other.
+      </Disclosure>
 
       <PeriodPicker period={period} />
 
@@ -170,11 +182,10 @@ export default async function ThemesPage({
           </div>
           </>
         )}
-        <Note>
-          Based on {mix.taggedPosts} tagged posts out of {mix.totalPosts}. Until most posts are
-          tagged the mix reflects only what you have got round to, not what you published, so read
-          it as provisional.
-        </Note>
+        <Disclosure summary={`Provisional: based on ${mix.taggedPosts} tagged posts of ${mix.totalPosts}`}>
+          Until most posts are tagged, the mix reflects only what you have got round to tagging
+          rather than what you actually published. It firms up as the untagged backlog clears.
+        </Disclosure>
       </Panel>
 
       {untagged > 0 && (
@@ -201,7 +212,7 @@ export default async function ThemesPage({
 
       <Panel
         title="Clicks by tag"
-        description={`Clicks that happened in the ${period.label.toLowerCase()}, grouped by the tag on each /go/ link. This side works without tagging any posts.`}
+        description={`Clicks that happened ${periodPhrase(period)}, grouped by the tag on each /go/ link. This side works without tagging any posts.`}
       >
         <BarList
           data={clickBars}
@@ -212,7 +223,7 @@ export default async function ThemesPage({
 
       <Panel
         title="Lifetime views by tag"
-        description={`Posts published in the ${period.label.toLowerCase()}, lifetime views as of today, grouped by the tag on each post.`}
+        description={`Posts published ${periodPhrase(period)}, lifetime views as of today, grouped by the tag on each post.`}
       >
         <BarList
           data={viewBars}
@@ -228,10 +239,10 @@ export default async function ThemesPage({
           keyOf={(r) => r.theme as string}
           emptyMessage="Nothing to show until a theme exists on a link or a post."
         />
-        <Note>
+        <Disclosure summary="Why a row can have posts but no clicks">
           A theme can appear with posts but no links, or links but no clicks. That is not an error,
           it means one side has been filled in and the other has not.
-        </Note>
+        </Disclosure>
       </Panel>
     </div>
   );

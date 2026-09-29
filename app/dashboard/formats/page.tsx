@@ -1,8 +1,8 @@
 import { getSplits } from '@/lib/queries';
 import { getFormatBenchmarkAtAge, getFormatPosts, type FormatAtAge, type FormatPost } from '@/lib/cohort';
-import { parsePeriod, type PeriodParams } from '@/lib/period';
+import { parsePeriod, periodPhrase, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
-import { Panel, Note, PageHeader, Empty } from '@/components/charts';
+import { Panel, PageHeader, Empty, Disclosure } from '@/components/charts';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { PostThumb } from '@/components/PostThumb';
 import { Donut, type Slice } from '@/components/Donut';
@@ -46,8 +46,21 @@ export default async function FormatsPage({
     <div className="space-y-5">
       <PageHeader
         title="Format Comparison"
-        lead={`Reels against carousels against plain posts, each measured ${age} hours after publishing so that age is taken out of the comparison. The badge judges a format's median against its platform's median at the same age, because formats are only comparable within a platform. Every post is listed under its format with its own figure, so the spread is visible rather than flattened into an average.`}
+        meta={[
+          { label: 'Measured at', value: `${age} hours old` },
+          { label: 'Posts listed', value: String(posts.length) },
+          { label: 'Window', value: period.label },
+        ]}
       />
+
+      <Disclosure summary="How a format gets judged, and why the median rather than the average">
+        Reels against carousels against plain posts, each measured {age} hours after publishing so
+        age is taken out of the comparison. A format{"'"}s median is judged against its own
+        platform{"'"}s median at the same age, because formats are only comparable within a
+        platform. Every post is listed under its format with its own figure, so the spread stays
+        visible instead of being flattened into an average, which is what an earlier version did:
+        one large Reel hid three small ones behind a mean that belonged to no post.
+      </Disclosure>
 
       <PeriodPicker period={period} />
 
@@ -55,7 +68,7 @@ export default async function FormatsPage({
 
       <Panel
         title="What you actually publish"
-        description={`Share of posts published in ${period.label.toLowerCase()} by format, across both platforms. Output mix, not performance.`}
+        description={`Share of posts published ${periodPhrase(period)} by format, across both platforms. Output mix, not performance.`}
       >
         <Donut
           data={formatSlices}
@@ -70,27 +83,26 @@ export default async function FormatsPage({
           key={platform}
           platform={platform}
           age={age}
-          periodLabel={period.label}
+          windowPhrase={periodPhrase(period)}
           benchmarks={benchmarks.filter((b) => b.platform === platform)}
           posts={posts.filter((p) => p.platform === platform)}
         />
       ))}
 
-      <Note>
-        Instagram views for images and carousels come from the API, which reports far less than the
-        app does. Checked on 19 Sept 2026: reels matched the app exactly, but an image the app showed
-        at 430 views came back as 105, and a carousel the app showed at 1,234 came back as 106. The
-        API agrees with itself, so the gap is a number Meta does not expose. Reels are comparable
-        with the app; images and carousels are under-counted here relative to reels, and reach is
-        the fairer column for comparing them.
-      </Note>
+      <Disclosure summary="Instagram under-counts images and carousels against its own app">
+        Checked side by side on 19 Sept 2026: reels matched the app exactly, but an image the app
+        showed at 430 views came back from the API as 105, and a carousel the app showed at 1,234
+        came back as 106. The API agrees with itself, so the gap is a figure Meta does not expose.
+        Reels are comparable with the app; images and carousels are under-counted here relative to
+        reels, and reach is the fairer column for comparing those two.
+      </Disclosure>
 
-      <Note>
+      <Disclosure summary="How a Facebook format is worked out, and when a format is left unjudged">
         Facebook format comes from two signals, because the Page posts edge has no product type
         field. A Reel is identified by its /reel/ permalink, and a carousel by an album attachment.
         Instagram reports its formats directly. A format with fewer than {THRESHOLDS.minSamplePosts}{' '}
         measurable posts is left unjudged rather than coloured on a sample that small.
-      </Note>
+      </Disclosure>
     </div>
   );
 }
@@ -98,13 +110,14 @@ export default async function FormatsPage({
 function PlatformPanel({
   platform,
   age,
-  periodLabel,
+  windowPhrase,
   benchmarks,
   posts,
 }: {
   platform: string;
   age: number;
-  periodLabel: string;
+  /** Already a grammatical phrase, e.g. "in the last 7 days". See periodPhrase. */
+  windowPhrase: string;
   benchmarks: FormatAtAge[];
   posts: FormatPost[];
 }) {
@@ -123,8 +136,8 @@ function PlatformPanel({
       title={`${platformLabel(platform)}, views at ${age} hours by format`}
       description={
         platformMedian !== null
-          ? `Posts published in ${periodLabel.toLowerCase()}. Platform median at ${age} hours: ${Math.round(platformMedian).toLocaleString()} views across ${platformPosts} measurable posts.`
-          : `Posts published in ${periodLabel.toLowerCase()}. No post here is ${age} hours old with a snapshot that young, so there is no median yet.`
+          ? `Posts published ${windowPhrase}. Platform median at ${age} hours: ${Math.round(platformMedian).toLocaleString()} views across ${platformPosts} measurable posts.`
+          : `Posts published ${windowPhrase}. No post here is ${age} hours old with a snapshot that young, so there is no median yet.`
       }
     >
       {posts.length === 0 ? (

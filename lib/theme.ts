@@ -222,3 +222,45 @@ export function platformLabel(p: string | null): string {
 export function formatLabel(f: string | null): string {
   return f ? (FORMAT_LABEL[f] ?? f) : 'Unknown';
 }
+
+/**
+ * Full figure with thousands separators, for a number meant to be read at a
+ * glance rather than scanned in a column.
+ *
+ * compact() stays right inside a dense table, where "12.4k" saves a column.
+ * A hero tile has the room, and "1,284" reads as a measurement where "1.3k"
+ * reads as somebody's estimate.
+ */
+export function full(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '--';
+  return n.toLocaleString('en-GB');
+}
+
+/**
+ * Three sizes, because a figure does three different jobs here and one size
+ * for all of them is why nothing on this page stood out.
+ *
+ * hero     the four numbers that answer "how did this window go"
+ * standard context totals, present but not the point
+ * inline   inside a table row or a bar list, where the label leads
+ *
+ * Tracking tightens as size grows. Large type set at normal tracking looks
+ * loose, which is the difference between a number that looks designed and one
+ * that looks like default browser output.
+ */
+export const FIGURE = {
+  /**
+   * clamp rather than a fixed size. Two hero tiles sit side by side on a phone,
+   * so a five digit figure with a thousands separator ("12,847") overflows its
+   * column at the desktop size. The floor keeps it dominant on a narrow screen
+   * without spilling, and the cap is what it reaches on the wide layout.
+   */
+  hero: {
+    fontSize: 'clamp(1.875rem, 6vw, 2.625rem)',
+    lineHeight: 1.04,
+    letterSpacing: '-0.032em',
+    fontWeight: 600,
+  },
+  standard: { fontSize: '1.75rem', lineHeight: 1.1, letterSpacing: '-0.021em', fontWeight: 600 },
+  inline: { fontSize: '1rem', lineHeight: 1.2, letterSpacing: '-0.011em', fontWeight: 600 },
+} as const;

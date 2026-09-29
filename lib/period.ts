@@ -174,6 +174,34 @@ export function dayLabel(days: number): string {
   return days === 1 ? 'Last 24 hours' : `Last ${days} days`;
 }
 
+/**
+ * The window as a grammatical phrase, preposition included.
+ *
+ * Call sites used to interpolate `period.label.toLowerCase()` after their own
+ * "in" or "in the", and no single prefix suits all four kinds of label. "in
+ * ${label.toLowerCase()}" produced "in last 7 days" with the article dropped;
+ * "in the ${label.toLowerCase()}" produced "in the august 2026" and "in the
+ * september 2026 so far", article added to a proper noun that had also lost its
+ * capital. Eleven call sites picked one of the two and were wrong for the other
+ * kinds, so the phrase is built here, beside the labels it has to agree with.
+ *
+ *   rolling       "in the last 7 days"
+ *   this-month    "in September 2026 so far"
+ *   last-month    "in August 2026"
+ *   custom, 1 day "on 11 Jun 2026"
+ *   custom range  "from 11 Jun to 27 Sept 2026"
+ */
+export function periodPhrase(period: Period): string {
+  switch (period.kind) {
+    case 'rolling':
+      return `in the ${period.label.toLowerCase()}`;
+    case 'custom':
+      return period.startDate === period.endDate ? `on ${period.label}` : `from ${period.label}`;
+    default:
+      return `in ${period.label}`;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Building a period                                                   */
 /* ------------------------------------------------------------------ */

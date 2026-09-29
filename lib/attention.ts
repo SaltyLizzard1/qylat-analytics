@@ -13,7 +13,7 @@ import {
 } from '@/lib/status';
 import { getFormatBenchmarkAtAge } from '@/lib/cohort';
 import { getPageUpdates } from '@/lib/queries';
-import { windowExpr, windowDateExpr, type Period } from '@/lib/period';
+import { windowExpr, windowDateExpr, periodPhrase, type Period } from '@/lib/period';
 import { platformLabel, formatLabel } from '@/lib/theme';
 
 /**
@@ -93,7 +93,7 @@ export async function getAttentionItems(period: Period): Promise<AttentionItem[]
           items.push({
             level: status.level,
             title: `${platformLabel(row.platform as string)} ${t.what} are down`,
-            detail: `${status.reason}, ${period.label.toLowerCase()}`,
+            detail: `${status.reason}, ${periodPhrase(period)}`,
             href: t.href,
             action: 'Compare what was posted in the two windows. A quieter posting week explains most drops',
           });

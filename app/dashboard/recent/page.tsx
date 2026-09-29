@@ -1,13 +1,31 @@
 import Link from 'next/link';
 import { getAgeNormalisedComparison, getRecentPosts, getAgeCoverage } from '@/lib/cohort';
-import { parsePeriod, parseAge, applyPeriod, AGE_CHOICES, withPeriod } from '@/lib/period';
+import {
+  parsePeriod,
+  parseAge,
+  applyPeriod,
+  periodPhrase,
+  AGE_CHOICES,
+  withPeriod,
+} from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
-import { PageHeader, Panel, Empty, Note, StatTile } from '@/components/charts';
+import { PageHeader, Panel, Empty, Note, StatTile, Disclosure } from '@/components/charts';
 import { StatusBadge } from '@/components/status';
 import { PostThumb } from '@/components/PostThumb';
 import { PERFORMANCE_SHORT, PERFORMANCE_LABEL, type Level } from '@/lib/status';
 import { pillarLabel } from '@/lib/pillars';
-import { C, RADIUS, compact, pct, platformLabel, formatLabel, platformColor, shortDateTime } from '@/lib/theme';
+import {
+  C,
+  RADIUS,
+  compact,
+  full,
+  pct,
+  platformLabel,
+  formatLabel,
+  platformColor,
+  shortDate,
+  shortDateTime,
+} from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,8 +79,23 @@ export default async function RecentPage({
     <div className="space-y-5">
       <PageHeader
         title="Recent Posts"
-        lead="Posts compared at the same age after publishing, never on lifetime totals. A post from this week has had days to accumulate views; one from June has had months, so comparing their running totals measures age, not performance."
+        meta={[
+          { label: 'Comparable at 24h', value: `${coverage.postsWith24h} of ${coverage.totalPosts}` },
+          { label: 'At 72h', value: `${coverage.postsWith72h} of ${coverage.totalPosts}` },
+          {
+            label: 'History from',
+            value: coverage.firstSnapshot ? shortDate(coverage.firstSnapshot) : 'first sync',
+          },
+        ]}
       />
+
+      <Disclosure summary="Why this page exists, and why it is the one to trust for newer work">
+        Posts are compared at the same age after publishing, never on lifetime totals. A post from
+        this week has had days to accumulate views; one from June has had months, so comparing their
+        running totals measures age rather than performance. Every other view that shows lifetime
+        figures says so in its own label. This is the one that answers whether your newer work is
+        performing better.
+      </Disclosure>
 
       <PeriodPicker period={period} />
 
@@ -104,7 +137,7 @@ export default async function RecentPage({
       </div>
 
       <Panel
-        title={`Posts published in the ${period.label.toLowerCase()}, at ${age.short}`}
+        title={`Posts published ${periodPhrase(period)}, at ${age.short}`}
         description={
           period.compare === 'previous'
             ? `Against posts published in ${period.compareLabel}, measured at the same ${age.short} point in their own lives. Like for like.`
@@ -116,8 +149,9 @@ export default async function RecentPage({
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <StatTile
+              size="hero"
               label={`Posts with a ${age.short} snapshot`}
-              value={`${cmp.current.posts}`}
+              value={full(cmp.current.posts)}
               sub={
                 period.compare === 'previous'
                   ? `against ${cmp.previous.posts} previously`
@@ -125,8 +159,9 @@ export default async function RecentPage({
               }
             />
             <StatTile
+              size="hero"
               label={`Median views at ${age.short}`}
-              value={cmp.current.medianViews === null ? '--' : compact(Math.round(cmp.current.medianViews))}
+              value={cmp.current.medianViews === null ? '--' : full(Math.round(cmp.current.medianViews))}
               sub={
                 period.compare === 'previous' && cmp.previous.medianViews !== null
                   ? `${compact(Math.round(cmp.previous.medianViews))} previously${
@@ -138,6 +173,7 @@ export default async function RecentPage({
               }
             />
             <StatTile
+              size="hero"
               label={`Median engagement rate at ${age.short}`}
               value={
                 cmp.current.medianEngagementRate === null
@@ -151,6 +187,7 @@ export default async function RecentPage({
               }
             />
             <StatTile
+              size="hero"
               label={`Saves per 1,000 views`}
               value={cmp.current.savesPer1k === null ? '--' : cmp.current.savesPer1k.toFixed(1)}
               sub={
@@ -163,24 +200,18 @@ export default async function RecentPage({
         )}
 
         {(cmp.currentMissing > 0 || cmp.previousMissing > 0) && (
-          <Note>
-            {cmp.currentMissing > 0 && (
-              <>
-                {cmp.currentMissing} post{cmp.currentMissing === 1 ? '' : 's'} in this period
-                {cmp.previousMissing > 0 ? ` and ${cmp.previousMissing} in the previous one` : ''}
-              </>
-            )}
-            {cmp.currentMissing === 0 && cmp.previousMissing > 0 && (
-              <>{cmp.previousMissing} posts in the previous period</>
-            )}{' '}
-            have no snapshot taken within {age.short} of publishing, so they are excluded rather than
-            compared on a later reading. Snapshots only began on{' '}
-            {coverage.firstSnapshot
-              ? new Date(coverage.firstSnapshot).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-              : 'the first sync'}
-            , and Meta returns a post{"'"}s current totals rather than its history, so earlier posts can
-            never gain one.
-          </Note>
+          <Disclosure
+            summary={`${cmp.currentMissing + cmp.previousMissing} ${
+              cmp.currentMissing + cmp.previousMissing === 1 ? 'post is' : 'posts are'
+            } excluded for having no ${age.short} snapshot`}
+          >
+            {cmp.currentMissing} in this period and {cmp.previousMissing} in the previous one have no
+            snapshot taken within {age.short} of publishing, so they are excluded rather than compared
+            on a later reading, which would flatter them. Snapshots only began on{' '}
+            {coverage.firstSnapshot ? shortDate(coverage.firstSnapshot) : 'the first sync'}, and Meta
+            returns a post{"'"}s current totals rather than its history, so earlier posts can never
+            gain one.
+          </Disclosure>
         )}
 
         {thin && enough && (
@@ -193,7 +224,11 @@ export default async function RecentPage({
 
       <Panel
         title="Every recent post"
-        description={`Published in the last ${Math.max(period.days, 14)} days. The verdict compares each post against the median of same platform and same format posts measured at ${age.short}, and refuses to judge below ${MIN_PEERS} comparable posts.`}
+        description={`Published in the last ${Math.max(period.days, 14)} days.`}
+        detail={{
+          summary: 'How the Versus peers verdict is worked out',
+          children: `Each post is compared against the median of same platform, same format posts measured at ${age.short}. The post itself sits inside that peer set, so more than ${MIN_PEERS} comparable posts are needed before the comparison means anything, and below that the row says so rather than guessing. A post younger than the measurement age has no reading yet and says that too.`,
+        }}
       >
         {posts.length === 0 ? (
           <Empty message="No posts published in this window." />
@@ -361,25 +396,19 @@ export default async function RecentPage({
           </div>
         )}
 
-        <Note>
-          Age-normalised history began on{' '}
-          {coverage.firstSnapshot
-            ? new Date(coverage.firstSnapshot).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-            : 'the first sync'}
-          . {coverage.postsWith24h} of {coverage.totalPosts} posts currently have a snapshot within 24
-          hours of publishing and {coverage.postsWith72h} within 72 hours. Older posts can never gain
-          one, because Meta returns a post{"'"}s current totals rather than its history. This view
-          fills in on its own as you publish. Running a{' '}
+        <Disclosure summary="How to get more posts into this comparison">
+          Older posts can never gain a snapshot, because Meta returns a post{"'"}s current totals
+          rather than its history, so this view fills in only as you publish. Running a{' '}
           <Link href="/admin/sync" style={{ color: C.text, textDecoration: 'underline' }}>
             manual sync
           </Link>{' '}
           a few hours after posting tightens the 24 hour reading considerably, because the scheduled
-          job only runs once a day.
-        </Note>
+          job runs only once a day.
+        </Disclosure>
       </Panel>
 
-      <Panel title="What this view does not answer" description="">
-        <ul className="text-sm space-y-2" style={{ color: C.muted }}>
+      <Disclosure summary="Two questions this page does not answer">
+        <ul className="space-y-2">
           <li>
             <span style={{ color: C.text, fontWeight: 600 }}>Whether your audience is growing.</span>{' '}
             That is a question about clicks, sessions and followers over time, and it lives on{' '}
@@ -401,7 +430,7 @@ export default async function RecentPage({
             people ever{'"'} and the wrong one for {'"'}is my newer work better{'"'}.
           </li>
         </ul>
-      </Panel>
+      </Disclosure>
     </div>
   );
 }

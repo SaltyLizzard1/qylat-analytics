@@ -1,7 +1,7 @@
 import { getLeaderboard, getPlatformMedians } from '@/lib/queries';
-import { parsePeriod } from '@/lib/period';
+import { parsePeriod, periodPhrase } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
-import { Panel, Empty, Note, PageHeader } from '@/components/charts';
+import { Panel, Empty, PageHeader, Disclosure } from '@/components/charts';
 import { StatusBadge } from '@/components/status';
 import { PostThumb } from '@/components/PostThumb';
 import { performanceStatus, THRESHOLDS, type Level } from '@/lib/status';
@@ -45,8 +45,22 @@ export default async function LeaderboardPage({
     <div className="space-y-5">
       <PageHeader
         title="Post Leaderboard"
-        lead="Ranked by views. The badge measures engagement rate against your own median for that platform, so it describes interaction, not the post. A top post with low engagement reached plenty of people who did not react, which is a finding rather than a failure."
+        meta={[
+          { label: 'Posts ranked', value: String(rows.length) },
+          {
+            label: 'Median eng. rate',
+            value: `Instagram ${((medians.instagram?.engagementRate ?? 0) * 100).toFixed(1)}%, Facebook ${((medians.facebook?.engagementRate ?? 0) * 100).toFixed(1)}%`,
+          },
+        ]}
       />
+
+      <Disclosure summary="Why the badge measures engagement, not views">
+        The list is ranked by views, so rank already tells you which posts got seen and a badge
+        repeating that would be noise. The badge measures something else: engagement rate against
+        your own median for that platform. That is what separates rows near the top, and it means a
+        top post carrying a low badge reached plenty of people who did not react, which is a finding
+        rather than a failure.
+      </Disclosure>
 
       <PeriodPicker period={period} />
 
@@ -69,16 +83,11 @@ export default async function LeaderboardPage({
             {ENGAGEMENT_LABEL[level]}
           </span>
         ))}
-        <span className="text-xs" style={{ color: C.muted }}>
-          Median engagement rate: Instagram{' '}
-          {((medians.instagram?.engagementRate ?? 0) * 100).toFixed(1)}%, Facebook{' '}
-          {((medians.facebook?.engagementRate ?? 0) * 100).toFixed(1)}%
-        </span>
       </div>
 
       <Panel
-        title={`Top ${Math.min(rows.length, 30)} posts published in the ${period.label.toLowerCase()}`}
-        description="Ranked by lifetime views as they stand today. Posts earlier in the window have had longer to accumulate, so for a like-for-like read use Recent Posts."
+        title={`Top ${Math.min(rows.length, 30)} posts published ${periodPhrase(period)}`}
+        description="Ranked by lifetime views as they stand today."
       >
         {rows.length === 0 ? (
           <Empty message="No posts synced yet. Run the Meta sync first." />
@@ -234,15 +243,14 @@ export default async function LeaderboardPage({
           </>
         )}
 
-        <Note>
-          Ranked on views, because Meta returns zero reach for every Facebook Page post. The label
-          measures something else: engagement rate against the median for that platform. Rank
-          already tells you which posts got seen, so a badge repeating it would be noise. This tells
-          you which ones got seen <em>and</em> landed, which is the more useful question and the one
-          that separates rows near the top. Strong is at least 1.3 times your median rate, weak is
-          below 0.7 times. A platform whose median rate sits below 1% shows No baseline instead,
-          because a comparison against nearly nothing would call every post High.
-        </Note>
+        <Disclosure summary="The thresholds behind High, Medium and Low, and what No baseline means">
+          High is at least 1.3 times your median engagement rate for that platform, Low is below 0.7
+          times, Medium is between. A platform whose own median rate sits below 1% shows No baseline
+          instead, because a comparison against nearly nothing would call every post High. Ranking
+          is on views rather than reach, because Meta returns zero reach for every Facebook Page
+          post. Posts published earlier in the window have had longer to accumulate views, so for a
+          like-for-like read at the same age use Recent Posts.
+        </Disclosure>
       </Panel>
     </div>
   );

@@ -7,11 +7,20 @@ import {
 } from '@/lib/queries';
 import { parsePeriod } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
-import { BarList, Panel, Empty, Note, StatTile, PageHeader, type BarDatum } from '@/components/charts';
+import {
+  BarList,
+  Panel,
+  Empty,
+  Note,
+  StatTile,
+  PageHeader,
+  Disclosure,
+  type BarDatum,
+} from '@/components/charts';
 import { DataRows, Chip, Sub, type Column } from '@/components/DataRows';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { arrivalStatus } from '@/lib/status';
-import { C, compact, pct, platformLabel } from '@/lib/theme';
+import { C, full, pct, platformLabel } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -143,31 +152,40 @@ export default async function FunnelPage({
 
   return (
     <div className="space-y-5">
-      <Header />
+      <Header
+        meta={[
+          { label: 'Clicks', value: full(totalClicks) },
+          { label: 'Sessions', value: full(totalSessions) },
+          { label: 'Arrived', value: pct(totalSessions, totalClicks) },
+        ]}
+      />
       <PeriodPicker period={period} />
       <StatusLegend />
 
       <div className="grid grid-cols-3 gap-3">
-        <StatTile label="Clicks" value={compact(totalClicks)} sub="your redirect log" />
-        <StatTile label="Sessions" value={compact(totalSessions)} sub="Google Analytics" />
-        <StatTile label="Arrived" value={pct(totalSessions, totalClicks)} sub="sessions per click" />
+        <StatTile size="hero" label="Clicks" value={full(totalClicks)} sub="your redirect log" />
+        <StatTile size="hero" label="Sessions" value={full(totalSessions)} sub="Google Analytics" />
+        <StatTile
+          size="hero"
+          label="Arrived"
+          value={pct(totalSessions, totalClicks)}
+          sub="sessions per click"
+        />
       </div>
 
       <Panel
         title="Clicks against sessions, per link"
-        description="Two charts rather than one. Clicks and sessions are different measurements from different systems, and stacking them on one axis would imply they are the same quantity."
+        description="Two charts rather than one. Different systems, different measurements."
+        detail={{
+          summary: 'Why clicks exceed sessions, and when the reverse is interesting',
+          children:
+            'Clicks exceeding sessions is expected, not a fault. A click is logged the moment the redirect is hit; a session needs the browser to load the site and run the GA script, which in-app browsers, ad blockers, consent banners and bots all get in the way of. A link where sessions exceed clicks is the interesting case: that traffic arrived on your UTM without passing through the /go/ redirect. Stacking the two on one axis would imply they are the same quantity, which is why they are drawn separately.',
+        }}
       >
         <BarList data={clickBars} valueLabel="Clicks, from your redirect log" />
         <div className="mt-6">
           <BarList data={sessionBars} valueLabel="Sessions, from Google Analytics" />
         </div>
-        <Note>
-          Clicks will exceed sessions and that is expected, not a bug. A click is logged the moment
-          the redirect is hit. A session needs the browser to load the site and run the GA script,
-          which in-app browsers, ad blockers, consent banners and bots all get in the way of. A link
-          where sessions exceed clicks is the interesting case: that traffic arrived on your UTM
-          without passing through the /go/ redirect.
-        </Note>
       </Panel>
 
       <Panel title="Every link" description="Clicks through to engaged sessions.">
@@ -188,29 +206,32 @@ export default async function FunnelPage({
           keyOf={(r, i) => `${r.source}-${r.medium}-${r.content}-${i}`}
           emptyMessage="All recorded sessions match a link."
         />
-        <Note>
+        <Disclosure summary="What to look for in this table">
           Most of this is direct and organic traffic, which is fine. Watch for a social referral with
           no utm_content: that is a post you shared without a /go/ link, and it is invisible to every
           other view in this dashboard.
-        </Note>
+        </Disclosure>
       </Panel>
 
       {totalEngaged === 0 && totalSessions > 0 && (
         <Note>
-          Google Analytics reports no engaged sessions on any tagged link yet. Engagement needs ten
-          seconds on the page, two pageviews, or a key event. With this little traffic it may simply
-          be a small sample.
+          No engaged sessions on any tagged link yet. Engagement needs ten seconds on the page, two
+          pageviews, or a key event, so at this volume it may simply be a small sample.
         </Note>
       )}
     </div>
   );
 }
 
-function Header() {
+function Header({ meta }: { meta?: { label: string; value: string }[] }) {
   return (
-    <PageHeader
-      title="Funnel"
-      lead="What happened after the click. Your redirect log says someone left the platform, Google Analytics says whether they actually arrived and stayed."
-    />
+    <>
+      <PageHeader title="Funnel" meta={meta} />
+      <Disclosure summary="What the two halves of this page measure">
+        What happened after the click. Your own redirect log says someone left the platform, Google
+        Analytics says whether they actually arrived and stayed. They are separate systems that
+        disagree by design, and the gap between them is the point of this page.
+      </Disclosure>
+    </>
   );
 }
