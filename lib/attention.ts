@@ -168,7 +168,13 @@ export async function getAttentionItems(period: Period): Promise<AttentionItem[]
       row.posts,
       `the platform median at ${ageHours} hours`
     );
-    if (status && status.level === 'bad') {
+    // A format that would be urgent but rests on a few posts is held at
+    // "needs attention" by formatStatus. It still belongs in the list.
+    const heldBack =
+      status?.level === 'warning' &&
+      row.platformMedian > 0 &&
+      row.medianViews / row.platformMedian < THRESHOLDS.formatVsPlatform.warning;
+    if (status && (status.level === 'bad' || heldBack)) {
       items.push({
         level: status.level,
         title: `${platformLabel(row.platform)} ${formatLabel(row.format)} underperforms`,

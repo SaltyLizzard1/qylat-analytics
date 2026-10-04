@@ -10,7 +10,7 @@ import { C, RADIUS } from '@/lib/theme';
  * `period` and `compare`, so a custom range vanished the moment a tab was
  * clicked. Kept as one list so a new period parameter has one place to go.
  */
-const PERIOD_PARAMS = ['period', 'from', 'to', 'compare'] as const;
+const PERIOD_PARAMS = ['period', 'from', 'to', 'compare', 'platform'] as const;
 
 /**
  * Client component purely so the current tab can be marked. The active state

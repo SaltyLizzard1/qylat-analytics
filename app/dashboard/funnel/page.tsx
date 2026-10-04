@@ -5,7 +5,7 @@ import {
   getGaStatus,
   type Row,
 } from '@/lib/queries';
-import { parsePeriod } from '@/lib/period';
+import { parsePeriod, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import {
   BarList,
@@ -21,15 +21,18 @@ import { DataRows, Chip, Sub, type Column } from '@/components/DataRows';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { arrivalStatus } from '@/lib/status';
 import { C, full, pct, platformLabel } from '@/lib/theme';
+import { BackLink } from '@/components/overview';
+import { parsePlatform, withFilters } from '@/lib/overview';
 
 export const dynamic = 'force-dynamic';
 
 export default async function FunnelPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string; compare?: string }>;
+  searchParams: Promise<PeriodParams & { platform?: string; back?: string }>;
 }) {
-  const period = parsePeriod(await searchParams);
+  const sp = await searchParams;
+  const period = parsePeriod(sp);
   const [links, platforms, unmatched, status] = await Promise.all([
     getLinkFunnel(period),
     getPlatformFunnel(period),
@@ -152,6 +155,9 @@ export default async function FunnelPage({
 
   return (
     <div className="space-y-5">
+      {sp.back === 'overview' && (
+        <BackLink href={withFilters('/dashboard', period, parsePlatform(sp.platform))}>Back to Overview</BackLink>
+      )}
       <Header
         meta={[
           { label: 'Clicks', value: full(totalClicks) },

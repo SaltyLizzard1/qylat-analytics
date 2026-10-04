@@ -102,9 +102,15 @@ export function shortDateTime(value: string | Date | null | undefined): string {
   });
 }
 
+/**
+ * 'facebook' is the Page, read through Meta's API. 'facebook-personal' is the
+ * personal profile, read by the local scraper. They are different accounts
+ * with different audiences and are never merged under one "Facebook".
+ */
 export const PLATFORM_LABEL: Record<string, string> = {
   instagram: 'Instagram',
-  facebook: 'Facebook',
+  facebook: 'Facebook Page',
+  'facebook-personal': 'Facebook Profile',
   tiktok: 'TikTok',
   youtube: 'YouTube',
 };
@@ -134,6 +140,10 @@ export const PLATFORM_LABEL: Record<string, string> = {
 export const PLATFORM_COLOR: Record<string, string> = {
   instagram: '#833AB4',
   facebook: '#1877F2',
+  // The palette's teal, shared with TikTok. The two never meet on a chart:
+  // TikTok has no post data to plot, and the profile appears only where the
+  // Page and Instagram do. No new hue was added, so nothing needed validating.
+  'facebook-personal': '#1A9AA3',
   tiktok: '#1A9AA3',
   youtube: C.muted,
 };

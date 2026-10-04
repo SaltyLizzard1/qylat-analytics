@@ -8,6 +8,9 @@ import {
 import { StatTile, Panel, Empty, SectionHeading, PageHeader, Disclosure } from '@/components/charts';
 import { DataRows, Sub, type Column } from '@/components/DataRows';
 import { C, full, shortDate, shortDateTime } from '@/lib/theme';
+import { BackLink } from '@/components/overview';
+import { parsePlatform, withFilters } from '@/lib/overview';
+import { parsePeriod, type PeriodParams } from '@/lib/period';
 
 export const dynamic = 'force-dynamic';
 
@@ -138,7 +141,13 @@ const COLLECTION_COLUMNS: Column<Collection>[] = [
   },
 ];
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<PeriodParams & { platform?: string; back?: string }>;
+}) {
+  const sp = await searchParams;
+  const period = parsePeriod(sp);
   let data;
   try {
     data = await Promise.all([
@@ -193,6 +202,9 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-5">
+      {sp.back === 'overview' && (
+        <BackLink href={withFilters('/dashboard', period, parsePlatform(sp.platform))}>Back to Overview</BackLink>
+      )}
       <PageHeader
         title="Facebook Profile"
         lead="The personal profile, read from Facebook's own screens by a local scraper. Kept apart from every benchmark."

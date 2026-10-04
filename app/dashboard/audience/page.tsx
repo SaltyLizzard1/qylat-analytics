@@ -17,6 +17,8 @@ import {
   Disclosure,
 } from '@/components/charts';
 import { C, full, shortDate } from '@/lib/theme';
+import { BackLink } from '@/components/overview';
+import { parsePlatform, withFilters } from '@/lib/overview';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,9 +43,10 @@ const TRACKED = [
 export default async function AudiencePage({
   searchParams,
 }: {
-  searchParams: Promise<PeriodParams>;
+  searchParams: Promise<PeriodParams & { platform?: string; back?: string }>;
 }) {
-  const period = parsePeriod(await searchParams);
+  const sp = await searchParams;
+  const period = parsePeriod(sp);
   const [latest, signal, ...series] = await Promise.all([
     getLatestAudience(),
     getFollowerSignalStrength(),
@@ -66,6 +69,9 @@ export default async function AudiencePage({
 
   return (
     <div className="space-y-5">
+      {sp.back === 'overview' && (
+        <BackLink href={withFilters('/dashboard', period, parsePlatform(sp.platform))}>Back to Overview</BackLink>
+      )}
       <PageHeader
         title="Audience"
         meta={[

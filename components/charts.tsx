@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { C, CARD, FIGURE, RADIUS, TITLE, compact } from '@/lib/theme';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
@@ -107,6 +108,8 @@ export type BarDatum = {
    * bars are all the same kind of thing.
    */
   color?: string;
+  /** Where clicking this row goes. The whole row becomes the link. */
+  href?: string;
 };
 
 /**
@@ -149,8 +152,9 @@ export function BarList({
       </p>
 
       <div className="flex flex-col gap-3.5">
-        {data.map((d) => (
-          <div key={d.key} title={d.title ?? `${d.label}: ${d.value.toLocaleString()}`}>
+        {data.map((d) => {
+          const row = (
+            <>
             <div className="flex items-center justify-between gap-3 mb-1.5">
               <span className="flex items-center gap-2 min-w-0">
                 <span className="text-sm truncate" style={{ color: C.text }}>
@@ -182,14 +186,30 @@ export function BarList({
                 }}
               />
             </div>
-          </div>
-        ))}
+            </>
+          );
+          const title = d.title ?? `${d.label}: ${d.value.toLocaleString()}`;
+          return d.href ? (
+            <Link key={d.key} href={d.href} title={title} className="block" style={{ textDecoration: 'none' }}>
+              {row}
+            </Link>
+          ) : (
+            <div key={d.key} title={title}>
+              {row}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-export type TrendPoint = { label: string; value: number };
+export type TrendPoint = {
+  label: string;
+  value: number;
+  /** Where clicking this point goes. */
+  href?: string;
+};
 
 /**
  * Single series over time. One measure, one axis. Grid and axis recede, and
@@ -283,9 +303,17 @@ export function TrendChart({
             <g key={`${p.label}-${i}`}>
               {/* Surface ring keeps a marker readable where the line doubles back. */}
               <circle cx={x(i)} cy={y(p.value)} r="4" fill={C.page} stroke={C.text} strokeWidth="2" />
-              <circle cx={x(i)} cy={y(p.value)} r="11" fill="transparent">
-                <title>{`${p.label}: ${p.value.toLocaleString()}`}</title>
-              </circle>
+              {p.href ? (
+                <a href={p.href} aria-label={`${p.label}: ${p.value.toLocaleString()}`} style={{ cursor: 'pointer' }}>
+                  <circle cx={x(i)} cy={y(p.value)} r="13" fill="transparent">
+                    <title>{`${p.label}: ${p.value.toLocaleString()}. Click for details`}</title>
+                  </circle>
+                </a>
+              ) : (
+                <circle cx={x(i)} cy={y(p.value)} r="11" fill="transparent">
+                  <title>{`${p.label}: ${p.value.toLocaleString()}`}</title>
+                </circle>
+              )}
               {labelled.has(i) && (
                 <text
                   x={x(i)}

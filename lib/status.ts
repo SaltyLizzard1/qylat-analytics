@@ -114,6 +114,21 @@ export const THRESHOLDS = {
   minSampleTrend: 5,
 
   /**
+   * Below this many events, a finding is never raised above "needs attention".
+   * Five clicks falling to two is a 60% drop and is also three clicks. It is
+   * worth a look and is not an emergency, so the alert says the numbers are
+   * small instead of shouting.
+   */
+  minSampleUrgent: 20,
+
+  /**
+   * The same idea for posts. A format judged on three posts can be one bad
+   * post away from a different verdict, so below this it is held at "needs
+   * attention" and says the sample is small.
+   */
+  minSamplePostsUrgent: 8,
+
+  /**
    * A platform median below this is treated as no baseline at all. Facebook's
    * median engagement rate is 0.0%, and judging posts against nothing made
    * 0.5% read as High.
@@ -132,6 +147,11 @@ function level(value: number, good: number, warning: number): Level {
   return 'bad';
 }
 
+/** A finding built on a small count is held at "needs attention". See minSampleUrgent. */
+function capSmall(l: Level, small: boolean): Level {
+  return small && l === 'bad' ? 'warning' : l;
+}
+
 function fmtPct(n: number): string {
   return `${(n * 100).toFixed(0)}%`;
 }
@@ -144,12 +164,13 @@ function fmtPct(n: number): string {
 export function arrivalStatus(sessions: number | null, clicks: number | null): Status | null {
   if (!clicks || clicks < THRESHOLDS.minSampleClicks) return null;
   const rate = (sessions ?? 0) / clicks;
-  const l = level(rate, THRESHOLDS.arrivalRate.good, THRESHOLDS.arrivalRate.warning);
+  const small = clicks < THRESHOLDS.minSampleUrgent;
+  const l = capSmall(level(rate, THRESHOLDS.arrivalRate.good, THRESHOLDS.arrivalRate.warning), small);
   return {
     level: l,
     label: LEVEL_LABEL[l],
     shortLabel: LEVEL_SHORT[l],
-    reason: `${fmtPct(rate)} of ${clicks} clicks became a session`,
+    reason: `${sessions ?? 0} of ${clicks} clicks became a session (${fmtPct(rate)})${small ? '. Small numbers' : ''}`,
   };
 }
 
@@ -203,7 +224,9 @@ export function engagementStatus(engagement: number | null, views: number | null
     level: l,
     label: LEVEL_LABEL[l],
     shortLabel: LEVEL_SHORT[l],
-    reason: `${fmtPct(rate)} engagement across ${views.toLocaleString()} views`,
+    reason: `${(engagement ?? 0).toLocaleString()} engagements on ${views.toLocaleString()} views (${(
+      rate * 100
+    ).toFixed(1)}%)`,
   };
 }
 
@@ -220,12 +243,15 @@ export function formatStatus(
 ): Status | null {
   if (!platformBenchmark || !posts || posts < THRESHOLDS.minSamplePosts) return null;
   const ratio = (views ?? 0) / platformBenchmark;
-  const l = level(ratio, THRESHOLDS.formatVsPlatform.good, THRESHOLDS.formatVsPlatform.warning);
+  const small = posts < THRESHOLDS.minSamplePostsUrgent;
+  const l = capSmall(level(ratio, THRESHOLDS.formatVsPlatform.good, THRESHOLDS.formatVsPlatform.warning), small);
   return {
     level: l,
     label: LEVEL_LABEL[l],
     shortLabel: LEVEL_SHORT[l],
-    reason: `${fmtPct(ratio)} of ${basis}, over ${posts} posts`,
+    reason: `${Math.round(views ?? 0).toLocaleString()} views against ${Math.round(
+      platformBenchmark
+    ).toLocaleString()}, ${fmtPct(ratio)} of ${basis}, over ${posts} posts${small ? '. Small numbers' : ''}`,
   };
 }
 
@@ -299,15 +325,22 @@ export function trendStatus(
   const change = pctChange(current, previous);
   if (change === null) return null;
   const drop = -change;
-  const l: Level =
-    drop >= THRESHOLDS.trendDrop.bad ? 'bad' : drop >= THRESHOLDS.trendDrop.warning ? 'warning' : 'good';
+  const small = previous < THRESHOLDS.minSampleUrgent;
+  const l: Level = capSmall(
+    drop >= THRESHOLDS.trendDrop.bad ? 'bad' : drop >= THRESHOLDS.trendDrop.warning ? 'warning' : 'good',
+    small
+  );
   const movement =
     Math.abs(change) < 0.005 ? 'level' : `${change < 0 ? 'down' : 'up'} ${fmtPct(Math.abs(change))}`;
+  // The counts lead and the percentage follows, so 2 against 5 reads as what
+  // it is before it reads as 60%.
   return {
     level: l,
     label: LEVEL_LABEL[l],
     shortLabel: LEVEL_SHORT[l],
-    reason: `${what} ${movement}: ${current.toLocaleString()} against ${previous.toLocaleString()} in ${against}`,
+    reason: `${what}: ${current.toLocaleString()} against ${previous.toLocaleString()} in ${against} (${movement})${
+      small ? '. Small numbers' : ''
+    }`,
   };
 }
 
