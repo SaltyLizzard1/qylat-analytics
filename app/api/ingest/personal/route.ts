@@ -1,0 +1,102 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '@/lib/db';
+import { buildStatements, findCollection, payloadHash, validatePayload } from '@/lib/personal-ingest';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+/**
+ * One collection from the personal Facebook profile scraper in
+ * scripts/personal-fb. The rules and the SQL live in lib/personal-ingest.ts.
+ *
+ * The scraper has its own secret rather than CRON_SECRET, so the file that
+ * sits beside a browser session on a laptop cannot trigger the Meta or GA sync.
+ *
+ * A payload is written completely or not at all: it is validated in full
+ * first, and every statement runs in one transaction.
+ */
+function authorized(request: NextRequest): boolean {
+  const secret = process.env.PERSONAL_INGEST_SECRET;
+  if (!secret) return false;
+  return request.headers.get('authorization') === `Bearer ${secret}`;
+}
+
+export async function POST(request: NextRequest) {
+  if (!authorized(request)) {
+    return NextResponse.json(
+      { ok: false, error: 'Unauthorized. Set PERSONAL_INGEST_SECRET and send it as a bearer token.' },
+      { status: 401 }
+    );
+  }
+
+  const rawBody = await request.text();
+  let body: unknown;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Body is not JSON.' }, { status: 400 });
+  }
+
+  const checked = validatePayload(body);
+  if ('errors' in checked) {
+    return NextResponse.json(
+      { ok: false, error: 'Payload refused. Nothing was written.', errors: checked.errors.slice(0, 50) },
+      { status: 422 }
+    );
+  }
+  const payload = checked.payload;
+  const hash = payloadHash(rawBody);
+
+  try {
+    // The same run delivered again is a retry and writes nothing. The same ID
+    // with a different body is not a retry and is refused.
+    const lookup = findCollection(payload.collection_id);
+    const earlier = await sql(lookup.text, lookup.params);
+    if (earlier.length > 0) {
+      if ((earlier[0].payload_hash as string).trim() === hash) {
+        return NextResponse.json({ ok: true, retry: true, collection_id: payload.collection_id, written: null });
+      }
+      return NextResponse.json(
+        { ok: false, error: 'This collection_id was already stored with a different payload. Nothing was written.' },
+        { status: 409 }
+      );
+    }
+
+    const statements = buildStatements(payload, hash);
+    const results = await sql.transaction(statements.map((s) => sql(s.text, s.params)));
+
+    const sentFollowers = payload.followers !== null;
+    const audienceRows = sentFollowers ? (results[results.length - 1] as unknown[]) : [];
+    const followers = !sentFollowers
+      ? 'not sent'
+      : audienceRows.length > 0
+        ? 'written'
+        : `skipped: ${payload.collected_on} already has a manual or api row, which was left as it is`;
+
+    return NextResponse.json({
+      ok: true,
+      retry: false,
+      collection_id: payload.collection_id,
+      written: {
+        posts: payload.posts.length,
+        observations: payload.observations.length,
+        followers,
+      },
+      sources: {
+        timeline: payload.sources.timeline.status,
+        library: payload.sources.library.status,
+        audience: payload.sources.audience.status,
+      },
+      unmatched: payload.unmatched,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'Database write failed. The transaction was rolled back and nothing was written.',
+        reason: e instanceof Error ? e.message : String(e),
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -1,0 +1,9 @@
+chrome-profile/
+cookies.json
+scrape.log*
+probe-output.json
+dry-run-output.json
+last-payload.json
+debug/
+.venv/
+__pycache__/
