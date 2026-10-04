@@ -1,8 +1,7 @@
 # Handoff: personal Facebook profile collection
 
-Written 2026-10-04. Committed locally on main, not pushed. Nothing is deployed
-or scheduled, and migration 010 has not been run on production or on the
-development database.
+Written 2026-10-04. See "State" below for what is live. The development
+database has neither migration 010 nor 011.
 
 ## Goal
 
@@ -92,20 +91,29 @@ session), `dry-run-output.json`, `probe-output.json`, `scrape.log`.
   content removals dated 9 May 2026. Liz says it is resolved and chose
   automated collection knowing it.
 
-## Production rollout, in order
+## State on 2026-10-04, evening
 
-1. Run `db/migrations/010_personal_profile_posts.sql` in the Neon SQL editor
-   against production. Check its three result sets.
-2. Set `PERSONAL_INGEST_SECRET` in Vercel production.
-3. Push and let Vercel deploy. `/dashboard/profile` should say no collection
-   has arrived.
-4. Fill in `scripts/personal-fb/.env` with the production `INGEST_URL` and the
-   same secret.
-5. Run `scrape.py --dry-run` and read the log.
-6. Run `scrape.py` once by hand. This is the controlled ingestion.
-7. Check `/dashboard/profile` against Facebook. Run `scrape.py --resend` and
-   confirm the log says the dashboard already had the collection.
-8. Only then run `register-task.ps1 -Preview`, then `register-task.ps1`.
+Checked directly against production (`ep-small-mud-az5opu7m`), not assumed.
+
+- Migrations 010 and 011 are applied on production.
+- The ingest route and Profile page are deployed at
+  `https://qylat-analytics.vercel.app`.
+- One controlled collection is stored: 53 posts, 711 observations, followers
+  1,122. Nothing leaked into `content_posts` or `post_metrics`.
+- `scripts/personal-fb/.env` holds `INGEST_URL` and the secret.
+- There is no daily run. Liz chose a button: "Collect Facebook profile" on the
+  Sync page writes a request, and `poll.py`, run every 5 minutes by Task
+  Scheduler, claims it and runs `scrape.py`. That code (commit `a6b9daa`, built
+  in a cloud session, reviewed here) is on local `main` and not yet pushed.
+- The Windows task is NOT registered. `register-task.ps1` now registers the
+  poller, not a daily run.
+
+## Remaining rollout, in order
+
+1. Push `main` and let Vercel deploy the button.
+2. Run `register-task.ps1 -Preview`, then `register-task.ps1`.
+3. Press the button once and watch it through: requested, running, collected.
+4. Confirm the task still checks in after a reboot. Untested.
 
 ## Open items
 

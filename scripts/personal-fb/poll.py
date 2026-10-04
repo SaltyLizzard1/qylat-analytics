@@ -71,6 +71,22 @@ def scraper_python() -> str:
     return str(console if console.exists() else exe)
 
 
+def stop_tree(proc: subprocess.Popen) -> None:
+    """
+    Stop an overrunning scraper together with everything it started. Killing
+    scrape.py alone leaves its Chrome open, and that window holds the profile
+    folder, so every later run would fail to start its browser.
+    """
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
+    else:
+        proc.kill()
+    try:
+        proc.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        log.error("The scraper did not stop. Close its window by hand before collecting again.")
+
+
 def new_log_lines(start: int) -> list[str]:
     """What scrape.py added to scrape.log during this run, without timestamps."""
     try:
@@ -102,13 +118,14 @@ def main() -> int:
     start = LOG_FILE.stat().st_size if LOG_FILE.exists() else 0
     flags = subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0
     try:
-        code = subprocess.run(
-            [scraper_python(), str(ROOT / "scrape.py")], cwd=ROOT, timeout=RUN_LIMIT_S, creationflags=flags
-        ).returncode
-        lines = new_log_lines(start)
-    except subprocess.TimeoutExpired:
-        code = 1
-        lines = new_log_lines(start) + [f"Stopped by poll.py after {RUN_LIMIT_S // 60} minutes."]
+        proc = subprocess.Popen([scraper_python(), str(ROOT / "scrape.py")], cwd=ROOT, creationflags=flags)
+        try:
+            code = proc.wait(timeout=RUN_LIMIT_S)
+            lines = new_log_lines(start)
+        except subprocess.TimeoutExpired:
+            stop_tree(proc)
+            code = 1
+            lines = new_log_lines(start) + [f"Stopped by poll.py after {RUN_LIMIT_S // 60} minutes."]
     except OSError as e:
         code = 1
         lines = [f"scrape.py could not be started: {e}"]
