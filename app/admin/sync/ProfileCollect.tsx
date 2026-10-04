@@ -6,9 +6,9 @@ import { ProfileCollectButton, type RunView } from './ProfileCollectButton';
  * The personal Facebook profile, beside the Meta and GA buttons.
  *
  * Unlike those two, this cannot run here: the scraper needs the logged in
- * Chrome profile on the laptop. The button leaves a request, the laptop's
- * poller picks it up within five minutes while it is on, and the result it
- * reports shows here.
+ * Chrome profile on the laptop. The button leaves a request and opens the
+ * collector on the laptop, which claims the request, runs, and reports the
+ * result that shows here. Nothing on the laptop runs between presses.
  */
 export async function ProfileCollect() {
   let latest: RunRequest | null;
@@ -20,6 +20,7 @@ export async function ProfileCollect() {
         view={{
           tone: 'bad',
           open: false,
+          launch: false,
           headline: 'Profile requests could not be read.',
           lines: [`Migration 011 may not have been run on this database. ${e instanceof Error ? e.message : String(e)}`],
           afterSessionFailure: false,
@@ -31,7 +32,7 @@ export async function ProfileCollect() {
 }
 
 function describe(r: RunRequest | null): RunView {
-  const base = { open: false, afterSessionFailure: false, lines: [] as string[] };
+  const base = { open: false, launch: false, afterSessionFailure: false, lines: [] as string[] };
   if (!r) return { ...base, tone: 'none', headline: 'Never requested from here.' };
 
   const detail = (r.detail ?? '').split('\n').map((l) => l.trim()).filter(Boolean).slice(-4);
@@ -42,10 +43,12 @@ function describe(r: RunRequest | null): RunView {
       return {
         ...base,
         open: true,
+        launch: true,
         tone: 'none',
-        headline: `Requested ${shortDateTime(r.requested_at)}. Waiting for the laptop.`,
+        headline: `Requested ${shortDateTime(r.requested_at)}. Opening the collector on this laptop.`,
         lines: [
-          `The laptop checks every 5 minutes while it is on and you are logged in. If it has not picked this up by ${shortDateTime(by)}, the request is withdrawn.`,
+          'Chrome asks before it opens the collector. Allow it.',
+          `This only works on the laptop where the collector is set up. If it has not started by ${shortDateTime(by)}, the request is withdrawn and nothing runs.`,
         ],
       };
     }
@@ -68,8 +71,8 @@ function describe(r: RunRequest | null): RunView {
         : {
             ...base,
             tone: 'warning',
-            headline: `Not picked up. Requested ${shortDateTime(r.requested_at)}, withdrawn after ${PENDING_EXPIRES_MIN} minutes.`,
-            lines: ['The laptop was off, asleep or logged out, or its poller is not registered.'],
+            headline: `Not started. Requested ${shortDateTime(r.requested_at)}, withdrawn after ${PENDING_EXPIRES_MIN} minutes.`,
+            lines: ['The collector did not start. It opens only on the laptop where register-protocol.ps1 has been run.'],
           };
     case 'finished': {
       const code = r.exit_code ?? 1;

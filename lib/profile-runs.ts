@@ -4,22 +4,28 @@ import { sql } from '@/lib/db';
 /**
  * On demand runs of the personal profile scraper.
  *
- * The scraper runs only on the laptop, so the dashboard cannot start it. The
- * Sync page writes a request, the laptop's poller (scripts/personal-fb/poll.py)
- * claims it every few minutes, runs the scraper and reports the exit code.
+ * The scraper runs only on the laptop, so the dashboard cannot start it, and
+ * nothing on the laptop runs in the background waiting to be asked. Instead
+ * the Sync page writes a request and then opens a qylat-collect: link. Windows
+ * hands that link to scripts/personal-fb/collect.py, which claims the request,
+ * runs the scraper and reports the exit code.
  *
- * The poller asks every five minutes while the laptop is on. Answering that
- * from Neon would keep the database awake all day for nothing, so whether a
- * request is open is cached and the cache is cleared by every write. The
- * database is touched only when the cache says a request may be waiting, and
- * the database, not the cache, decides what is claimed.
+ * The request is what makes the link safe. Any web page can open a
+ * qylat-collect: link, but collect.py runs the scraper only when it can claim
+ * a request, and only a press on this logged in Sync page writes one. A link
+ * opened from anywhere else finds nothing to claim and does nothing.
+ *
+ * Whether a request is open is cached and the cache is cleared by every
+ * write, so a claim with nothing waiting does not wake Neon. The database,
+ * not the cache, decides what is claimed.
  */
 
-/** A pending request nobody picked up in this time is withdrawn, so a laptop
- *  switched on hours later does not start a run nobody is watching. */
-export const PENDING_EXPIRES_MIN = 60;
+/** A request the collector did not claim in this time is withdrawn. The link
+ *  opens within seconds of the press, so a request older than this was pressed
+ *  somewhere the collector is not set up, and must not stay claimable. */
+export const PENDING_EXPIRES_MIN = 5;
 /** A claimed run that has not reported back in this time is marked expired.
- *  The poller stops the scraper after 20 minutes. */
+ *  collect.py stops the scraper after 20 minutes. */
 export const RUNNING_EXPIRES_MIN = 30;
 
 const TAG = 'profile-run';
@@ -50,7 +56,7 @@ export const EXIT_MEANING: Record<number, string> = {
 /**
  * Withdraws stale requests. Every read and write calls this first. A page
  * render may not clear the cache, so it passes false; a cache left saying
- * "open" only costs the poller one database read, which then clears it.
+ * "open" only costs the collector one database read, which then clears it.
  */
 async function expireStale(clearCache = true): Promise<void> {
   const expired = await sql`
@@ -94,7 +100,7 @@ export async function openRunRequest(): Promise<RunRequest | null> {
   return (rows[0] as RunRequest | undefined) ?? null;
 }
 
-/** The poller's question. Returns the request it now owns, or null. */
+/** The collector's question. Returns the request it now owns, or null. */
 export async function claimRunRequest(): Promise<{ id: number } | null> {
   if (!(await openInCache())) return null;
   await expireStale();

@@ -5,7 +5,7 @@
 --
 -- The scraper can only run on the laptop, beside the logged in Chrome
 -- profile, so the dashboard cannot start it. Instead the Sync page writes a
--- request here and the laptop's poller (scripts/personal-fb/poll.py) claims
+-- request here and the laptop's collector (scripts/personal-fb/collect.py) claims
 -- it, runs the scraper and reports the exit code back.
 --
 -- A request moves pending -> running -> finished, or to expired when nothing
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS profile_run_requests (
   finished_at   TIMESTAMPTZ,
   -- The scraper's own exit code, as documented in scripts/personal-fb/README.md.
   exit_code     INTEGER,
-  -- The last lines the scraper logged during the run, sent by the poller.
+  -- The last lines the scraper logged during the run, sent by the collector.
   detail        TEXT,
   CHECK (state = 'pending' OR state = 'expired' OR claimed_at IS NOT NULL),
   CHECK (state <> 'finished' OR (finished_at IS NOT NULL AND exit_code IS NOT NULL))

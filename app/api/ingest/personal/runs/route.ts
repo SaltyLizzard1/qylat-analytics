@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic';
 const DETAIL_MAX = 4000;
 
 /**
- * The laptop's poller, scripts/personal-fb/poll.py, calls this.
+ * The laptop's collector, scripts/personal-fb/collect.py, calls this when the
+ * Sync page's button opens it.
  *
  *   { "action": "claim" }                                   -> { ok, request: { id } | null }
  *   { "action": "finish", "id": 1, "exit_code": 0, "detail": "..." }  -> { ok }

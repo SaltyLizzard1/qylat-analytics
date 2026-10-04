@@ -127,48 +127,53 @@ a change as daily only between consecutive days.
 
 ## Running it from the dashboard
 
-There is no daily run. A collection happens when you press **Collect Facebook
-profile** on the dashboard's Sync page (Sync now, top right).
+There is no daily run and nothing runs in the background. A collection happens
+when you press **Collect Facebook profile** on the dashboard's Sync page (Sync
+now, top right), on this laptop.
 
 The dashboard cannot start the scraper, because the scraper needs
-`chrome-profile/` on this laptop. So the button leaves a request (migration
-011, `profile_run_requests`), and `poll.py` asks for it every 5 minutes:
+`chrome-profile/` here. So the button does two things:
 
-- nothing waiting: it exits without a word and Facebook is not touched
-- a request waiting: it claims it, runs `scrape.py` in its own console window,
-  stops it after 20 minutes, and reports the exit code and the last log lines,
-  which the Sync page shows
-- only one request can be open at a time, so pressing twice queues nothing
-- a request not picked up within 60 minutes is withdrawn, so switching the
-  laptop on hours later does not start a run nobody is watching
-- after exit code 5 (login form or checkpoint) the button reads "I have run
+1. It writes a request (migration 011, `profile_run_requests`).
+2. It opens a `qylat-collect:` link. Windows hands that link to `collect.py`,
+   which claims the request, runs `scrape.py` in its own window, stops it after
+   20 minutes, and reports the exit code and last log lines to the Sync page.
+
+What to expect:
+
+- Chrome asks "Open this application?" before it opens the collector. Allow it.
+- The collector window shows the run. It closes by itself after a success and
+  waits for Enter after a failure.
+- Only one request can be open at a time, so pressing twice queues nothing.
+- A request the collector does not claim within 5 minutes is withdrawn.
+- Pressed from a phone or another computer, the button writes a request that
+  nothing opens. It is withdrawn 5 minutes later and nothing runs.
+- After exit code 5 (login form or checkpoint) the button reads "I have run
   --setup. Collect again", as a reminder not to send the same rejected session
-  back to Facebook
+  back to Facebook.
 
-`poll.py` logs to `poll.log`, only when it claims a request or something fails.
+Why the link is safe: any web page can open a `qylat-collect:` link, and
+nothing in the link is trusted or used. `collect.py` runs the scraper only
+when there is a request to claim, and only a press on the logged in Sync page
+writes one. Opened from anywhere else, it says nothing is waiting and stops.
 
-Register the poller once:
+`collect.py` logs to `collect.log`.
+
+Register the link once:
 
 ```
-powershell -ExecutionPolicy Bypass -File .\register-task.ps1 -Preview
-powershell -ExecutionPolicy Bypass -File .\register-task.ps1
+powershell -ExecutionPolicy Bypass -File .egister-protocol.ps1 -Preview
+powershell -ExecutionPolicy Bypass -File .egister-protocol.ps1
 ```
 
-`-Preview` prints what would be registered and creates nothing. The script
-sets, explicitly:
+`-Preview` prints what would be written and changes nothing. The script writes
+one key under `HKEY_CURRENT_USER\Software\Classes\qylat-collect`. That is your
+own user's settings: no administrator rights, no other user affected. It
+refuses if the venv, the Chrome profile or `.env` is missing. To undo it:
+`.egister-protocol.ps1 -Remove`.
 
-- **Program:** `pythonw.exe poll.py`, so no window flashes every 5 minutes.
-- **Working directory:** this folder.
-- **Logon:** interactive only, as you, with standard rights and no stored
-  password. The task runs only while you are logged on, which a visible
-  browser needs.
-- **Repeat:** every 5 minutes, indefinitely.
-- **Overlap and limit:** a check while a run is going is skipped, and the task
-  is stopped after 25 minutes.
-
-It refuses to register if the venv, the Chrome profile or `.env` is missing,
-or if the task already exists. To remove the task:
-`Unregister-ScheduledTask -TaskName 'QYLAT personal Facebook'`.
+If this folder is ever moved, run the script again, since the key holds the
+full path.
 
 Running `scrape.py` by hand still works as before. Do not do it while a
 button run is going: both would open the same Chrome profile.

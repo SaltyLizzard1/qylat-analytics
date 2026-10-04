@@ -28,7 +28,7 @@ it in one transaction. `README.md` in this folder is the operating manual.
 | `lib/profile.ts`, `app/dashboard/profile/page.tsx` | Facebook Profile page. Reviewed in Chrome against the disposable database |
 | `app/dashboard/layout.tsx` | One line: the Profile nav entry |
 | `scripts/personal-fb/scrape.py` | Live dry run works. Never pushed to production |
-| `scripts/personal-fb/register-task.ps1` | Written. Parses. NOT run. Its preview stops at the missing `.env`, as designed |
+| `scripts/personal-fb/collect.py`, `register-protocol.ps1` | The on demand collector and its one time link registration. Preview run, nothing registered |
 | `scripts/personal-fb/README.md`, `requirements.txt`, `env.example`, `.gitignore` | Written |
 
 The working tree also holds unrelated uncommitted work that is not part of
@@ -101,19 +101,21 @@ Checked directly against production (`ep-small-mud-az5opu7m`), not assumed.
 - One controlled collection is stored: 53 posts, 711 observations, followers
   1,122. Nothing leaked into `content_posts` or `post_metrics`.
 - `scripts/personal-fb/.env` holds `INGEST_URL` and the secret.
-- There is no daily run. Liz chose a button: "Collect Facebook profile" on the
-  Sync page writes a request, and `poll.py`, run every 5 minutes by Task
-  Scheduler, claims it and runs `scrape.py`. That code (commit `a6b9daa`, built
-  in a cloud session, reviewed here) is on local `main` and not yet pushed.
-- The Windows task is NOT registered. `register-task.ps1` now registers the
-  poller, not a daily run.
+- There is no daily run and no background task. Liz rejected a 5 minute poller
+  and chose on demand only. "Collect Facebook profile" on the Sync page writes
+  a request and opens a `qylat-collect:` link, which Windows hands to
+  `collect.py`. That claims the request and runs `scrape.py`. The request is
+  what makes the link safe: nothing in the link is used, and without a request
+  written by the logged in Sync page nothing runs.
+- No Windows task exists. `register-task.ps1` and `poll.py` are gone.
 
 ## Remaining rollout, in order
 
-1. Push `main` and let Vercel deploy the button.
-2. Run `register-task.ps1 -Preview`, then `register-task.ps1`.
-3. Press the button once and watch it through: requested, running, collected.
-4. Confirm the task still checks in after a reboot. Untested.
+1. Push `main` and let Vercel deploy the link based button.
+2. Liz runs `register-protocol.ps1 -Preview`, then `register-protocol.ps1`.
+3. Press the button once on the laptop and watch it through: requested,
+   running, collected. This is the first real test of the link, of Chrome's
+   prompt, and of the collector window.
 
 ## Open items
 

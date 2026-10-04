@@ -340,7 +340,7 @@ CREATE OR REPLACE VIEW profile_follower_changes AS
 
 -- 7. On demand runs (migration 011) -------------------------------------------
 
--- The Sync page writes a request, the laptop's poller claims it, runs the
+-- The Sync page writes a request, the laptop's collector claims it, runs the
 -- scraper and reports the exit code. At most one request is open at a time.
 CREATE TABLE IF NOT EXISTS profile_run_requests (
   id            BIGSERIAL PRIMARY KEY,
