@@ -26,7 +26,7 @@ it in one transaction. `README.md` in this folder is the operating manual.
 | `db/schema.sql` | Two edits: posts platform check, content_posts exclusion |
 | `lib/personal-ingest.ts` | Validation and SQL. Type checks |
 | `app/api/ingest/personal/route.ts` | Route. Tested on Neon's driver against a disposable database. Not deployed |
-| `lib/profile.ts`, `app/dashboard/profile/page.tsx` | Facebook Profile page. Rendered against the disposable database. Never viewed in a browser |
+| `lib/profile.ts`, `app/dashboard/profile/page.tsx` | Facebook Profile page. Reviewed in Chrome against the disposable database |
 | `app/dashboard/layout.tsx` | One line: the Profile nav entry |
 | `scripts/personal-fb/scrape.py` | Live dry run works. Never pushed to production |
 | `scripts/personal-fb/register-task.ps1` | Written. Parses. NOT run. Its preview stops at the missing `.env`, as designed |
@@ -57,14 +57,17 @@ session), `dry-run-output.json`, `probe-output.json`, `scrape.log`.
   development endpoint for the test and dropped afterwards. `sql.transaction`
   stored the real payload, a repeat was a retry, a changed body under the same
   ID got 409, a database error mid transaction rolled back whole, a manual
-  audience row was left alone, two simultaneous deliveries stored one
-  collection, and the Profile page rendered the stored figures.
+  audience row was left alone, and the Profile page rendered the stored
+  figures. Simultaneous identical deliveries all return 200 with one stored and
+  the rest marked as retries, and simultaneous different payloads sharing an ID
+  give one 200 and one 409 (11 further checks).
 - **schema.sql against the migration:** identical on a disposable Postgres
   across 63 columns, 55 constraints, 14 indexes and 3 views.
   `audience_snapshots` was missing from `schema.sql` before and was added.
-- **Not verified:** the scraper's own push to a deployed route, and the
-  library URL with its range named, which was added after the last live run.
-  The first controlled run covers both.
+- **Live dry run with the range named in the library URL:** worked, 53 rows
+  under "Last 28 days".
+- **Not verified:** the scraper's own push to a deployed route. The first
+  controlled run covers it.
 
 ## Facts that took a live read to find
 

@@ -41,7 +41,13 @@ function figure(post: ProfilePost, key: string): React.ReactNode {
 
 function captionOf(post: ProfilePost): string {
   if (post.kind === 'story') return 'Story';
-  if (post.caption) return post.caption.length > 70 ? `${post.caption.slice(0, 70)}...` : post.caption;
+  if (post.caption) {
+    // Cut by code point, not by UTF-16 unit. A caption with an emoji at the
+    // cut was sliced through the middle of it, and the half character rendered
+    // differently on the server and in the browser, which broke hydration.
+    const chars = Array.from(post.caption);
+    return chars.length > 56 ? `${chars.slice(0, 56).join('')}...` : post.caption;
+  }
   return post.caption_complete ? 'No caption' : 'Caption not read';
 }
 
@@ -53,64 +59,56 @@ const num = (key: string, label: string): Column<ProfilePost> => ({
   key,
   label,
   align: 'right',
-  width: '88px',
+  width: '76px',
   render: (p) => figure(p, key),
 });
+
+/**
+ * What sits under a caption: the publish time exactly as Facebook showed it,
+ * then only what is unusual about this row. A post that is in the latest
+ * library read says nothing more, so the common case stays quiet.
+ */
+function under(p: ProfilePost): string {
+  const parts = [p.published_label ?? 'Publish time not read'];
+  if (p.caption && p.caption_complete === false) parts.push('caption cut short');
+  if (p.library_at && !p.in_latest_library) parts.push(`library figures from ${shortDate(p.library_at)}`);
+  if (!p.library_at) parts.push('never in a library read');
+  return parts.join(' · ');
+}
 
 const POST_COLUMNS: Column<ProfilePost>[] = [
   {
     key: 'post',
     label: 'Post',
-    width: 'minmax(220px, 2fr)',
+    width: 'minmax(200px, 1fr)',
     render: (p) => (
       <div>
         <div>{captionOf(p)}</div>
-        <Sub>
-          {p.published_label ? `${p.published_label}, as Facebook displayed it` : 'Publish time not read'}
-          {p.caption && p.caption_complete === false ? '. Caption cut short' : ''}
-        </Sub>
+        <Sub>{under(p)}</Sub>
       </div>
     ),
   },
   num('library:Views', 'Views'),
   num('library:Viewers', 'Viewers'),
-  num('library:Engagement', 'Engagement'),
+  num('library:Engagement', 'Engaged'),
   num('timeline:Reactions', 'Reactions'),
   num('timeline:Comments', 'Comments'),
   num('timeline:Shares', 'Shares'),
-  {
-    key: 'read',
-    label: 'Library read',
-    width: '150px',
-    render: (p) =>
-      p.library_at ? (
-        <div>
-          <div>{shortDateTime(p.library_at)}</div>
-          {!p.in_latest_library && <Sub>Not in the latest library read. Last figures kept</Sub>}
-        </div>
-      ) : (
-        <span style={{ color: C.muted }}>Never in a library read</span>
-      ),
-  },
 ];
 
 const STORY_COLUMNS: Column<ProfilePost>[] = [
   {
     key: 'story',
     label: 'Story',
-    width: 'minmax(220px, 2fr)',
-    render: (p) => (
-      <div>
-        <div>Story</div>
-        <Sub>{p.published_label ? `${p.published_label}, as Facebook displayed it` : 'Publish time not read'}</Sub>
-      </div>
-    ),
+    width: 'minmax(200px, 1fr)',
+    render: (p) => under(p),
   },
   num('library:Views', 'Views'),
   num('library:Viewers', 'Viewers'),
-  num('library:Engagement', 'Engagement'),
-  { key: 'read', label: 'Library read', width: '150px', render: (p) => shortDateTime(p.library_at) },
+  num('library:Engagement', 'Engaged'),
 ];
+
+const STORIES_SHOWN = 10;
 
 type Collection = Record<string, unknown>;
 
@@ -176,6 +174,7 @@ export default async function ProfilePage() {
   }
 
   const posts = all.filter((p) => p.kind === 'post');
+  const libraryRead = collections.find((c) => c.library_status === 'ok')?.collected_at as string | undefined;
   const stories = all.filter((p) => p.kind === 'story');
   const hoursSince = (Date.now() - new Date(latest.collected_at as string).getTime()) / 3_600_000;
   const failed = (['timeline', 'library', 'audience'] as const).filter((s) => latest[`${s}_status`] !== 'ok');
@@ -244,13 +243,20 @@ export default async function ProfilePage() {
 
       <Panel
         title="Posts"
-        description={`Views, Viewers and Engagement are Facebook's Content Library figures${
-          latest.library_period_label ? `, shown under "${latest.library_period_label}"` : ''
-        }. Reactions, Comments and Shares are the figures on the profile itself.`}
+        description={
+          libraryRead
+            ? `Library figures read ${shortDateTime(libraryRead)}. Times are as Facebook displayed them.`
+            : 'The Content Library has not been read yet.'
+        }
         detail={{
           summary: 'How to read these figures',
           children: (
             <div className="space-y-2">
+              <p>
+                Views, Viewers and Engaged (Facebook calls it Engagement) are Content Library figures
+                {latest.library_period_label ? `, shown there under "${latest.library_period_label}"` : ''}.
+                Reactions, Comments and Shares are the figures on the profile itself.
+              </p>
               <p>
                 Viewers is Facebook&apos;s own label. It is not reach and is not compared with reach
                 anywhere on this dashboard.
@@ -282,10 +288,17 @@ export default async function ProfilePage() {
         />
       </Panel>
 
-      <Panel title="Stories" description="Stories appear only in the Content Library.">
+      <Panel
+        title="Stories"
+        description={
+          stories.length > STORIES_SHOWN
+            ? `The ${STORIES_SHOWN} newest of ${stories.length} stored. Stories appear only in the Content Library.`
+            : 'Stories appear only in the Content Library.'
+        }
+      >
         <DataRows
           columns={STORY_COLUMNS}
-          rows={stories}
+          rows={stories.slice(0, STORIES_SHOWN)}
           keyOf={(p) => String(p.id)}
           emptyMessage="No stories stored yet."
         />
