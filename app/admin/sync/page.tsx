@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { SyncButtons } from './SyncButtons';
+import { ProfileCollect } from './ProfileCollect';
 import { C, RADIUS, TITLE, shortDate, shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +48,9 @@ export default async function SyncPage() {
 
       <div className="p-5 mb-5" style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.md }}>
         <SyncButtons />
+        <div className="mt-5 pt-5" style={{ borderTop: `1px solid ${C.border}` }}>
+          <ProfileCollect />
+        </div>
       </div>
 
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>

@@ -1,64 +1,61 @@
-# Registers the daily collection of the personal Facebook profile in Windows
-# Task Scheduler. Run it yourself, once, after a controlled run has been
-# checked on the dashboard. Nothing else creates this task.
+# Registers the poller behind the "Collect Facebook profile" button in Windows
+# Task Scheduler. Run it yourself, once. Nothing else creates this task.
 #
 #   .\register-task.ps1 -Preview    shows what would be registered, creates nothing
 #   .\register-task.ps1             registers the task
 #   Unregister-ScheduledTask -TaskName 'QYLAT personal Facebook'    removes it
 #
+# There is no daily run. The task runs poll.py every 5 minutes; poll.py asks
+# the dashboard whether the button was pressed and runs scrape.py only then.
+# A check with nothing waiting does not touch Facebook.
+#
 # What it sets, and why each is explicit:
-#   Working directory   this folder, so relative paths and the log land here
+#   Working directory   this folder, so relative paths and the logs land here
+#   Program             pythonw.exe, so no window flashes every 5 minutes. A
+#                       real run opens its own console window.
 #   Logon type          Interactive: the task runs only while you are logged on,
 #                       in your desktop session. The browser is visible and
 #                       cannot run in a background session. No password is stored.
-#   Time                10:30 local time, daily. Task Scheduler triggers follow
-#                       the system clock, so this refuses to register unless
-#                       the system zone is UTC+7, which is Asia/Bangkok's offset.
-#   Missed runs         run as soon as you next log on, once
-#   Overlap             a second start while one is running is ignored
-#   Time limit          20 minutes, then the run is stopped
+#   Repeat              every 5 minutes, indefinitely, starting a minute from now
+#   Overlap             a check while a run is still going is skipped
+#   Time limit          25 minutes. poll.py stops scrape.py itself at 20.
 
 [CmdletBinding()]
 param(
     [switch]$Preview,
-    [string]$At = '10:30'
+    [int]$EveryMinutes = 5
 )
 
 $ErrorActionPreference = 'Stop'
 
 $TaskName = 'QYLAT personal Facebook'
 $Dir = $PSScriptRoot
-$Python = Join-Path $Dir '.venv\Scripts\python.exe'
-$Script = Join-Path $Dir 'scrape.py'
+$Pythonw = Join-Path $Dir '.venv\Scripts\pythonw.exe'
+$Script = Join-Path $Dir 'poll.py'
 $User = "$env:USERDOMAIN\$env:USERNAME"
 
-foreach ($path in @($Python, $Script, (Join-Path $Dir 'chrome-profile'), (Join-Path $Dir '.env'))) {
+foreach ($path in @($Pythonw, $Script, (Join-Path $Dir 'scrape.py'), (Join-Path $Dir 'chrome-profile'), (Join-Path $Dir '.env'))) {
     if (-not (Test-Path $path)) {
-        throw "Missing: $path. Install, run --setup and fill in .env before scheduling. See README.md."
+        throw "Missing: $path. Install, run --setup and fill in .env before registering. See README.md."
     }
 }
 
-$zone = Get-TimeZone
-if ($zone.BaseUtcOffset -ne [TimeSpan]::FromHours(7) -or $zone.SupportsDaylightSavingTime) {
-    throw "System time zone is '$($zone.Id)' ($($zone.BaseUtcOffset)). The task time is local, so it is only $At in Asia/Bangkok when the system zone is UTC+7 with no daylight saving. Not registered."
-}
-
-$action = New-ScheduledTaskAction -Execute $Python -Argument "`"$Script`"" -WorkingDirectory $Dir
-$trigger = New-ScheduledTaskTrigger -Daily -At $At
+$start = (Get-Date).AddMinutes(1)
+$action = New-ScheduledTaskAction -Execute $Pythonw -Argument "`"$Script`"" -WorkingDirectory $Dir
+# No RepetitionDuration: the repetition then never ends.
+$trigger = New-ScheduledTaskTrigger -Once -At $start -RepetitionInterval (New-TimeSpan -Minutes $EveryMinutes)
 $principal = New-ScheduledTaskPrincipal -UserId $User -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet `
-    -StartWhenAvailable `
     -MultipleInstances IgnoreNew `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 20) `
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 25) `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries
 
 Write-Host "Task               $TaskName"
-Write-Host "Runs               $Python `"$Script`""
+Write-Host "Runs               $Pythonw `"$Script`""
 Write-Host "Working directory  $Dir"
 Write-Host "User               $User, interactive logon only, standard rights"
-Write-Host "Time               daily at $At, system zone $($zone.Id) (UTC+7)"
-Write-Host "Now                $(Get-Date -Format 'yyyy-MM-dd HH:mm zzz')"
+Write-Host "Repeat             every $EveryMinutes minutes from $(Get-Date $start -Format 'yyyy-MM-dd HH:mm'), while you are logged on"
 
 if ($Preview) {
     Write-Host "Preview only. Nothing was registered."
@@ -70,7 +67,7 @@ if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
 }
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings `
-    -Description 'Reads the personal Facebook profile once a day and sends one collection to the QYLAT analytics dashboard. See scripts/personal-fb/README.md.' | Out-Null
+    -Description 'Checks every few minutes whether the QYLAT analytics Sync page asked for a Facebook profile collection, and runs scrape.py if so. See scripts/personal-fb/README.md.' | Out-Null
 
 $info = Get-ScheduledTaskInfo -TaskName $TaskName
-Write-Host "Registered. Next run: $($info.NextRunTime)"
+Write-Host "Registered. First check: $($info.NextRunTime)"

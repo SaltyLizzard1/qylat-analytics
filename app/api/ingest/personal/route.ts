@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { ingestAuthorized } from '@/lib/ingest-auth';
 import { buildStatements, findCollection, payloadHash, validatePayload } from '@/lib/personal-ingest';
 
 export const dynamic = 'force-dynamic';
@@ -9,20 +10,12 @@ export const maxDuration = 60;
  * One collection from the personal Facebook profile scraper in
  * scripts/personal-fb. The rules and the SQL live in lib/personal-ingest.ts.
  *
- * The scraper has its own secret rather than CRON_SECRET, so the file that
- * sits beside a browser session on a laptop cannot trigger the Meta or GA sync.
- *
  * A payload is written completely or not at all: it is validated in full
  * first, and every statement runs in one transaction.
  */
-function authorized(request: NextRequest): boolean {
-  const secret = process.env.PERSONAL_INGEST_SECRET;
-  if (!secret) return false;
-  return request.headers.get('authorization') === `Bearer ${secret}`;
-}
 
 export async function POST(request: NextRequest) {
-  if (!authorized(request)) {
+  if (!ingestAuthorized(request)) {
     return NextResponse.json(
       { ok: false, error: 'Unauthorized. Set PERSONAL_INGEST_SECRET and send it as a bearer token.' },
       { status: 401 }

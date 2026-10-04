@@ -337,3 +337,27 @@ CREATE OR REPLACE VIEW profile_follower_changes AS
   FROM audience_snapshots
   WHERE platform = 'facebook-personal' AND source = 'scrape' AND followers IS NOT NULL
   WINDOW w AS (ORDER BY recorded_on);
+
+-- 7. On demand runs (migration 011) -------------------------------------------
+
+-- The Sync page writes a request, the laptop's poller claims it, runs the
+-- scraper and reports the exit code. At most one request is open at a time.
+CREATE TABLE IF NOT EXISTS profile_run_requests (
+  id            BIGSERIAL PRIMARY KEY,
+  state         TEXT        NOT NULL DEFAULT 'pending'
+                CHECK (state IN ('pending', 'running', 'finished', 'expired')),
+  requested_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  claimed_at    TIMESTAMPTZ,
+  finished_at   TIMESTAMPTZ,
+  exit_code     INTEGER,
+  detail        TEXT,
+  CHECK (state = 'pending' OR state = 'expired' OR claimed_at IS NOT NULL),
+  CHECK (state <> 'finished' OR (finished_at IS NOT NULL AND exit_code IS NOT NULL))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS profile_run_requests_one_open
+  ON profile_run_requests ((TRUE))
+  WHERE state IN ('pending', 'running');
+
+CREATE INDEX IF NOT EXISTS profile_run_requests_requested_at
+  ON profile_run_requests (requested_at DESC);

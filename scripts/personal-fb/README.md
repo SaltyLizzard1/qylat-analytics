@@ -125,37 +125,53 @@ log says so. Net follows and Unfollows are stored as the 28 day figures they
 are. Daily change comes from the `profile_follower_changes` view, which marks
 a change as daily only between consecutive days.
 
-## Schedule (not set up yet)
+## Running it from the dashboard
 
-One run a day, registered by `register-task.ps1` in this folder. Do this only
-after one controlled run has been checked on the dashboard.
+There is no daily run. A collection happens when you press **Collect Facebook
+profile** on the dashboard's Sync page (Sync now, top right).
+
+The dashboard cannot start the scraper, because the scraper needs
+`chrome-profile/` on this laptop. So the button leaves a request (migration
+011, `profile_run_requests`), and `poll.py` asks for it every 5 minutes:
+
+- nothing waiting: it exits without a word and Facebook is not touched
+- a request waiting: it claims it, runs `scrape.py` in its own console window,
+  stops it after 20 minutes, and reports the exit code and the last log lines,
+  which the Sync page shows
+- only one request can be open at a time, so pressing twice queues nothing
+- a request not picked up within 60 minutes is withdrawn, so switching the
+  laptop on hours later does not start a run nobody is watching
+- after exit code 5 (login form or checkpoint) the button reads "I have run
+  --setup. Collect again", as a reminder not to send the same rejected session
+  back to Facebook
+
+`poll.py` logs to `poll.log`, only when it claims a request or something fails.
+
+Register the poller once:
 
 ```
-.\register-task.ps1 -Preview
-.\register-task.ps1
+powershell -ExecutionPolicy Bypass -File .\register-task.ps1 -Preview
+powershell -ExecutionPolicy Bypass -File .\register-task.ps1
 ```
 
 `-Preview` prints what would be registered and creates nothing. The script
 sets, explicitly:
 
+- **Program:** `pythonw.exe poll.py`, so no window flashes every 5 minutes.
 - **Working directory:** this folder.
 - **Logon:** interactive only, as you, with standard rights and no stored
   password. The task runs only while you are logged on, which a visible
   browser needs.
-- **Time:** 10:30 local time, daily. Task Scheduler follows the system clock,
-  so the script refuses to register unless the system zone is UTC+7 with no
-  daylight saving. On 2026-10-04 this laptop was on SE Asia Standard Time.
-- **Missed runs:** run once at the next logon. A day with no run has no
-  collection, and the follower view reports the gap.
-- **Overlap and limit:** a second start is ignored, and a run is stopped after
-  20 minutes.
+- **Repeat:** every 5 minutes, indefinitely.
+- **Overlap and limit:** a check while a run is going is skipped, and the task
+  is stopped after 25 minutes.
 
-It also refuses to register if the venv, the Chrome profile or `.env` is
-missing, or if the task already exists. To remove the task:
+It refuses to register if the venv, the Chrome profile or `.env` is missing,
+or if the task already exists. To remove the task:
 `Unregister-ScheduledTask -TaskName 'QYLAT personal Facebook'`.
 
-If the laptop's time zone changes, the task follows the new local time. The
-collection day is still computed in Asia/Bangkok by the script.
+Running `scrape.py` by hand still works as before. Do not do it while a
+button run is going: both would open the same Chrome profile.
 
 ## Reading the result
 

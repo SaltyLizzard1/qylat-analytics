@@ -1,6 +1,7 @@
 chrome-profile/
 cookies.json
 scrape.log*
+poll.log*
 probe-output.json
 dry-run-output.json
 last-payload.json
