@@ -39,7 +39,7 @@ export const CLASSIFICATION_REASON: Record<Classification, string> = {
   uncertain:
     'An ordinary browser arriving from facebook.com or instagram.com. Meta fetches links with plain browser user agents from those domains, and so does a person on desktop web. Not counted, not discarded.',
   crawler:
-    'A self declared crawler or link preview fetcher, a missing user agent, or the pinned Chrome/74.0.3729.131 string Meta fetches with.',
+    'A self declared crawler or link preview fetcher, including ones that omit the word bot such as GoogleOther, a missing user agent, or the pinned Chrome/74.0.3729.131 string Meta fetches with.',
 };
 
 export type ClickCounts = {

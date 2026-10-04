@@ -56,8 +56,12 @@ CREATE TABLE IF NOT EXISTS classification_rules (
 
 INSERT INTO classification_rules (version, changed_on, note) VALUES (
   1,
-  '2026-09-27',
-  'Three states replace the is_bot boolean. Crawler is a self declared agent, a missing user agent, or the pinned Chrome/74.0.3729.131 string Meta fetches with. Human needs positive evidence: an in app browser token, or an ordinary browser that did not arrive from a Meta domain. A plain browser arriving from facebook.com or instagram.com is uncertain, because Meta own fetchers are indistinguishable from a person on desktop web.'
+  -- The date these rules came into force, which is the date this first ran on
+  -- production, not the date the file was written. The Links page and the
+  -- Click Log show it to explain a shift in the figures, so it has to be the
+  -- date the figures actually moved.
+  '2026-10-03',
+  'Three states replace the is_bot boolean. Crawler is a self declared agent, including ones that omit the word bot such as GoogleOther, a missing user agent, or the pinned Chrome/74.0.3729.131 string Meta fetches with. Human needs positive evidence: an in app browser token, or an ordinary browser that did not arrive from a Meta domain. A plain browser arriving from facebook.com or instagram.com is uncertain, because Meta own fetchers are indistinguishable from a person on desktop web.'
 ) ON CONFLICT (version) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION classification_rules_version() RETURNS INTEGER
@@ -90,10 +94,22 @@ BEGIN
   END IF;
 
   -- Self declared crawlers, link preview fetchers, AI assistants and HTTP
-  -- libraries. Carried over unchanged from lib/bots.ts as of migration 005.
+  -- libraries. Carried over from lib/bots.ts as of migration 005, plus the
+  -- agents below that declare themselves without using the word bot.
+  --
   -- The cost of the generic `bot` token is a rare false positive on CUBOT
   -- branded phones, accepted because nearly every crawler uses that word.
-  IF agent ~* '(bot|crawler|spider|facebookexternalhit|facebookcatalog|meta-externalagent|meta-externalfetcher|^whatsapp/|slack-imgproxy|skypeuripreview|embedly|quora link preview|claude-user|chatgpt-user|perplexity-user|anthropic-ai|headlesschrome|curl/|wget/|python-requests|python-urllib|go-http-client|node-fetch|axios/)' THEN
+  --
+  -- Google is the reason this list grew. Googlebot, AdsBot-Google and
+  -- Storebot-Google all carry `bot` and were already caught, but GoogleOther,
+  -- Google-InspectionTool, APIs-Google, FeedFetcher-Google and
+  -- Mediapartners-Google do not. A real GoogleOther hit on tt-bio-quiz on
+  -- 28 Sept 2026 presented as `Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X
+  -- Build/MMB29P) ... (compatible; GoogleOther)`, which is an ordinary mobile
+  -- browser string with the agent name in a trailing comment. With no referrer
+  -- it passed every check and would have been counted as a person. It declares
+  -- itself plainly, so it belongs here.
+  IF agent ~* '(bot|crawler|spider|facebookexternalhit|facebookcatalog|meta-externalagent|meta-externalfetcher|^whatsapp/|slack-imgproxy|skypeuripreview|embedly|quora link preview|claude-user|chatgpt-user|perplexity-user|anthropic-ai|headlesschrome|curl/|wget/|python-requests|python-urllib|go-http-client|node-fetch|axios/|googleother|google-inspectiontool|googleproducer|apis-google|feedfetcher-google|mediapartners-google|google favicon|vkshare|iframely|bytespider|yandeximages)' THEN
     RETURN 'crawler';
   END IF;
 
@@ -256,10 +272,16 @@ CREATE INDEX click_events_human_idx ON click_events (slug, clicked_at DESC)
 CREATE INDEX IF NOT EXISTS click_events_session_idx ON click_events (session_id);
 
 -- ---------------------------------------------------------------------------
--- 9. Check the result. Expected on 2026-09-27 across 58 rows:
---    human 10, uncertain 2, crawler 38, test 8.
---    Per slug: ig-bio-quiz 7, fb-reel-quiz 2, fb-post-quiz 1, and 0 people on
---    fb-page-quiz and fb-profile-quiz, whose only hits are Liz's own tests.
+-- 9. Check the result. Expected on 2026-10-03 across 61 rows:
+--    human 11, uncertain 2, crawler 40, test 8.
+--    Per slug: ig-bio-quiz 8, fb-reel-quiz 2, fb-post-quiz 1, tt-bio-quiz 0,
+--    and 0 people on fb-page-quiz and fb-profile-quiz, whose only hits are
+--    Liz's own tests.
+--
+--    If the row count is above 61, clicks have arrived since this was written
+--    and the four figures will differ. The check that matters is not the exact
+--    numbers but that they sum to the total and that nothing obviously wrong
+--    sits in the human column. db/reconcile_clicks.sql query 1 proves the sum.
 -- ---------------------------------------------------------------------------
 
 SELECT

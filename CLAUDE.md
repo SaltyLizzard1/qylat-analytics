@@ -171,6 +171,16 @@ These are not derivable from the code and have each caused a real failure.
   `uncertain` is a plain browser arriving from facebook.com or instagram.com,
   which Meta's own fetchers and a person on desktop web produce identically.
   Never classify on timing: same-second bursts are a hint, not evidence.
+- **Not every crawler uses the word bot.** `Googlebot`, `AdsBot-Google` and
+  `Storebot-Google` are caught by the generic `bot` token, but `GoogleOther`,
+  `Google-InspectionTool`, `APIs-Google`, `FeedFetcher-Google` and
+  `Mediapartners-Google` are not. A real `GoogleOther` hit on tt-bio-quiz on
+  28 Sept 2026 presented as an ordinary Android Chrome string with the agent
+  name in a trailing `(compatible; GoogleOther)` comment and no referrer, so it
+  passed every check and would have counted as a person. Those tokens plus
+  `vkShare`, `Iframely`, `Bytespider` and `YandexImages` are in the migration
+  008 regex. When a new single click appears on a link that is not live
+  anywhere, read its user agent before believing it.
 - **Classification is derived, never authoritative.** The raw `user_agent` is
   the stored fact. `classification` and `rules_version` are recomputed from it,
   so a rule change rejudges history instead of splitting the totals into a
