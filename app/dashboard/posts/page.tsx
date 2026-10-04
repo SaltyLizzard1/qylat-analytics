@@ -137,6 +137,15 @@ export default async function PostsDetailPage({
       <PageHeader
         title={`${account}: posts ${scope}`}
         meta={[
+          // The window chosen on the Overview, always shown, so a narrowed
+          // week is never mistaken for the whole selection.
+          {
+            label: 'Publication window',
+            value: `${period.label}, ${shortDate(period.startDate)} to ${shortDate(period.endDate)}`,
+          },
+          ...(week && weekEnd
+            ? [{ label: 'Publish week shown', value: `${shortDate(week)} to ${shortDate(weekEnd)}` }]
+            : []),
           { label: 'Posts', value: String(posts.length) },
           { label: 'With a views figure', value: `${withViews} of ${posts.length}` },
           { label: 'Figures read', value: lastRead ? shortDateTime(lastRead) : 'never' },
@@ -149,8 +158,9 @@ export default async function PostsDetailPage({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: C.muted }}>
-        Views and engagement are each post&apos;s total to date. Highest views first.
-        {posts.length > 0 && posts.length < THRESHOLDS.minSamplePosts && <SampleChip>limited sample</SampleChip>}
+        Views and engagement are each post&apos;s total to date, not activity inside the window. Highest views
+        first.
+        {posts.length > 0 && posts.length < THRESHOLDS.minSamplePosts && <SampleChip>small sample</SampleChip>}
       </div>
 
       {posts.length === 0 ? (

@@ -24,11 +24,11 @@ import {
   ChartCard,
   ChartEmpty,
   ColumnChart,
-  InfoTip,
   MetricCard,
   MiniTrend,
   SampleChip,
 } from '@/components/overview';
+import { InfoTip } from '@/components/InfoTip';
 import { StatusBadge } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import { THRESHOLDS, type Level } from '@/lib/status';
@@ -262,8 +262,8 @@ export default async function DashboardPage({
       */}
       <div className={single ? 'grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-5' : 'space-y-5'}>
         <div className="space-y-5">
-          <SectionHeading note={single ? 'by publish week. Click a bar' : 'posts grouped by the week they were published. Click a bar for its posts'}>
-            Views
+          <SectionHeading note={single ? 'click a bar for its posts' : 'posts grouped by the week they were published. Click a bar for its posts'}>
+            Views to date by publish week
           </SectionHeading>
           <WeekCharts
             metric="views"
@@ -276,7 +276,7 @@ export default async function DashboardPage({
           />
         </div>
         <div className="space-y-5">
-          <SectionHeading note={single ? 'same posts, same weeks' : 'same posts, same weeks'}>Engagement</SectionHeading>
+          <SectionHeading note="same posts, same weeks">Engagement to date by publish week</SectionHeading>
           <WeekCharts
             metric="engagement"
             shown={shown}
@@ -446,6 +446,14 @@ export default async function DashboardPage({
             Page post, and unique viewers cannot be added across posts, so this page uses views.
           </li>
           <li>
+            <span style={{ color: C.text, fontWeight: 600 }}>The small sample rules are provisional.</span> A
+            change is given as a percentage only when the earlier window had at least {THRESHOLDS.minSampleUrgent}{' '}
+            events, and a finding built on fewer than {THRESHOLDS.minSampleUrgent} events or{' '}
+            {THRESHOLDS.minSamplePostsUrgent} posts is held below urgent. Those cut-offs were chosen by judgement to
+            stop small counts from shouting. They are not validated benchmarks and say nothing about what good
+            performance is.
+          </li>
+          <li>
             <span style={{ color: C.text, fontWeight: 600 }}>Stories are not counted as posts.</span> A story is
             read once, at whatever age it has that day, so its views do not compare with a post&apos;s. Profile
             stories are on the Profile page.
@@ -467,7 +475,7 @@ export default async function DashboardPage({
 /** "5 posts", with how many carry a figure when not all do, and a flag when the sample is small. */
 function postsMeta(posts: number, known: number): string {
   const base = known < posts ? `${known} of ${posts} posts` : `${posts} post${posts === 1 ? '' : 's'}`;
-  return known < THRESHOLDS.minSamplePosts ? `${base}, limited sample` : base;
+  return known < THRESHOLDS.minSamplePosts ? `${base}, small sample` : base;
 }
 
 /**
@@ -530,8 +538,8 @@ function WeekCharts({
             info={info}
             note={
               <span className="inline-flex items-center gap-1.5 flex-wrap">
-                {total} post{total === 1 ? '' : 's'}, by publish week
-                {total > 0 && total < THRESHOLDS.minSamplePosts && <SampleChip>limited sample</SampleChip>}
+                {total} post{total === 1 ? '' : 's'} published in the window
+                {total > 0 && total < THRESHOLDS.minSamplePosts && <SampleChip>small sample</SampleChip>}
               </span>
             }
           >
@@ -575,7 +583,12 @@ function AttentionRow({ item, href }: { item: AttentionItem; href: string }) {
           {item.title}
         </Link>
         <span className="flex items-center gap-1.5 flex-shrink-0">
-          {item.detail.includes('Small numbers') && <InfoTip text="Built on a small count, so it is held below urgent." />}
+          {item.detail.includes('Small sample') && (
+            <InfoTip
+              about="why this is not marked urgent"
+              text={`Built on a small sample, so it is held below urgent. The cut-offs (fewer than ${THRESHOLDS.minSampleUrgent} events, or fewer than ${THRESHOLDS.minSamplePostsUrgent} posts) are provisional sample-size rules chosen by judgement. They are not validated performance benchmarks.`}
+            />
+          )}
           <StatusBadge
             status={{ level: item.level, label: item.level === 'bad' ? 'Urgent' : 'Watch', reason: item.detail }}
             compact

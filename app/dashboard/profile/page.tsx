@@ -203,7 +203,13 @@ export default async function ProfilePage({
   return (
     <div className="space-y-5">
       {sp.back === 'overview' && (
-        <BackLink href={withFilters('/dashboard', period, parsePlatform(sp.platform))}>Back to Overview</BackLink>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <BackLink href={withFilters('/dashboard', period, parsePlatform(sp.platform))}>Back to Overview</BackLink>
+          <span className="text-xs" style={{ color: C.muted }}>
+            Opened from {period.label.toLowerCase()}, {shortDate(period.startDate)} to {shortDate(period.endDate)}. This
+            page shows the latest reading of every stored post, not only that window.
+          </span>
+        </div>
       )}
       <PageHeader
         title="Facebook Profile"

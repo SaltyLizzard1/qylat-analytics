@@ -114,17 +114,25 @@ export const THRESHOLDS = {
   minSampleTrend: 5,
 
   /**
+   * PROVISIONAL sample-size rule, not a validated benchmark.
+   *
    * Below this many events, a finding is never raised above "needs attention".
    * Five clicks falling to two is a 60% drop and is also three clicks. It is
-   * worth a look and is not an emergency, so the alert says the numbers are
+   * worth a look and is not an emergency, so the alert says the sample is
    * small instead of shouting.
+   *
+   * 20 was chosen by judgement on 2026-10-04, not derived from this account's
+   * data or from any published standard. It says nothing about what good
+   * performance is. It only decides how loudly a small count may speak. Revisit
+   * it once there is enough history to see how often small windows mislead.
    */
   minSampleUrgent: 20,
 
   /**
-   * The same idea for posts. A format judged on three posts can be one bad
-   * post away from a different verdict, so below this it is held at "needs
-   * attention" and says the sample is small.
+   * PROVISIONAL sample-size rule, not a validated benchmark. The same idea for
+   * posts: a format judged on three posts can be one post away from a
+   * different verdict, so below this it is held at "needs attention" and says
+   * the sample is small. 8 was chosen by judgement, like the 20 above.
    */
   minSamplePostsUrgent: 8,
 
@@ -147,7 +155,7 @@ function level(value: number, good: number, warning: number): Level {
   return 'bad';
 }
 
-/** A finding built on a small count is held at "needs attention". See minSampleUrgent. */
+/** A finding built on a small count is held at "needs attention". A provisional rule: see minSampleUrgent. */
 function capSmall(l: Level, small: boolean): Level {
   return small && l === 'bad' ? 'warning' : l;
 }
@@ -170,7 +178,7 @@ export function arrivalStatus(sessions: number | null, clicks: number | null): S
     level: l,
     label: LEVEL_LABEL[l],
     shortLabel: LEVEL_SHORT[l],
-    reason: `${sessions ?? 0} of ${clicks} clicks became a session (${fmtPct(rate)})${small ? '. Small numbers' : ''}`,
+    reason: `${sessions ?? 0} of ${clicks} clicks became a session (${fmtPct(rate)})${small ? '. Small sample' : ''}`,
   };
 }
 
@@ -251,7 +259,7 @@ export function formatStatus(
     shortLabel: LEVEL_SHORT[l],
     reason: `${Math.round(views ?? 0).toLocaleString()} views against ${Math.round(
       platformBenchmark
-    ).toLocaleString()}, ${fmtPct(ratio)} of ${basis}, over ${posts} posts${small ? '. Small numbers' : ''}`,
+    ).toLocaleString()}, ${fmtPct(ratio)} of ${basis}, over ${posts} posts${small ? '. Small sample' : ''}`,
   };
 }
 
@@ -339,7 +347,7 @@ export function trendStatus(
     label: LEVEL_LABEL[l],
     shortLabel: LEVEL_SHORT[l],
     reason: `${what}: ${current.toLocaleString()} against ${previous.toLocaleString()} in ${against} (${movement})${
-      small ? '. Small numbers' : ''
+      small ? '. Small sample' : ''
     }`,
   };
 }

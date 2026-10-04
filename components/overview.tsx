@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Delta } from '@/components/Delta';
+import { InfoTip } from '@/components/InfoTip';
 import { THRESHOLDS } from '@/lib/status';
 import { C, CARD, RADIUS, TITLE, compact, full } from '@/lib/theme';
 
@@ -11,35 +12,10 @@ import { C, CARD, RADIUS, TITLE, compact, full } from '@/lib/theme';
  */
 
 /**
- * An explanation that stays out of the way. Hover or focus shows it. The
- * label and the number it explains are always visible; only the "why" folds.
+ * Says a figure rests on few posts or events. A fact about the evidence, not
+ * a status, so it has no colour. The cut-offs behind it are provisional
+ * sample-size rules in lib/status.ts, not validated benchmarks.
  */
-export function InfoTip({ text }: { text: string }) {
-  return (
-    <span
-      title={text}
-      aria-label={text}
-      role="note"
-      tabIndex={0}
-      className="inline-flex items-center justify-center"
-      style={{
-        width: 15,
-        height: 15,
-        borderRadius: RADIUS.pill,
-        border: `1px solid ${C.border}`,
-        color: C.muted,
-        fontSize: '0.62rem',
-        fontWeight: 600,
-        cursor: 'help',
-        flexShrink: 0,
-      }}
-    >
-      i
-    </span>
-  );
-}
-
-/** Says a figure rests on few posts or events. A fact about the evidence, not a status, so it has no colour. */
 export function SampleChip({ children }: { children: React.ReactNode }) {
   return (
     <span
@@ -56,7 +32,8 @@ export function SampleChip({ children }: { children: React.ReactNode }) {
  *
  * "12, was 9" is always shown. The percentage and its colour appear only when
  * the earlier count is large enough for a percentage to mean something. Two
- * clicks against five is a 60% fall and is also three clicks.
+ * clicks against five is a 60% fall and is also three clicks. "Large enough"
+ * is a provisional sample-size rule, not a validated benchmark.
  */
 export function Change({ current, previous, against }: { current: number; previous: number; against: string }) {
   const enough = previous >= THRESHOLDS.minSampleUrgent;
@@ -68,7 +45,7 @@ export function Change({ current, previous, against }: { current: number; previo
       {enough ? (
         <Delta current={current} previous={previous} suffix="" />
       ) : (
-        <SampleChip>small numbers</SampleChip>
+        <SampleChip>small sample</SampleChip>
       )}
     </span>
   );
@@ -93,27 +70,33 @@ export function MetricCard({
   /** Lines under the figure: the period, the breakdown, the change. */
   children?: React.ReactNode;
 }) {
-  const body = (
-    <>
+  // The figure is the link, stretched over the whole card, so the card is one
+  // large target. The "i" sits above that link and is its own control: a
+  // button inside a link would be invalid and would follow the link when
+  // pressed.
+  return (
+    <div className="relative px-3.5 py-3" style={CARD}>
       <div className="flex items-center justify-between gap-2 mb-1">
         <p className="text-xs uppercase" style={{ color: C.muted, letterSpacing: '0.08em' }}>
           {label}
         </p>
-        {info && <InfoTip text={info} />}
+        {info && <InfoTip text={info} about={label.toLowerCase()} />}
       </div>
       <p className="tabular-nums" style={{ ...TITLE, fontSize: '1.5rem', lineHeight: 1.15 }}>
-        {value}
+        {href ? (
+          <Link
+            href={href}
+            aria-label={`${label}: ${value}. Open the details`}
+            className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:outline-[#111111]"
+            style={{ color: 'inherit', textDecoration: 'none' }}
+          >
+            {value}
+          </Link>
+        ) : (
+          value
+        )}
       </p>
       {children && <div className="mt-1.5 flex flex-col gap-0.5">{children}</div>}
-    </>
-  );
-  return href ? (
-    <Link href={href} className="block px-3.5 py-3" style={{ ...CARD, textDecoration: 'none' }}>
-      {body}
-    </Link>
-  ) : (
-    <div className="px-3.5 py-3" style={CARD}>
-      {body}
     </div>
   );
 }
@@ -272,7 +255,7 @@ export function ChartCard({
         ) : (
           heading
         )}
-        {info && <InfoTip text={info} />}
+        {info && <InfoTip text={info} about={title.toLowerCase()} />}
       </div>
       {note && (
         <p className="text-xs mb-3" style={{ color: C.muted }}>
