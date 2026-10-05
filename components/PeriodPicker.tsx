@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { PERIOD_CHOICES, applyPeriod, type Period, type PeriodKind } from '@/lib/period';
+import { PERIOD_CHOICES, PERIOD_COOKIE, applyPeriod, type Period, type PeriodKind } from '@/lib/period';
 import { C, CARD, EYEBROW, RADIUS } from '@/lib/theme';
 
 /**
@@ -39,6 +39,7 @@ export function PeriodPicker({ period, bare = false }: { period: Period; bare?: 
       endDate: period.endDate,
       ...next,
     });
+    remember(q);
     router.push(`${pathname}?${q.toString()}`);
   }
 
@@ -181,6 +182,24 @@ function Segment({
       {children}
     </button>
   );
+}
+
+/**
+ * Keeps the chosen period for a year, so the Overview can open on it when the
+ * address names no period. Only the period is kept, never the account or
+ * anything else, and an address that names a period always wins.
+ */
+function remember(q: URLSearchParams) {
+  const kept = new URLSearchParams();
+  for (const key of ['period', 'from', 'to', 'compare']) {
+    const value = q.get(key);
+    if (value) kept.set(key, value);
+  }
+  try {
+    document.cookie = `${PERIOD_COOKIE}=${encodeURIComponent(kept.toString())}; path=/; max-age=31536000; samesite=lax`;
+  } catch {
+    // A browser that refuses cookies just opens on the default next time.
+  }
 }
 
 /** Native date input. No library: the browser's own picker is enough and weighs nothing. */

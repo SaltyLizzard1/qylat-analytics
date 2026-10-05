@@ -60,3 +60,20 @@ details > summary {
 details > summary::-webkit-details-marker {
   display: none;
 }
+
+/*
+  A chart mark that opens one post or one format lands on it. The target sits
+  clear of the top edge and is ringed, so it is found without reading the list.
+  components/HashTarget.tsx sets data-target, because moving between pages
+  inside the app does not set :target.
+*/
+[id^="post-"],
+[id^="format-"] {
+  scroll-margin-top: 16px;
+}
+[id^="post-"]:target,
+[id^="format-"]:target,
+[data-target] {
+  outline: 3px solid #13152B;
+  outline-offset: 2px;
+}

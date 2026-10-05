@@ -1,11 +1,23 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getWeeklyClicks } from '@/lib/queries';
-import { parsePeriod, type Period, type PeriodParams } from '@/lib/period';
+import { getFormatBenchmarkAtAge } from '@/lib/cohort';
+import {
+  OVERVIEW_DEFAULT_DAYS,
+  PERIOD_COOKIE,
+  parsePeriod,
+  periodPhrase,
+  rememberedPeriod,
+  type Period,
+  type PeriodParams,
+} from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { PlatformFilter } from '@/components/PlatformFilter';
 import { getAttentionItems, type AttentionItem } from '@/lib/attention';
 import {
   SOCIAL_PLATFORMS,
+  getDetailPosts,
   getFollowerSeries,
   getFreshness,
   getPlatformTotals,
@@ -27,23 +39,27 @@ import {
   FilterBar,
   MetricCard,
   MiniTrend,
+  PlatformChip,
   SampleChip,
 } from '@/components/overview';
+import { AudienceStrip, FormatBars, Takeaway, TopPosts } from '@/components/insights';
 import { InfoTip } from '@/components/InfoTip';
 import { StatusBadge } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import { THRESHOLDS, type Level } from '@/lib/status';
-import { C, CARD, RADIUS, SERIES, full, platformColor, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
+import { C, CARD, RADIUS, SERIES, formatLabel, full, platformColor, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * The Overview: how the social accounts are doing, readable in a few seconds,
- * with every chart a way into the posts behind it.
+ * The Overview, arranged to answer three questions in order: what worked,
+ * what changed, and which posts to look at.
  *
- * Order, top to bottom: the filters, a row of figures, then charts, then the
- * list of things that need a look. The charts are the page. The list sits
- * below them because it is for after you have seen the shape of things.
+ * Top to bottom: the filters, one or two sentences of fact, the three
+ * accounts' followers in a strip, then the performance charts: the most
+ * viewed posts per account and the formats compared at the same age. Below
+ * those, what changed against the window before, the weekly charts, the
+ * website, and the list of things that need a look.
  *
  * What this page will not do, however useful it would look:
  *   - draw "views this week". Views are stored as each post's total to date,
@@ -53,6 +69,10 @@ export const dynamic = 'force-dynamic';
  *     comparable, and the profile's figures have an unverified scope.
  *   - add website sessions to social views, or one account's followers to
  *     another's. Each account and the website keep their own figures.
+ *   - rank posts or formats across accounts. Accounts read views differently,
+ *     so every bar is scaled inside its own account.
+ *   - benchmark the Facebook Profile. It has no reading at a fixed age, so it
+ *     stays out of the format comparison and says so.
  */
 
 const LEVEL_STYLE: Record<Level, { color: string; background: string; border: string }> = {
@@ -65,6 +85,14 @@ const VIEWS_INFO =
   'Each post’s total views as of the last read, added up for posts published in this window. Not views that happened in the window: only totals to date are stored. Older posts have had longer to collect views.';
 const ENGAGEMENT_INFO =
   'Each post’s total engagement as of the last read, for posts published in this window. Instagram and the Page report likes, comments, saves and shares. The profile reports Facebook’s own Engagement figure, which also counts clicks.';
+const TOP_INFO: Record<SocialPlatform, string> = {
+  instagram:
+    'The posts published in this window with the most views to date, from Meta’s API. An older post has had longer to collect views. Instagram’s API reports fewer views for images and carousels than the app does. Bars compare posts inside this account only.',
+  facebook:
+    'The Facebook Page posts published in this window with the most views to date, from Meta’s API. An older post has had longer to collect views. Bars compare posts inside this account only.',
+  'facebook-personal':
+    'The Facebook Profile posts published in this window with the most views, as read from Facebook’s Content Library at the last collection. Whether that figure is a lifetime total is not confirmed. Bars compare posts inside this account only.',
+};
 
 export default async function DashboardPage({
   searchParams,
@@ -72,12 +100,23 @@ export default async function DashboardPage({
   searchParams: Promise<PeriodParams & { platform?: string }>;
 }) {
   const sp = await searchParams;
-  const period = parsePeriod(sp);
   const platform = parsePlatform(sp.platform);
+
+  // An address that names no period opens on the last one chosen, or on 30
+  // days. It is sent to an address that names it, so every link from here
+  // carries the period and Back returns to the same view. An address that
+  // already names a period is never changed.
+  if (sp.period === undefined && !(sp.from && sp.to)) {
+    const saved = (await cookies()).get(PERIOD_COOKIE)?.value;
+    redirect(withFilters('/dashboard', rememberedPeriod(saved, sp.compare, OVERVIEW_DEFAULT_DAYS), platform));
+  }
+
+  const period = parsePeriod(sp);
   const shown: SocialPlatform[] = platform === 'all' ? [...SOCIAL_PLATFORMS] : [platform];
   const single = shown.length === 1;
+  const age = THRESHOLDS.formatAgeHours;
 
-  const [weekly, totals, followers, website, weeklyClicks, attention, fresh] = await Promise.all([
+  const [weekly, totals, followers, website, weeklyClicks, attention, fresh, detail, formats] = await Promise.all([
     getWeeklySocial(period, platform),
     getPlatformTotals(period),
     getFollowerSeries(period),
@@ -85,11 +124,17 @@ export default async function DashboardPage({
     getWeeklyClicks(period),
     getAttentionItems(period),
     getFreshness(),
+    getDetailPosts(period, platform, null),
+    getFormatBenchmarkAtAge(age, period),
   ]);
 
   const link = (href: string, extra: Record<string, string | undefined> = {}) =>
     withFilters(href, period, platform, extra);
   const comparing = period.compare === 'previous';
+  const published = `posts published ${periodPhrase(period)}`;
+  // A mark that narrows to one account remembers the filter the Overview had,
+  // so the way back returns to the same view.
+  const origin = shown.length > 1 ? 'all' : undefined;
 
   const mine = totals.filter((t) => shown.includes(t.platform));
   const posts = mine.reduce((n, t) => n + t.posts, 0);
@@ -129,6 +174,49 @@ export default async function DashboardPage({
     href: link('/dashboard/funnel', { back: 'overview' }),
   }));
 
+  const apiShown = shown.filter((p) => p !== 'facebook-personal');
+  const accountNames = apiShown.map((p) => (p === 'facebook' ? 'the Facebook Page' : platformLabel(p)));
+
+  /*
+   * The summary. Facts only, each one already on the page below: how many
+   * posts against the window before, and which format has the highest median
+   * at a fixed age where at least two formats have enough posts to compare.
+   * It never calls anything good or poor, and a small sample is left out of
+   * the comparison, not described as weak.
+   */
+  const sentences: string[] = [];
+  if (apiShown.length > 0 && comparing) {
+    const names = accountNames.join(' and ');
+    sentences.push(
+      `${names.charAt(0).toUpperCase()}${names.slice(1)} published ${full(apiPosts)} post${apiPosts === 1 ? '' : 's'} ${periodPhrase(
+        period
+      )}, against ${full(apiPrevPosts)} in ${period.compareLabel}.`
+    );
+  } else {
+    sentences.push(`${full(posts)} post${posts === 1 ? '' : 's'} published ${periodPhrase(period)}.`);
+  }
+  let formatFact = false;
+  for (const p of apiShown) {
+    const enough = formats.filter((f) => f.platform === p && f.posts >= THRESHOLDS.minSamplePosts);
+    if (enough.length >= 2) {
+      const best = [...enough].sort((a, b) => b.medianViews - a.medianViews)[0];
+      sentences.push(
+        `On ${platformLabel(p)}, the format with the highest median views at ${age} hours is ${formatLabel(best.format)}: ${full(
+          Math.round(best.medianViews)
+        )} across ${best.posts} posts.${
+          p === 'instagram' ? ' Instagram’s API under-counts images and carousels, so this favours reels.' : ''
+        }`
+      );
+      formatFact = true;
+      break;
+    }
+  }
+  if (!formatFact && apiShown.length > 0) {
+    sentences.push(
+      `No account has two formats with at least ${THRESHOLDS.minSamplePosts} posts measured at ${age} hours, so no format is named ahead.`
+    );
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -146,36 +234,69 @@ export default async function DashboardPage({
         <PlatformFilter current={platform} />
       </FilterBar>
 
-      {/* The five second answer. */}
-      <div className={`grid grid-cols-2 ${single ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3`}>
-        {followers
-          .filter((f) => shown.includes(f.platform))
-          .map((f) => (
-            <MetricCard
-              key={f.platform}
-              label={`${platformLabel(f.platform)} followers`}
-              accent={platformColor(f.platform)}
-              value={f.latest ? full(f.latest.followers) : 'Not read'}
-              href={link(f.platform === 'facebook-personal' ? '/dashboard/profile' : '/dashboard/audience', {
-                back: 'overview',
-              })}
-              info={`Followers gained in the window: ${f.gainedHow}.`}
-            >
-              {f.gained === null ? (
-                <CardLine>Change in this window not known</CardLine>
-              ) : (
-                <span className="text-sm tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
-                  {f.gained > 0 ? '+' : ''}
-                  {full(f.gained)}{' '}
-                  <span className="text-xs" style={{ color: C.muted, fontWeight: 400 }}>
-                    in this window
-                  </span>
-                </span>
-              )}
-              <CardLine>{f.latest ? `Read ${shortDate(f.latest.recorded_on)}` : 'No total stored yet'}</CardLine>
-            </MetricCard>
-          ))}
+      <Takeaway
+        sentences={sentences}
+        how={`Two facts taken from the figures below, never a recommendation. The first is the post count against the window before, for the accounts whose earlier window exists. The second names the format with the highest median views ${age} hours after publishing, and only when at least two formats on one account have ${THRESHOLDS.minSamplePosts} or more posts to compare. Those cut-offs are provisional sample-size rules, not benchmarks.`}
+      />
 
+      <AudienceStrip
+        accounts={followers.filter((f) => shown.includes(f.platform))}
+        hrefFor={(p) => link(p === 'facebook-personal' ? '/dashboard/profile' : '/dashboard/audience', { back: 'overview' })}
+      />
+
+      <SectionHeading note={`Views to date · ${published} · each account on its own scale`}>
+        What worked: top posts
+      </SectionHeading>
+      <div className={`grid grid-cols-1 ${single ? '' : 'lg:grid-cols-3'} gap-3`}>
+        {shown.map((p) => (
+          <TopPosts
+            key={p}
+            platform={p}
+            posts={detail.filter((d) => d.platform === p)}
+            hrefFor={(post) => `${link('/dashboard/posts', { platform: p, origin })}#post-${post.platform}-${post.id}`}
+            allHref={link('/dashboard/posts', { platform: p, origin })}
+            info={TOP_INFO[p]}
+          />
+        ))}
+      </div>
+
+      <SectionHeading note={`Median views ${age} hours after publishing · ${published} · each account on its own scale`}>
+        What worked: formats at the same age
+      </SectionHeading>
+      <div className={`grid grid-cols-1 ${single ? '' : 'lg:grid-cols-3'} gap-3`}>
+        {apiShown.map((p) => (
+          <FormatBars
+            key={p}
+            platform={p}
+            age={age}
+            rows={formats.filter((f) => f.platform === p)}
+            hrefFor={(format) => `${link('/dashboard/formats', { back: 'overview' })}#format-${p}-${format}`}
+            caveat={p === 'instagram' ? 'The API under-counts images and carousels against the app, so this favours reels.' : undefined}
+            info={`Each format’s middle post, measured ${age} hours after it was published, so a new post is not compared with an old one. Only posts at least ${age} hours old with a reading that young count. A format with fewer than ${THRESHOLDS.minSamplePosts} such posts is marked small sample and is not judged. Instagram’s API reports fewer views for images and carousels than the app does.`}
+          />
+        ))}
+        {profileShown && (
+          <section className="p-4" style={CARD}>
+            <PlatformChip platform="facebook-personal" />
+            <p className="text-sm mt-2" style={{ color: C.text, fontWeight: 700 }}>
+              Not in this comparison
+            </p>
+            <p className="text-xs mt-1 leading-relaxed" style={{ color: C.muted }}>
+              The Profile is read when you press Collect, so it has no reading at a fixed age. Its posts are in the
+              top posts above and on the{' '}
+              <Link href={link('/dashboard/profile', { back: 'overview' })} style={{ color: C.text, textDecoration: 'underline' }}>
+                Profile page
+              </Link>
+              .
+            </p>
+          </section>
+        )}
+      </div>
+
+      <SectionHeading note={`${period.label}${comparing ? ` against ${period.compareLabel}` : ', comparison off'}`}>
+        What changed
+      </SectionHeading>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <MetricCard label="Posts published" value={full(posts)} href={link('/dashboard/posts')}>
           <CardLine>{period.label}. Stories not counted</CardLine>
           {comparing && api.length > 0 && (
@@ -191,177 +312,12 @@ export default async function DashboardPage({
           )}
           {comparing && profileShown && <CardLine>Profile: earlier window not collected</CardLine>}
         </MetricCard>
-
-        <MetricCard
-          label="Views on those posts"
-          value={views.total === null ? 'No figure' : full(views.total)}
-          href={link('/dashboard/posts')}
-          info={VIEWS_INFO}
-        >
-          <CardLine>Total to date, not views in the window</CardLine>
-          {views.known < posts && (
-            <CardLine>
-              {views.known} of {posts} posts have a figure
-            </CardLine>
-          )}
-        </MetricCard>
-
-        <MetricCard
-          label="Engagement on those posts"
-          value={engagement.total === null ? 'No figure' : full(engagement.total)}
-          href={link('/dashboard/posts')}
-          info={ENGAGEMENT_INFO}
-        >
-          <CardLine>Total to date, not engagement in the window</CardLine>
-          {engagement.known < posts && (
-            <CardLine>
-              {engagement.known} of {posts} posts have a figure
-            </CardLine>
-          )}
-        </MetricCard>
-      </div>
-
-      <SectionHeading note="follower totals inside the window, one chart per account">Audience growth</SectionHeading>
-      <div className={`grid grid-cols-1 ${single ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-3`}>
-        {followers
-          .filter((f) => shown.includes(f.platform))
-          .map((f) => {
-            const dest = link(f.platform === 'facebook-personal' ? '/dashboard/profile' : '/dashboard/audience', {
-              back: 'overview',
-            });
-            return (
-              <ChartCard
-                key={f.platform}
-                title={platformLabel(f.platform)}
-                swatch={platformColor(f.platform)}
-                href={dest}
-                note={
-                  f.points.length >= 2
-                    ? `${f.points.length} readings, ${shortDate(f.points[0].recorded_on)} to ${shortDate(
-                        f.points[f.points.length - 1].recorded_on
-                      )}`
-                    : 'Followers'
-                }
-                info="Follower totals as read on each day. The axis starts at the lowest total shown, so small movements are visible. The first and last totals are printed."
-              >
-                {f.points.length >= 2 ? (
-                  <MiniTrend
-                    points={f.points.map((p) => ({
-                      label: shortDate(p.recorded_on),
-                      value: p.followers,
-                      href: dest,
-                    }))}
-                    color={platformColor(f.platform)}
-                    ariaLabel={`${platformLabel(f.platform)} followers over ${f.points.length} readings`}
-                  />
-                ) : (
-                  <ChartEmpty>
-                    {f.latest
-                      ? `One reading so far: ${full(f.latest.followers)} on ${shortDate(
-                          f.latest.recorded_on
-                        )}. A line needs two readings inside the window.`
-                      : 'No follower total has been stored for this account.'}
-                  </ChartEmpty>
-                )}
-              </ChartCard>
-            );
-          })}
-      </div>
-
-      {/*
-        With every account shown, each measure gets a row of three charts. With
-        one account chosen there is one chart per measure, so the two sit side
-        by side instead of each stretching across the page.
-      */}
-      <div className={single ? 'grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-5' : 'space-y-5'}>
-        <div className="space-y-5">
-          <SectionHeading note={single ? 'click a bar for its posts' : 'posts grouped by the week they were published. Click a bar for its posts'}>
-            Views to date by publish week
-          </SectionHeading>
-          <WeekCharts
-            metric="views"
-            shown={shown}
-            weeks={weeks}
-            cell={cell}
-            max={maxOf('views')}
-            link={link}
-            info={VIEWS_INFO}
-          />
-        </div>
-        <div className="space-y-5">
-          <SectionHeading note="same posts, same weeks">Engagement to date by publish week</SectionHeading>
-          <WeekCharts
-            metric="engagement"
-            shown={shown}
-            weeks={weeks}
-            cell={cell}
-            max={maxOf('engagement')}
-            link={link}
-            info={ENGAGEMENT_INFO}
-          />
-        </div>
-      </div>
-
-      {platform === 'all' && (
-        <>
-          <SectionHeading note={`posts published in ${period.label.toLowerCase()}`}>Platform performance</SectionHeading>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <ChartCard
-              title="Views, total to date"
-              info="Added across each account’s posts published in the window. An account that posted more will usually show more. Instagram’s API reports fewer views for images and carousels than the Instagram app does."
-              note="Click an account for its posts"
-            >
-              <BarList
-                valueLabel="Views"
-                emptyMessage="No posts with a views figure in this window."
-                data={totals
-                  .filter((t) => t.posts > 0 && t.views !== null)
-                  .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
-                  .map((t) => ({
-                    key: t.platform,
-                    label: platformLabel(t.platform),
-                    value: t.views ?? 0,
-                    meta: postsMeta(t.posts, t.views_known),
-                    color: platformColor(t.platform),
-                    href: withFilters('/dashboard/posts', period, t.platform, { origin: 'all' }),
-                  }))}
-              />
-            </ChartCard>
-            <ChartCard
-              title="Median views per post"
-              info="The middle post, so one unusually large post does not lift the figure. The fairer comparison when accounts post different amounts. Still a total to date for posts of different ages."
-              note="Click an account for its posts"
-            >
-              <BarList
-                valueLabel="Median views"
-                emptyMessage="No posts with a views figure in this window."
-                data={totals
-                  .filter((t) => t.posts > 0 && t.median_views !== null)
-                  .sort((a, b) => (b.median_views ?? 0) - (a.median_views ?? 0))
-                  .map((t) => ({
-                    key: t.platform,
-                    label: platformLabel(t.platform),
-                    value: Math.round(t.median_views ?? 0),
-                    meta: postsMeta(t.posts, t.views_known),
-                    color: platformColor(t.platform),
-                    href: withFilters('/dashboard/posts', period, t.platform, { origin: 'all' }),
-                  }))}
-              />
-            </ChartCard>
-          </div>
-        </>
-      )}
-
-      <SectionHeading note="visits to the website. Not social views, and not filtered by account">
-        Website traffic
-      </SectionHeading>
-      <div className="grid grid-cols-2 gap-3">
         <MetricCard
           label="Website sessions"
           accent={SERIES.sessions}
           value={full(website.sessions.current)}
           href={link('/dashboard/funnel', { back: 'overview' })}
-          info="Sessions recorded by Google Analytics inside the window. Google revises the last two days, so the newest figures can still move."
+          info="Sessions recorded by Google Analytics inside the window. Not filtered by account. Google revises the last two days, so the newest figures can still move."
         >
           <CardLine>
             {period.label}
@@ -381,7 +337,7 @@ export default async function DashboardPage({
           accent={SERIES.clicks}
           value={full(website.clicks.current)}
           href={link('/dashboard/funnel', { back: 'overview' })}
-          info="Clicks on your /go/ links by people, inside the window. Link preview crawlers and your own test clicks are excluded."
+          info="Clicks on your /go/ links by people, inside the window. Not filtered by account. Link preview crawlers and your own test clicks are excluded."
         >
           <CardLine>{period.label}</CardLine>
           {comparing && (
@@ -394,12 +350,111 @@ export default async function DashboardPage({
           )}
         </MetricCard>
       </div>
+
+      <SectionHeading note={`Totals to date · ${published} · grouped by publish week · click a bar for its posts`}>
+        Views and engagement by publish week
+      </SectionHeading>
+      <div className="grid grid-cols-2 gap-3">
+        <MetricCard
+          label="Views to date"
+          value={views.total === null ? 'No figure' : full(views.total)}
+          href={link('/dashboard/posts')}
+          info={VIEWS_INFO}
+        >
+          <CardLine>
+            {views.known < posts ? `${views.known} of ${posts} posts have a figure` : `${posts} post${posts === 1 ? '' : 's'}`}
+          </CardLine>
+        </MetricCard>
+        <MetricCard
+          label="Engagement to date"
+          value={engagement.total === null ? 'No figure' : full(engagement.total)}
+          href={link('/dashboard/posts')}
+          info={ENGAGEMENT_INFO}
+        >
+          <CardLine>
+            {engagement.known < posts
+              ? `${engagement.known} of ${posts} posts have a figure`
+              : `${posts} post${posts === 1 ? '' : 's'}`}
+          </CardLine>
+        </MetricCard>
+      </div>
+      {/*
+        With every account shown, each measure gets a row of three charts. With
+        one account chosen there is one chart per measure, so the two sit side
+        by side instead of each stretching across the page.
+      */}
+      <div className={single ? 'grid grid-cols-1 md:grid-cols-2 gap-3' : 'space-y-3'}>
+        <WeekCharts metric="views" shown={shown} weeks={weeks} cell={cell} max={maxOf('views')} link={link} info={VIEWS_INFO} />
+        <WeekCharts
+          metric="engagement"
+          shown={shown}
+          weeks={weeks}
+          cell={cell}
+          max={maxOf('engagement')}
+          link={link}
+          info={ENGAGEMENT_INFO}
+        />
+      </div>
+
+      {platform === 'all' && (
+        <>
+          <SectionHeading note={`Views to date · ${published} · click an account for its posts`}>
+            Accounts side by side
+          </SectionHeading>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <ChartCard
+              title="Views to date, added up"
+              info="Added across each account’s posts published in the window. An account that posted more will usually show more, and the three accounts do not read views the same way. Instagram’s API reports fewer views for images and carousels than the Instagram app does."
+            >
+              <BarList
+                valueLabel="Views to date"
+                emptyMessage="No posts with a views figure in this window."
+                data={totals
+                  .filter((t) => t.posts > 0 && t.views !== null)
+                  .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+                  .map((t) => ({
+                    key: t.platform,
+                    label: platformLabel(t.platform),
+                    value: t.views ?? 0,
+                    meta: postsMeta(t.posts, t.views_known),
+                    color: platformColor(t.platform),
+                    href: withFilters('/dashboard/posts', period, t.platform, { origin: 'all' }),
+                  }))}
+              />
+            </ChartCard>
+            <ChartCard
+              title="Median views to date per post"
+              info="The middle post, so one unusually large post does not lift the figure. The fairer comparison when accounts post different amounts. Still a total to date for posts of different ages, and the three accounts do not read views the same way."
+            >
+              <BarList
+                valueLabel="Median views to date"
+                emptyMessage="No posts with a views figure in this window."
+                data={totals
+                  .filter((t) => t.posts > 0 && t.median_views !== null)
+                  .sort((a, b) => (b.median_views ?? 0) - (a.median_views ?? 0))
+                  .map((t) => ({
+                    key: t.platform,
+                    label: platformLabel(t.platform),
+                    value: Math.round(t.median_views ?? 0),
+                    meta: postsMeta(t.posts, t.views_known),
+                    color: platformColor(t.platform),
+                    href: withFilters('/dashboard/posts', period, t.platform, { origin: 'all' }),
+                  }))}
+              />
+            </ChartCard>
+          </div>
+        </>
+      )}
+
+      <SectionHeading note="Visits inside the window · not social views · not filtered by account">
+        Website traffic
+      </SectionHeading>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <ChartCard
           title="Sessions per day"
           swatch={SERIES.sessions}
           href={link('/dashboard/funnel', { back: 'overview' })}
-          note="Google Analytics, days inside the window. First, last and peak are labelled"
+          note="Google Analytics. First, last and peak are labelled"
         >
           {sessionPoints.length >= 2 ? (
             <MiniTrend points={sessionPoints} color={SERIES.sessions} ariaLabel="Website sessions per day" zeroBase />
@@ -411,7 +466,7 @@ export default async function DashboardPage({
           title="Link clicks per week"
           swatch={SERIES.clicks}
           href={link('/dashboard/funnel', { back: 'overview' })}
-          note="Clicks by people, weeks inside the window"
+          note="Clicks by people"
         >
           {clickPoints.length >= 2 ? (
             <MiniTrend points={clickPoints} color={SERIES.clicks} ariaLabel="Link clicks per week" zeroBase />
@@ -466,7 +521,7 @@ export default async function DashboardPage({
             <span style={{ color: C.text, fontWeight: 600 }}>Three accounts, three sources.</span> Instagram and
             the Facebook Page come from Meta&apos;s API. The Facebook Profile is read from Facebook&apos;s own
             screens when you press Collect, so it is only as fresh as the last collection, and whether its figures
-            are lifetime totals is not confirmed.
+            are lifetime totals is not confirmed. That is why top posts and formats are scaled inside each account.
           </li>
           <li>
             <span style={{ color: C.text, fontWeight: 600 }}>No reach.</span> Meta returns zero reach for every
@@ -559,7 +614,7 @@ function WeekCharts({
         return (
           <ChartCard
             key={p}
-            title={platformLabel(p)}
+            title={`${platformLabel(p)}: ${noun} to date`}
             swatch={platformColor(p)}
             href={total > 0 ? link('/dashboard/posts', { platform: p, week: undefined, origin }) : undefined}
             info={info}

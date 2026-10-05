@@ -72,6 +72,7 @@ async function hasProfileTables(): Promise<boolean> {
 function socialCte(includeProfile: boolean): string {
   const api = `
       SELECT p.id, p.platform, p.format, p.caption, p.thumbnail_url, p.permalink, p.published_at,
+             p.content_theme,
              NULL::text AS published_label,
              l.views::numeric AS views, l.engagement::numeric AS engagement, l.comments::numeric AS comments,
              l.recorded_on::timestamptz AS read_at
@@ -83,6 +84,7 @@ function socialCte(includeProfile: boolean): string {
   const profile = `
       UNION ALL
       SELECT p.id, p.platform, p.format, p.caption, p.thumbnail_url, p.permalink, p.published_at,
+             p.content_theme,
              pp.published_label,
              f.views, f.engagement, f.comments, f.read_at
       FROM posts p
@@ -206,16 +208,20 @@ export type DetailPost = {
 export async function getDetailPosts(
   period: TimeWindow,
   platform: PlatformFilter,
-  week: string | null
+  week: string | null,
+  /** A tag slug already checked by parseTheme in lib/themes.ts, or null for every post. */
+  theme: string | null = null
 ): Promise<DetailPost[]> {
   const weekClause = week ? `AND ${WEEK} = '${week}'` : '';
+  if (theme !== null && !/^[a-z0-9][a-z0-9-]{0,59}$/.test(theme)) throw new Error('Unsafe theme');
+  const themeClause = theme ? `AND content_theme = '${theme}'` : '';
   const rows = await sql(`
     ${socialCte(await hasProfileTables())}
     SELECT id, platform, format, caption, thumbnail_url, permalink, published_at, published_label,
            views::float8 AS views, engagement::float8 AS engagement, comments::float8 AS comments, read_at
     FROM social
     WHERE published_at IS NOT NULL AND ${windowExpr(period, 'published_at')}
-      ${platformClause(platform)} ${weekClause}
+      ${platformClause(platform)} ${weekClause} ${themeClause}
     ORDER BY views DESC NULLS LAST, published_at DESC
     LIMIT 200
   `);
