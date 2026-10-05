@@ -171,8 +171,8 @@ function PlatformPanel({
                 </div>
 
                 <div
-                  className="hidden sm:grid text-xs uppercase px-2 pb-1"
-                  style={{ gridTemplateColumns: 'minmax(0, 1fr) 5rem 5rem 4.5rem 5.5rem', color: C.muted, letterSpacing: '0.08em' }}
+                  className={`hidden sm:grid gap-x-3 text-xs uppercase px-2 pb-1 ${WIDE_COLUMNS}`}
+                  style={{ color: C.muted, letterSpacing: '0.08em' }}
                 >
                   <span>Post</span>
                   <span className="text-right">At {age}h</span>
@@ -195,6 +195,16 @@ function PlatformPanel({
   );
 }
 
+/**
+ * The row's columns from the `sm` width up. Below that the fixed figure
+ * columns alone are wider than a phone, so the row becomes two lines: the post
+ * across the full width, then its four figures in equal columns, each under
+ * its own label, because the header row is not shown at that width.
+ */
+const WIDE_COLUMNS = 'sm:grid-cols-[minmax(0,1fr)_5rem_5rem_4.5rem_5.5rem]';
+/** Three equal columns and one sized to its label, so "Engagement" is never broken mid-word. */
+const NARROW_COLUMNS = 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_max-content]';
+
 function PostRow({ post, age }: { post: FormatPost; age: number }) {
   const caption = (post.caption ?? '').replace(/\s+/g, ' ').trim() || 'Untitled post';
   const atAge =
@@ -206,16 +216,14 @@ function PostRow({ post, age }: { post: FormatPost; age: number }) {
 
   return (
     <li
-      className="grid items-center gap-x-3 px-2 py-2"
-      style={{
-        gridTemplateColumns: 'minmax(0, 1fr) 5rem 5rem 4.5rem 5.5rem',
-        borderTop: `1px solid ${C.border}`,
-      }}
+      className={`grid ${NARROW_COLUMNS} items-center gap-x-3 gap-y-2 px-2 py-2.5 ${WIDE_COLUMNS}`}
+      style={{ borderTop: `1px solid ${C.border}` }}
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="col-span-4 sm:col-span-1 flex items-center gap-2 min-w-0">
         <PostThumb src={post.thumbnail_url} label={formatLabel(post.format)} />
         <div className="min-w-0">
-          <p className="text-sm truncate" style={{ color: C.text }}>
+          {/* Two lines on a phone, where the caption has the row to itself. One line beside the figures. */}
+          <p className="text-sm line-clamp-2 sm:line-clamp-none sm:truncate" style={{ color: C.text, overflowWrap: 'anywhere' }}>
             {post.permalink ? (
               <a href={post.permalink} target="_blank" rel="noopener noreferrer" style={{ color: C.text, textDecoration: 'none' }}>
                 {caption}
@@ -229,23 +237,42 @@ function PostRow({ post, age }: { post: FormatPost; age: number }) {
           </p>
         </div>
       </div>
-      <Cell strong={post.views_at_age !== null} muted={post.views_at_age === null}>
+      <Cell label={`At ${age}h`} strong={post.views_at_age !== null} muted={post.views_at_age === null}>
         {atAge}
       </Cell>
-      <Cell>{compact(post.views)}</Cell>
-      <Cell>{post.reach === null || post.reach === 0 ? '·' : compact(post.reach)}</Cell>
-      <Cell>{compact(post.engagement)}</Cell>
+      <Cell label="Lifetime">{compact(post.views)}</Cell>
+      <Cell label="Reach">{post.reach === null || post.reach === 0 ? '·' : compact(post.reach)}</Cell>
+      <Cell label="Engagement">{compact(post.engagement)}</Cell>
     </li>
   );
 }
 
-function Cell({ children, strong = false, muted = false }: { children: React.ReactNode; strong?: boolean; muted?: boolean }) {
+function Cell({
+  children,
+  label,
+  strong = false,
+  muted = false,
+}: {
+  children: React.ReactNode;
+  /** Shown above the figure on a phone, where the header row is hidden. */
+  label: string;
+  strong?: boolean;
+  muted?: boolean;
+}) {
   return (
-    <span
-      className="text-right tabular-nums text-sm"
-      style={{ color: muted ? C.muted : C.text, fontWeight: strong ? 600 : 400, fontSize: muted ? '0.72rem' : undefined, borderRadius: RADIUS.sm }}
-    >
-      {children}
+    <span className="min-w-0 sm:text-right">
+      <span
+        className="block sm:hidden uppercase whitespace-nowrap"
+        style={{ color: C.muted, fontSize: '0.66rem', letterSpacing: '0.03em', fontWeight: 600 }}
+      >
+        {label}
+      </span>
+      <span
+        className="tabular-nums text-sm"
+        style={{ color: muted ? C.muted : C.text, fontWeight: strong ? 600 : 400, fontSize: muted ? '0.72rem' : undefined, borderRadius: RADIUS.sm }}
+      >
+        {children}
+      </span>
     </span>
   );
 }
