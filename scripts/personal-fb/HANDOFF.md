@@ -133,3 +133,9 @@ Checked directly against production (`ep-small-mud-az5opu7m`), not assumed.
   a clean browser (development and production builds, genuine 390px viewport,
   1360px, and framed) or in Liz's Chrome with the same steps. No application
   cause was found. Investigation stopped at Liz's direction unless it returns.
+  It returned once on 2026-10-05 at 10:44, on the live Instagram drill-down
+  loaded top level in Liz's Chrome, and not on the Page or Profile drill-downs
+  loaded just before it. The page worked. The development build of the same
+  page in the same browser printed no mismatch beyond the `cz-shortcut-listen`
+  body attribute an extension adds. Still unexplained. Every occurrence so far
+  has been in Liz's Chrome on the production build.
