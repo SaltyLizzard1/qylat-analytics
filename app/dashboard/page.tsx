@@ -33,7 +33,7 @@ import { InfoTip } from '@/components/InfoTip';
 import { StatusBadge } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import { THRESHOLDS, type Level } from '@/lib/status';
-import { C, CARD, RADIUS, full, platformColor, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
+import { C, CARD, RADIUS, SERIES, full, platformColor, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -181,7 +181,12 @@ export default async function DashboardPage({
           {comparing && api.length > 0 && (
             <div className="flex flex-col gap-1.5">
               {profileShown && <CardLine>Instagram and Page: {full(apiPosts)}</CardLine>}
-              <Change current={apiPosts} previous={apiPrevPosts} against={period.compareLabel} />
+              <Change
+                current={apiPosts}
+                previous={apiPrevPosts}
+                against={period.compareLabel}
+                color={api.length === 1 ? platformColor(api[0].platform) : SERIES.general}
+              />
             </div>
           )}
           {comparing && profileShown && <CardLine>Profile: earlier window not collected</CardLine>}
@@ -353,6 +358,7 @@ export default async function DashboardPage({
       <div className="grid grid-cols-2 gap-3">
         <MetricCard
           label="Website sessions"
+          accent={SERIES.sessions}
           value={full(website.sessions.current)}
           href={link('/dashboard/funnel', { back: 'overview' })}
           info="Sessions recorded by Google Analytics inside the window. Google revises the last two days, so the newest figures can still move."
@@ -362,40 +368,53 @@ export default async function DashboardPage({
             {website.gaLatestDate ? `. Data to ${shortDate(website.gaLatestDate)}` : ''}
           </CardLine>
           {comparing && (
-            <Change current={website.sessions.current} previous={website.sessions.previous} against={period.compareLabel} />
+            <Change
+              current={website.sessions.current}
+              previous={website.sessions.previous}
+              against={period.compareLabel}
+              color={SERIES.sessions}
+            />
           )}
         </MetricCard>
         <MetricCard
           label="Link clicks"
+          accent={SERIES.clicks}
           value={full(website.clicks.current)}
           href={link('/dashboard/funnel', { back: 'overview' })}
           info="Clicks on your /go/ links by people, inside the window. Link preview crawlers and your own test clicks are excluded."
         >
           <CardLine>{period.label}</CardLine>
           {comparing && (
-            <Change current={website.clicks.current} previous={website.clicks.previous} against={period.compareLabel} />
+            <Change
+              current={website.clicks.current}
+              previous={website.clicks.previous}
+              against={period.compareLabel}
+              color={SERIES.clicks}
+            />
           )}
         </MetricCard>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <ChartCard
           title="Sessions per day"
+          swatch={SERIES.sessions}
           href={link('/dashboard/funnel', { back: 'overview' })}
           note="Google Analytics, days inside the window. First, last and peak are labelled"
         >
           {sessionPoints.length >= 2 ? (
-            <MiniTrend points={sessionPoints} ariaLabel="Website sessions per day" zeroBase />
+            <MiniTrend points={sessionPoints} color={SERIES.sessions} ariaLabel="Website sessions per day" zeroBase />
           ) : (
             <ChartEmpty>Fewer than two days of sessions in this window.</ChartEmpty>
           )}
         </ChartCard>
         <ChartCard
           title="Link clicks per week"
+          swatch={SERIES.clicks}
           href={link('/dashboard/funnel', { back: 'overview' })}
           note="Clicks by people, weeks inside the window"
         >
           {clickPoints.length >= 2 ? (
-            <MiniTrend points={clickPoints} ariaLabel="Link clicks per week" zeroBase />
+            <MiniTrend points={clickPoints} color={SERIES.clicks} ariaLabel="Link clicks per week" zeroBase />
           ) : (
             <ChartEmpty>Fewer than two weeks with clicks in this window.</ChartEmpty>
           )}

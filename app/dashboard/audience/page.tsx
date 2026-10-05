@@ -16,7 +16,7 @@ import {
   PageHeader,
   Disclosure,
 } from '@/components/charts';
-import { C, full, shortDate } from '@/lib/theme';
+import { C, full, platformColor, shortDate } from '@/lib/theme';
 import { BackLink } from '@/components/overview';
 import { parsePlatform, withFilters } from '@/lib/overview';
 
@@ -128,6 +128,7 @@ export default async function AudiencePage({
             >
               <TrendChart
                 points={totalPoints}
+                color={platformColor(t.platform)}
                 valueLabel="Followers"
                 emptyMessage="Needs at least two daily snapshots in this window. This chart fills in as the sync runs."
               />
@@ -136,6 +137,7 @@ export default async function AudiencePage({
             <Panel title={`New ${t.name} followers per week`} description={t.gainsNote}>
               <TrendChart
                 points={gainPoints}
+                color={platformColor(t.platform)}
                 valueLabel="New followers"
                 emptyMessage="No follower gain history in this window yet."
               />

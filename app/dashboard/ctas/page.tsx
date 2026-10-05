@@ -4,7 +4,7 @@ import { PeriodPicker } from '@/components/PeriodPicker';
 import { BarList, Panel, Note, PageHeader, Disclosure, type BarDatum } from '@/components/charts';
 import { DataRows, Sub, type Column } from '@/components/DataRows';
 import type { Row } from '@/lib/queries';
-import { full } from '@/lib/theme';
+import { SERIES, full } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,7 +88,7 @@ export default async function CtasPage({
       <PeriodPicker period={period} />
 
       <Panel title="Clicks by CTA" description={`Clicks that happened ${periodPhrase(period)}.`}>
-        <BarList data={bars} valueLabel="Clicks" emptyMessage="No /go/ links created yet." />
+        <BarList data={bars} valueLabel="Clicks" emptyMessage="No /go/ links created yet." color={SERIES.clicks} />
 
         {distinctCtas <= 1 && rows.length > 0 && (
           <Note>

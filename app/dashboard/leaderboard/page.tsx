@@ -212,12 +212,12 @@ export default async function LeaderboardPage({
 
                   {/* Inline bar: length against the top post, so rank is visible at a glance. */}
                   <div className="hidden sm:block flex-shrink-0" style={{ width: 90 }}>
-                    <div style={{ height: 5 }}>
+                    <div style={{ height: 8 }}>
                       <div
                         style={{
                           height: '100%',
                           width: `${Math.max(((views ?? 0) / topViews) * 100, 2)}%`,
-                          background: C.text,
+                          background: platformColor(platform),
                           borderRadius: RADIUS.pill,
                         }}
                       />

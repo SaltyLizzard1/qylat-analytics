@@ -20,8 +20,6 @@ export const C = {
   muted: '#555A72',
   /** Insets, tracks and quiet chips. */
   neutral: '#E9EBF5',
-  /** The mark for an earlier period, beside the current one. Neutral on purpose: earlier is not worse. */
-  previous: '#A4A9C4',
   /** The header, selected controls and primary buttons. */
   ink: '#13152B',
   /** A raised surface on ink: nav pills, header buttons. */
@@ -210,6 +208,64 @@ export const IDENTITY = {
   teal: '#1A9AA3',
   lime: '#65A30D',
 } as const;
+
+/**
+ * Series colours for charts that belong to no account. No data mark is drawn
+ * in ink, white or grey: the colour says WHICH series, never how it is doing.
+ *
+ * These reuse validated identity hues rather than adding near-duplicates. Run
+ * through the validator on 2026-10-05, every candidate "new" teal sat 5.9 to
+ * 8.4 from the palette teal and every candidate violet 2.5 to 7.7 from the
+ * palette purple or blue, all under the normal-vision floor of 15. So website
+ * sessions take the palette teal and link clicks the palette purple. They
+ * share those hues with Facebook Profile and Instagram, which is allowed by
+ * the same rule as formats and tags: they never share a chart, and every
+ * chart names its series in its title.
+ */
+export const SERIES = {
+  /** Website sessions. */
+  sessions: IDENTITY.teal,
+  /** Link clicks. */
+  clicks: IDENTITY.purple,
+  /** Any other single series with no account of its own, e.g. posts published. */
+  general: IDENTITY.magenta,
+  /** A second series beside `general` in a pair of stacked charts. */
+  second: IDENTITY.orange,
+} as const;
+
+/** The palette in its fixed order, for slices that have no colour of their own. */
+export const SERIES_ORDER = [
+  IDENTITY.magenta,
+  IDENTITY.blue,
+  IDENTITY.orange,
+  IDENTITY.purple,
+  IDENTITY.teal,
+  IDENTITY.lime,
+] as const;
+
+/** A colour mixed toward white. Opaque, so it looks the same on any surface. */
+export function lighten(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * amount);
+  const r = mix((n >> 16) & 255);
+  const g = mix((n >> 8) & 255);
+  const b = mix(n & 255);
+  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * The earlier period beside the current one: a lighter tint of the same
+ * series colour. Lighter means earlier, never worse. Still plainly visible on
+ * a white card, and always printed with its own figure.
+ */
+export function previousTint(hex: string): string {
+  return lighten(hex, 0.52);
+}
+
+/** The pale centre of a point marker, inside an outline of the series colour. */
+export function markerFill(hex: string): string {
+  return lighten(hex, 0.82);
+}
 
 /** Format identity. Distinct slots from the platforms, so the two never clash. */
 export const FORMAT_COLOR: Record<string, string> = {

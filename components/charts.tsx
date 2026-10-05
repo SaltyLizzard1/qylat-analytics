@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { C, CARD, EYEBROW, FIGURE, RADIUS, TITLE, compact, tint } from '@/lib/theme';
+import { C, CARD, EYEBROW, FIGURE, RADIUS, SERIES, TITLE, compact, markerFill, tint } from '@/lib/theme';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import type { Status } from '@/lib/status';
@@ -92,8 +92,7 @@ export type BarDatum = {
   status?: Status | null;
   /**
    * Optional identity colour for the bar, e.g. a platform hue. Says WHICH,
-   * never how good. Defaults to ink, which is the right answer whenever the
-   * bars are all the same kind of thing.
+   * never how good. Defaults to the list's own series colour.
    */
   color?: string;
   /** Where clicking this row goes. The whole row becomes the link. */
@@ -112,10 +111,13 @@ export function BarList({
   valueLabel,
   emptyMessage = 'No data yet.',
   max: sharedMax,
+  color = SERIES.general,
 }: {
   data: BarDatum[];
   valueLabel: string;
   emptyMessage?: string;
+  /** The series colour for bars that carry none of their own. Never ink or grey. */
+  color?: string;
   /**
    * Scale bars against this instead of the panel's own largest value.
    *
@@ -166,7 +168,7 @@ export function BarList({
                 style={{
                   height: '100%',
                   width: `${Math.max((d.value / max) * 100, d.value > 0 ? 1.5 : 0)}%`,
-                  background: d.color ?? C.text,
+                  background: d.color ?? color,
                   borderRadius: RADIUS.pill,
                 }}
               />
@@ -210,10 +212,13 @@ export function TrendChart({
   points,
   valueLabel,
   emptyMessage = 'Not enough history yet.',
+  color = SERIES.general,
 }: {
   points: TrendPoint[];
   valueLabel: string;
   emptyMessage?: string;
+  /** The series colour: line, area and markers all take it. */
+  color?: string;
 }) {
   if (points.length < 2) return <Empty message={emptyMessage} />;
 
@@ -275,12 +280,12 @@ export function TrendChart({
             strokeWidth="1"
           />
 
-          <path d={area} fill={tint(C.ink, 0.07)} />
+          <path d={area} fill={tint(color, 0.2)} />
           <path
             d={line}
             fill="none"
-            stroke={C.text}
-            strokeWidth="2"
+            stroke={color}
+            strokeWidth="2.75"
             strokeLinejoin="round"
             strokeLinecap="round"
           />
@@ -288,7 +293,7 @@ export function TrendChart({
           {points.map((p, i) => (
             <g key={`${p.label}-${i}`}>
               {/* Surface ring keeps a marker readable where the line doubles back. */}
-              <circle cx={x(i)} cy={y(p.value)} r="4" fill={C.card} stroke={C.text} strokeWidth="2" />
+              <circle cx={x(i)} cy={y(p.value)} r="4" fill={markerFill(color)} stroke={color} strokeWidth="2" />
               {p.href ? (
                 <a href={p.href} aria-label={`${p.label}: ${p.value.toLocaleString()}`} style={{ cursor: 'pointer' }}>
                   <circle cx={x(i)} cy={y(p.value)} r="13" fill="transparent">
@@ -338,13 +343,13 @@ export function PairedTrend({
   top,
   bottom,
 }: {
-  top: { points: TrendPoint[]; label: string };
-  bottom: { points: TrendPoint[]; label: string };
+  top: { points: TrendPoint[]; label: string; color?: string };
+  bottom: { points: TrendPoint[]; label: string; color?: string };
 }) {
   return (
     <div className="space-y-5">
-      <TrendChart points={top.points} valueLabel={top.label} />
-      <TrendChart points={bottom.points} valueLabel={bottom.label} />
+      <TrendChart points={top.points} valueLabel={top.label} color={top.color ?? SERIES.general} />
+      <TrendChart points={bottom.points} valueLabel={bottom.label} color={bottom.color ?? SERIES.second} />
     </div>
   );
 }

@@ -20,7 +20,7 @@ import {
 import { DataRows, Chip, Sub, type Column } from '@/components/DataRows';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { arrivalStatus } from '@/lib/status';
-import { C, full, pct, platformLabel } from '@/lib/theme';
+import { C, SERIES, full, pct, platformLabel } from '@/lib/theme';
 import { BackLink } from '@/components/overview';
 import { parsePlatform, withFilters } from '@/lib/overview';
 
@@ -188,9 +188,9 @@ export default async function FunnelPage({
             'Clicks exceeding sessions is expected, not a fault. A click is logged the moment the redirect is hit; a session needs the browser to load the site and run the GA script, which in-app browsers, ad blockers, consent banners and bots all get in the way of. A link where sessions exceed clicks is the interesting case: that traffic arrived on your UTM without passing through the /go/ redirect. Stacking the two on one axis would imply they are the same quantity, which is why they are drawn separately.',
         }}
       >
-        <BarList data={clickBars} valueLabel="Clicks, from your redirect log" />
+        <BarList data={clickBars} valueLabel="Clicks, from your redirect log" color={SERIES.clicks} />
         <div className="mt-6">
-          <BarList data={sessionBars} valueLabel="Sessions, from Google Analytics" />
+          <BarList data={sessionBars} valueLabel="Sessions, from Google Analytics" color={SERIES.sessions} />
         </div>
       </Panel>
 

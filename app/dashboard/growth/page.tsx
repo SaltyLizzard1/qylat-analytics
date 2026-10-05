@@ -10,7 +10,7 @@ import {
 import { PageHeader, Panel, PairedTrend, Empty, StatTile, Disclosure } from '@/components/charts';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { growthStatus } from '@/lib/status';
-import { C, compact, full, shortDate } from '@/lib/theme';
+import { C, SERIES, compact, full, platformColor, shortDate } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,8 +100,8 @@ export default async function GrowthPage({
           <Empty message="Needs at least two weeks with both post and follower data." />
         ) : (
           <PairedTrend
-            top={{ points: postPoints, label: 'Posts published' }}
-            bottom={{ points: followerPoints, label: 'New Instagram followers' }}
+            top={{ points: postPoints, label: 'Posts published', color: SERIES.general }}
+            bottom={{ points: followerPoints, label: 'New Instagram followers', color: platformColor('instagram') }}
           />
         )}
       </Panel>

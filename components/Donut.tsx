@@ -1,4 +1,4 @@
-import { C, RADIUS, compact } from '@/lib/theme';
+import { C, RADIUS, SERIES_ORDER, compact } from '@/lib/theme';
 import { Empty } from '@/components/charts';
 
 /**
@@ -11,10 +11,10 @@ import { Empty } from '@/components/charts';
  *
  * Two colour modes:
  *   `colors` supplied  -> identity hues, e.g. platform brand colours.
- *   nothing supplied   -> a grey ramp, dark to light, ordered by size. That is
- *                         a sequential scale on one hue, which is the correct
- *                         form when the slices have no identity colour of
- *                         their own. It keeps invented hues out of the design.
+ *   nothing supplied   -> the identity palette in its fixed order. Five
+ *                         slices and Other make six, which is the palette's
+ *                         length, so no slice is ever grey and no hue is
+ *                         invented.
  *
  * Every slice is directly labelled in the legend with its value and share, so
  * nothing depends on telling two arcs apart by colour.
@@ -22,7 +22,6 @@ import { Empty } from '@/components/charts';
 
 export type Slice = { key: string; label: string; value: number; color?: string };
 
-const GREY_RAMP = ['#111111', '#454545', '#6E6E6E', '#9A9A9A', '#C4C4C4'];
 const MAX_SLICES = 5;
 
 export function Donut({
@@ -96,7 +95,7 @@ export function Donut({
                   cy={size / 2}
                   r={radius}
                   fill="none"
-                  stroke={s.color ?? GREY_RAMP[i % GREY_RAMP.length]}
+                  stroke={s.color ?? SERIES_ORDER[i % SERIES_ORDER.length]}
                   strokeWidth={stroke}
                   strokeDasharray={dash}
                   strokeDashoffset={-offset}
@@ -140,7 +139,7 @@ export function Donut({
                     width: 11,
                     height: 11,
                     borderRadius: RADIUS.sm,
-                    background: s.color ?? GREY_RAMP[i % GREY_RAMP.length],
+                    background: s.color ?? SERIES_ORDER[i % SERIES_ORDER.length],
                     flexShrink: 0,
                   }}
                 />

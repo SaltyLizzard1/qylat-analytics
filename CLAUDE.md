@@ -23,7 +23,6 @@ Neutrals only, all in `C` in `lib/theme.ts`. Use the tokens, never the hex.
 - Primary text: `C.text` `#13152B`. Secondary text: `C.muted` `#555A72`
 - Insets, tracks, quiet chips: `C.neutral` `#E9EBF5`
 - Hairlines and inputs only: `C.border` `#DADDEA`
-- An earlier period beside the current one: `C.previous` `#A4A9C4`
 
 A card sits on the tinted page, so it needs no border. Do not put a card
 inside a card, and do not outline every box.
@@ -32,9 +31,24 @@ A selected control is filled with ink and also carries `aria-current` or
 `aria-pressed`. An account keeps its identity dot whether selected or not.
 
 A change against an earlier period is stated in ink with an arrow and the
-word up or down (`Delta` with `tone="neutral"`), and drawn as two bars with
-the earlier one in `C.previous`. Fewer is not worse. Status colour is for a
-status that `lib/status.ts` returned, nothing else.
+word up or down (`Delta` with `tone="neutral"`), and drawn as two bars: the
+current one in the series colour, the earlier one in `previousTint` of the
+same colour. Lighter means earlier, not worse. Status colour is for a status
+that `lib/status.ts` returned, nothing else.
+
+**No data mark is ink, white or grey.** Bars, lines, areas and point markers
+take a series colour from `lib/theme.ts`: a platform's identity colour, or
+`SERIES.sessions` (teal), `SERIES.clicks` (purple), `SERIES.general` (magenta)
+and `SERIES.second` (orange). Markers are a coloured outline around
+`markerFill`. Areas are `tint` of the series colour, and only under a line
+whose axis starts at zero. Text, axes and gridlines stay neutral.
+
+`SERIES` reuses identity hues on purpose. Run through the validator on
+2026-10-05, every new teal tried sat 5.9 to 8.4 from the palette teal and
+every new violet 2.5 to 7.7 from the palette purple or blue, all under the
+floor of 15. So sessions share teal with Facebook Profile and clicks share
+purple with Instagram. They never share a chart, and every chart names its
+series.
 
 `tint(hex)` gives a wash of an identity colour for a chip or an area. It never
 creates a new hue.

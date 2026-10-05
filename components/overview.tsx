@@ -2,7 +2,21 @@ import Link from 'next/link';
 import { Delta } from '@/components/Delta';
 import { InfoTip } from '@/components/InfoTip';
 import { THRESHOLDS } from '@/lib/status';
-import { C, CARD, EYEBROW, RADIUS, TITLE, compact, full, platformColor, platformLabel, tint } from '@/lib/theme';
+import {
+  C,
+  CARD,
+  EYEBROW,
+  RADIUS,
+  SERIES,
+  TITLE,
+  compact,
+  full,
+  markerFill,
+  platformColor,
+  platformLabel,
+  previousTint,
+  tint,
+} from '@/lib/theme';
 
 /**
  * Pieces of the Overview and the pages that share its look: metric cards,
@@ -61,15 +75,16 @@ export function QuietChip({ children }: { children: React.ReactNode }) {
 /**
  * Two bars on one scale: this window and the one before. Length is the
  * figure, and each bar carries its own number and name, so the pair reads
- * without colour. The earlier bar is a neutral grey, never a status colour:
- * earlier is not worse, and a shorter bar is not a verdict.
+ * without colour. Both bars wear the series colour: the current one at full
+ * strength, the earlier one as a lighter tint of it. Lighter means earlier,
+ * not worse, and a shorter bar is not a verdict.
  */
 export function CompareBars({
   current,
   previous,
   currentLabel = 'Now',
   previousLabel = 'Before',
-  color = C.ink,
+  color = SERIES.general,
   format = full,
 }: {
   current: number;
@@ -83,7 +98,7 @@ export function CompareBars({
   const width = (v: number) => (max <= 0 ? 0 : Math.max((v / max) * 100, v > 0 ? 3 : 0));
   const rows = [
     { key: 'now', label: currentLabel, value: current, fill: color, strong: true },
-    { key: 'before', label: previousLabel, value: previous, fill: C.previous, strong: false },
+    { key: 'before', label: previousLabel, value: previous, fill: previousTint(color), strong: false },
   ];
   return (
     <div
@@ -97,7 +112,7 @@ export function CompareBars({
           <span className="text-xs" style={{ color: r.strong ? C.text : C.muted, fontWeight: r.strong ? 600 : 400 }}>
             {r.label}
           </span>
-          <span style={{ height: r.strong ? 10 : 8 }}>
+          <span style={{ height: 10 }}>
             <span
               style={{ display: 'block', height: '100%', width: `${width(r.value)}%`, background: r.fill, borderRadius: RADIUS.pill }}
             />
@@ -242,7 +257,7 @@ export type Column = {
 export function ColumnChart({
   columns,
   max,
-  color = C.text,
+  color = SERIES.general,
   ariaLabel,
   emptyMessage,
 }: {
@@ -422,7 +437,7 @@ export type MiniPoint = { label: string; value: number; href?: string };
  */
 export function MiniTrend({
   points,
-  color = C.text,
+  color = SERIES.general,
   ariaLabel,
   zeroBase = false,
 }: {
@@ -459,7 +474,7 @@ export function MiniTrend({
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', maxWidth: 560, margin: '0 auto' }} role="img" aria-label={ariaLabel}>
       <line x1={0} y1={padT + innerH} x2={W} y2={padT + innerH} stroke={C.border} strokeWidth="1.5" />
-      {zeroBase && <path d={area} fill={tint(color, 0.12)} />}
+      {zeroBase && <path d={area} fill={tint(color, 0.2)} />}
       <path d={line} fill="none" stroke={color} strokeWidth="2.75" strokeLinejoin="round" strokeLinecap="round" />
       {points.map((p, i) => {
         const title = `${p.label}: ${p.value.toLocaleString()}`;
@@ -470,9 +485,9 @@ export function MiniTrend({
                 cx={x(i)}
                 cy={y(p.value)}
                 r={i === last ? 5 : 3.5}
-                fill={i === last ? color : C.card}
+                fill={markerFill(color)}
                 stroke={color}
-                strokeWidth="2"
+                strokeWidth={i === last ? 3 : 2}
               />
             )}
             <circle className="hit" cx={x(i)} cy={y(p.value)} r={dense ? 6 : 12} fill="transparent">
