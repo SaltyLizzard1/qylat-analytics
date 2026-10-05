@@ -19,6 +19,11 @@ import { C, RADIUS } from '@/lib/theme';
  * React has attached its error handler never reports the failure, and stayed
  * on screen as an empty white box.
  *
+ * That check and the error handler can both see the same failure. Each one
+ * names the step it saw fail, so one failed image moves on one step. When
+ * both simply added one, a busy browser skipped the recovery step and showed
+ * the fallback for a post whose image was never asked for.
+ *
  * A plain img rather than next/image on purpose. The Vercel image optimizer
  * bills transformations, and a leaderboard of thirty thumbnails would eat the
  * Hobby allowance for no visual gain at this size.
@@ -43,9 +48,12 @@ export function PostThumb({
   const img = useRef<HTMLImageElement>(null);
   const current = sources[step];
 
+  /** Moves past `failed` only if that is still the step on screen. */
+  const failedAt = (failed: number) => setStep((s) => (s === failed ? s + 1 : s));
+
   useEffect(() => {
     const el = img.current;
-    if (el && el.complete && el.naturalWidth === 0) setStep((s) => s + 1);
+    if (el && el.complete && el.naturalWidth === 0) failedAt(step);
   }, [step]);
 
   const box = {
@@ -89,7 +97,7 @@ export function PostThumb({
       width={size}
       height={size}
       loading="lazy"
-      onError={() => setStep((s) => s + 1)}
+      onError={() => failedAt(step)}
       style={{ ...box, objectFit: 'cover', display: 'block', background: C.neutral }}
     />
   );
