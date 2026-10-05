@@ -515,6 +515,11 @@ export function MiniTrend({
           <g key={`${p.label}-${i}`}>{dot}</g>
         );
       })}
+      {!zeroBase && lo > 0 && (
+        <text x={W / 2} y={H - 7} fontSize="10.5" fill={C.muted} textAnchor="middle">
+          axis starts at {lo.toLocaleString('en-GB')}, not zero
+        </text>
+      )}
       <text x={padX} y={H - 7} fontSize="11" fill={C.muted}>
         {points[0].label}
       </text>

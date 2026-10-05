@@ -204,130 +204,188 @@ export type TrendPoint = {
   href?: string;
 };
 
+/** A round step for an axis: 1, 2 or 5 times a power of ten. */
+function niceStep(rough: number): number {
+  if (rough <= 0) return 1;
+  const power = Math.pow(10, Math.floor(Math.log10(rough)));
+  const unit = rough / power;
+  return (unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 5 ? 5 : 10) * power;
+}
+
 /**
- * Single series over time. One measure, one axis. Grid and axis recede, and
- * only the first, last and peak points carry a label so the line stays legible.
+ * Single series over time. One measure, one axis, with its tick values
+ * printed. Grid and axis recede, and only the first, last and peak points
+ * carry a label so the line stays legible.
+ *
+ * `baseline="zero"` (the default) starts the axis at zero and fills the area
+ * under the line: right for a count per period, where height above zero is the
+ * figure.
+ *
+ * `baseline="fit"` starts the axis just under the lowest value: right for a
+ * running total such as followers, where 388 to 403 on a zero axis is a flat
+ * line and the change is the point. A fitted axis is never silent about it.
+ * The chart says where the axis starts, marks the break on the axis itself,
+ * and draws no area, because an area above a cut axis makes a small rise look
+ * like a large one. If the fitted axis would reach zero anyway, it is drawn
+ * from zero.
  */
 export function TrendChart({
   points,
   valueLabel,
   emptyMessage = 'Not enough history yet.',
   color = SERIES.general,
+  baseline = 'zero',
 }: {
   points: TrendPoint[];
   valueLabel: string;
   emptyMessage?: string;
   /** The series colour: line, area and markers all take it. */
   color?: string;
+  baseline?: 'zero' | 'fit';
 }) {
   if (points.length < 2) return <Empty message={emptyMessage} />;
 
-  const W = 720;
-  const H = 190;
-  const padL = 10;
-  const padR = 10;
-  const padT = 24;
-  const padB = 26;
+  const values = points.map((p) => p.value);
+  const hi = Math.max(...values, 1);
+  const lo = Math.min(...values);
 
-  const max = Math.max(...points.map((p) => p.value), 1);
-  const innerW = W - padL - padR;
-  const innerH = H - padT - padB;
-
-  const x = (i: number) => padL + (i / (points.length - 1)) * innerW;
-  const y = (v: number) => padT + innerH - (v / max) * innerH;
-
-  const line = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(p.value).toFixed(1)}`)
-    .join(' ');
-  const area = `${line} L ${x(points.length - 1).toFixed(1)} ${padT + innerH} L ${x(0).toFixed(
-    1
-  )} ${padT + innerH} Z`;
+  let axisMin = 0;
+  let step = niceStep(hi / 3);
+  if (baseline === 'fit') {
+    const fitStep = niceStep(Math.max(hi - lo, 1) / 3);
+    const fitMin = Math.floor((lo - fitStep * 0.25) / fitStep) * fitStep;
+    if (fitMin > 0) {
+      axisMin = fitMin;
+      step = fitStep;
+    }
+  }
+  const axisMax = Math.max(Math.ceil(hi / step) * step, axisMin + step);
+  const ticks: number[] = [];
+  for (let v = axisMin; v <= axisMax + step / 1000; v += step) ticks.push(Math.round(v * 1000) / 1000);
+  const cut = axisMin > 0;
 
   const peakIndex = points.reduce((best, p, i) => (p.value > points[best].value ? i : best), 0);
-  const labelled = new Set([0, points.length - 1, peakIndex]);
+  const last = points.length - 1;
+  const labelled = new Set([0, last, peakIndex]);
+  // Many points: a marker on each would be a caterpillar. Mark the labelled ones.
+  const dense = points.length > 16;
+  const say = (n: number) => n.toLocaleString('en-GB');
+  const summary = `${valueLabel} across ${points.length} points, from ${say(points[0].value)} to ${say(points[last].value)}${
+    cut ? `. The axis starts at ${say(axisMin)}, not zero` : ''
+  }`;
+
+  /**
+   * The same chart drawn for one width. The page renders it twice, wide and
+   * narrow, and CSS shows one, so the text is a readable size on a phone
+   * instead of a wide drawing scaled down to fit.
+   */
+  const draw = (W: number, H: number, className: string) => {
+    const padL = 44;
+    const padR = 16;
+    const padT = 28;
+    const padB = 30;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+    const base = padT + innerH;
+    const x = (i: number) => padL + (i / last) * innerW;
+    const y = (v: number) => base - ((v - axisMin) / (axisMax - axisMin)) * innerH;
+    const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(p.value).toFixed(1)}`).join(' ');
+    const area = `${line} L ${x(last).toFixed(1)} ${base} L ${x(0).toFixed(1)} ${base} Z`;
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" className={className} role="img" aria-label={summary}>
+        {ticks.map((v, i) => (
+          <g key={v}>
+            <line
+              x1={padL}
+              y1={y(v)}
+              x2={W - padR}
+              y2={y(v)}
+              stroke={i === 0 ? C.border : C.neutral}
+              strokeWidth={i === 0 ? 1.5 : 1}
+            />
+            <text x={padL - 8} y={y(v) + 4} fontSize="11.5" fill={C.muted} textAnchor="end">
+              {compact(v)}
+            </text>
+          </g>
+        ))}
+        {/* A break under the lowest tick, where the missing part down to zero would be. */}
+        {cut && (
+          <path
+            className="axis"
+            d={`M ${padL - 20} ${base + 9} l 5 3 l -10 4 l 10 4 l -5 3`}
+            fill="none"
+            stroke={C.muted}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          >
+            <title>{`The axis is cut: it starts at ${say(axisMin)}, not zero`}</title>
+          </path>
+        )}
+
+        {!cut && <path d={area} fill={tint(color, 0.2)} />}
+        <path d={line} fill="none" stroke={color} strokeWidth="2.75" strokeLinejoin="round" strokeLinecap="round" />
+
+        {points.map((p, i) => (
+          <g key={`${p.label}-${i}`}>
+            {(!dense || labelled.has(i)) && (
+              <circle cx={x(i)} cy={y(p.value)} r="4.5" fill={markerFill(color)} stroke={color} strokeWidth="2" />
+            )}
+            {p.href ? (
+              <a href={p.href} aria-label={`${p.label}: ${say(p.value)}`} className="mark" style={{ cursor: 'pointer' }}>
+                <circle className="hit" cx={x(i)} cy={y(p.value)} r="13" fill="transparent">
+                  <title>{`${p.label}: ${say(p.value)}. Click for details`}</title>
+                </circle>
+              </a>
+            ) : (
+              <circle cx={x(i)} cy={y(p.value)} r="11" fill="transparent">
+                <title>{`${p.label}: ${say(p.value)}`}</title>
+              </circle>
+            )}
+            {labelled.has(i) && (
+              <text
+                x={x(i)}
+                y={y(p.value) - 11}
+                textAnchor={i === 0 ? 'start' : i === last ? 'end' : 'middle'}
+                fontSize="13"
+                fontWeight="700"
+                fill={C.text}
+              >
+                {say(p.value)}
+              </text>
+            )}
+          </g>
+        ))}
+
+        <text x={padL} y={H - 8} fontSize="11.5" fill={C.muted}>
+          {points[0].label}
+        </text>
+        <text x={W - padR} y={H - 8} fontSize="11.5" fill={C.muted} textAnchor="end">
+          {points[last].label}
+        </text>
+      </svg>
+    );
+  };
 
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-2">
         <span style={EYEBROW}>{valueLabel}</span>
-        <span className="text-xs tabular-nums" style={{ color: C.muted }}>
-          peak {compact(points[peakIndex].value)}
+        <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs tabular-nums" style={{ color: C.muted }}>
+          {cut && (
+            <span
+              className="px-2 py-0.5"
+              style={{ background: C.neutral, color: C.text, borderRadius: RADIUS.pill, fontWeight: 600 }}
+            >
+              Axis starts at {say(axisMin)}, not zero
+            </span>
+          )}
+          <span>peak {say(points[peakIndex].value)}</span>
         </span>
       </div>
 
-      <div className="overflow-x-auto">
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          width="100%"
-          style={{ display: 'block', minWidth: 420 }}
-          role="img"
-          aria-label={`${valueLabel} across ${points.length} points`}
-        >
-          <line
-            x1={padL}
-            y1={padT + innerH}
-            x2={W - padR}
-            y2={padT + innerH}
-            stroke={C.border}
-            strokeWidth="1"
-          />
-          <line
-            x1={padL}
-            y1={padT + innerH / 2}
-            x2={W - padR}
-            y2={padT + innerH / 2}
-            stroke={C.neutral}
-            strokeWidth="1"
-          />
-
-          <path d={area} fill={tint(color, 0.2)} />
-          <path
-            d={line}
-            fill="none"
-            stroke={color}
-            strokeWidth="2.75"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
-
-          {points.map((p, i) => (
-            <g key={`${p.label}-${i}`}>
-              {/* Surface ring keeps a marker readable where the line doubles back. */}
-              <circle cx={x(i)} cy={y(p.value)} r="4" fill={markerFill(color)} stroke={color} strokeWidth="2" />
-              {p.href ? (
-                <a href={p.href} aria-label={`${p.label}: ${p.value.toLocaleString()}`} style={{ cursor: 'pointer' }}>
-                  <circle cx={x(i)} cy={y(p.value)} r="13" fill="transparent">
-                    <title>{`${p.label}: ${p.value.toLocaleString()}. Click for details`}</title>
-                  </circle>
-                </a>
-              ) : (
-                <circle cx={x(i)} cy={y(p.value)} r="11" fill="transparent">
-                  <title>{`${p.label}: ${p.value.toLocaleString()}`}</title>
-                </circle>
-              )}
-              {labelled.has(i) && (
-                <text
-                  x={x(i)}
-                  y={y(p.value) - 11}
-                  textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}
-                  fontSize="11"
-                  fontWeight="600"
-                  fill={C.text}
-                >
-                  {compact(p.value)}
-                </text>
-              )}
-            </g>
-          ))}
-
-          <text x={padL} y={H - 8} fontSize="10" fill={C.muted}>
-            {points[0].label}
-          </text>
-          <text x={W - padR} y={H - 8} fontSize="10" fill={C.muted} textAnchor="end">
-            {points[points.length - 1].label}
-          </text>
-        </svg>
-      </div>
+      {draw(720, 220, 'hidden sm:block')}
+      {draw(350, 230, 'block sm:hidden')}
     </div>
   );
 }

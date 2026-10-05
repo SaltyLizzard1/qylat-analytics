@@ -16,19 +16,24 @@ import {
   PageHeader,
   Disclosure,
 } from '@/components/charts';
-import { C, full, platformColor, shortDate } from '@/lib/theme';
+import { C, full, platformColor, platformLabel, shortDate } from '@/lib/theme';
 import { BackLink } from '@/components/overview';
 import { parsePlatform, withFilters } from '@/lib/overview';
 
 export const dynamic = 'force-dynamic';
 
-const LABEL: Record<string, string> = {
-  instagram: 'Instagram',
-  facebook: 'Facebook Page',
-  'facebook-personal': 'Facebook personal',
-  tiktok: 'TikTok',
-  youtube: 'YouTube',
-};
+/**
+ * Where a follower total came from, read from the row's own `source`. The
+ * profile is read by the collector on the laptop, never by an API, and a
+ * total can also be typed in by hand. A value this page does not know is
+ * shown as it is stored, not folded into "the API".
+ */
+function sourceLabel(source: unknown): string {
+  if (source === 'api') return 'From the API';
+  if (source === 'scrape') return 'From the collector';
+  if (source === 'manual') return 'Entered by hand';
+  return source ? `Source: ${String(source)}` : 'Source not recorded';
+}
 
 /**
  * The accounts an API can read. Each gets the same pair of charts, so the
@@ -96,11 +101,9 @@ export default async function AudiencePage({
             <StatTile
               key={r.platform as string}
               size="hero"
-              label={LABEL[r.platform as string] ?? (r.platform as string)}
+              label={platformLabel(r.platform as string)}
               value={full(r.followers as number)}
-              sub={`${r.source === 'manual' ? 'entered by hand' : 'from the API'}, ${shortDate(
-                r.recorded_on as string
-              )}`}
+              sub={`${sourceLabel(r.source)}, ${shortDate(r.recorded_on as string)}`}
             />
           ))}
         </div>
@@ -129,6 +132,7 @@ export default async function AudiencePage({
               <TrendChart
                 points={totalPoints}
                 color={platformColor(t.platform)}
+                baseline="fit"
                 valueLabel="Followers"
                 emptyMessage="Needs at least two daily snapshots in this window. This chart fills in as the sync runs."
               />
@@ -159,12 +163,14 @@ export default async function AudiencePage({
               follower events outnumber themes by enough to tell them apart.
               <br />
               <br />
-              Separately, your personal Facebook profile is where your actual audience is, and Meta
-              exposes no API for personal profiles at all. It can only be tracked by hand on the{' '}
+              Separately, your Facebook Profile is where your actual audience is, and Meta exposes
+              no API for personal profiles at all. Its total above comes from the collector on your
+              laptop when you press Collect, or from the{' '}
               <Link href="/admin/audience" style={{ color: C.text, textDecoration: 'underline' }}>
                 audience entry screen
-              </Link>
-              . Nothing on this page reflects it unless you enter it.
+              </Link>{' '}
+              if you type one in. The card says which. The Profile has no chart here: its history is
+              on the Profile page.
             </>
           ),
         }}
