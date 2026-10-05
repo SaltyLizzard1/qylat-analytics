@@ -66,7 +66,7 @@ async function expireStale(clearCache = true): Promise<void> {
        OR (state = 'running' AND claimed_at < NOW() - make_interval(mins => ${RUNNING_EXPIRES_MIN}::int))
     RETURNING id
   `;
-  if (clearCache && expired.length > 0) revalidateTag(TAG);
+  if (clearCache && expired.length > 0) revalidateTag(TAG, { expire: 0 });
 }
 
 const openInCache = unstable_cache(
@@ -96,7 +96,7 @@ export async function openRunRequest(): Promise<RunRequest | null> {
     ON CONFLICT DO NOTHING
     RETURNING id, state, requested_at, claimed_at, finished_at, exit_code, detail
   `;
-  revalidateTag(TAG);
+  revalidateTag(TAG, { expire: 0 });
   return (rows[0] as RunRequest | undefined) ?? null;
 }
 
@@ -115,7 +115,7 @@ export async function claimRunRequest(): Promise<{ id: number } | null> {
   if (rows.length === 0) {
     // Running or expired: either way there is nothing to hand out, and the
     // cache may have been stale.
-    revalidateTag(TAG);
+    revalidateTag(TAG, { expire: 0 });
     return null;
   }
   return { id: Number(rows[0].id) };
@@ -132,6 +132,6 @@ export async function finishRunRequest(id: number, exitCode: number, detail: str
     WHERE id = ${id} AND claimed_at IS NOT NULL AND state IN ('running', 'expired')
     RETURNING id
   `;
-  revalidateTag(TAG);
+  revalidateTag(TAG, { expire: 0 });
   return rows.length > 0;
 }
