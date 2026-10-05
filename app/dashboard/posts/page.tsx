@@ -98,7 +98,7 @@ function PostRow({ p, maxViews }: { p: DetailPost; maxViews: number }) {
           <PlatformChip platform={p.platform} />
           {p.format && <QuietChip>{formatLabel(p.format)}</QuietChip>}
           <span className="text-xs" style={{ color: C.muted }}>
-            {p.published_label ? `${p.published_label}, as Facebook displayed it` : shortDateTime(p.published_at)}
+            {p.published_label ? `Published ${p.published_label}, as Facebook displayed it` : `Published ${shortDateTime(p.published_at)}`}
           </span>
         </span>
       </span>
@@ -216,6 +216,12 @@ export default async function PostsDetailPage({
       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: C.muted }}>
         Views and engagement are each post&apos;s total to date, not activity inside the window. Highest views
         first.
+        {theme && (
+          <span style={{ color: C.text, fontWeight: 600 }}>
+            Posts of different ages are listed together, so this is not an age-matched comparison.
+            {platform === 'all' ? ' Instagram and the Facebook Page read views differently: compare within an account.' : ''}
+          </span>
+        )}
         {posts.length > 0 && posts.length < THRESHOLDS.minSamplePosts && <SampleChip>small sample</SampleChip>}
       </div>
 

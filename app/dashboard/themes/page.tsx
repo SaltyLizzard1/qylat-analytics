@@ -8,7 +8,10 @@ import { ChartCard, FilterBar, PlatformChip, PostPicture, QuietChip } from '@/co
 import { QuickTag } from '@/components/QuickTag';
 import { PILLARS, pillarLabel } from '@/lib/pillars';
 import { THRESHOLDS } from '@/lib/status';
-import { C, CARD, EYEBROW, RADIUS, TITLE, formatLabel, full, platformLabel, shortDate, tagColor } from '@/lib/theme';
+import { C, CARD, EYEBROW, RADIUS, TITLE, formatLabel, full, platformColor, platformLabel, shortDate, tagColor } from '@/lib/theme';
+
+/** The accounts that carry tags, each charted on its own. */
+const ACCOUNTS = ['instagram', 'facebook'] as const;
 
 export const dynamic = 'force-dynamic';
 
@@ -21,12 +24,14 @@ export const dynamic = 'force-dynamic';
  *     of every untagged post ever synced. Two counts, two labels.
  *   - how many posts carry each tag, which is output and says nothing about
  *     how they did.
- *   - how each tag's posts did, as the median views to date with the number of
- *     posts beside every bar.
+ *   - each tag's median lifetime views so far, one chart per account, with
+ *     the number of posts beside every bar.
  *
- * No tag is called the best one. Views here are totals to date for posts of
- * different ages, and a tag with a couple of posts is a small sample, which
- * is said beside the bar instead of being read as a result.
+ * The views charts are current totals for posts of different ages, not an
+ * age-matched comparison, and say so in the heading and above the bars. No
+ * tag is ranked or called ahead here, and nothing from this page feeds the
+ * Overview's summary. Instagram and the Page read views differently, so
+ * their posts are never pooled.
  *
  * Tags live on Instagram and Facebook Page posts. The Facebook Profile has no
  * tags, so nothing on this page counts or judges it.
@@ -51,49 +56,53 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
 
   const tagged = windowed.total - windowed.untagged;
   const phrase = periodPhrase(period);
-  const postsHref = (theme: string) => withPeriod(`/dashboard/posts?theme=${theme}&back=themes`, period);
+  const postsHref = (theme: string, platform?: string) =>
+    withPeriod(`/dashboard/posts?theme=${theme}${platform ? `&platform=${platform}` : ''}&back=themes`, period);
 
-  // How many posts carry each tag. Output, not performance.
-  const taggedInStats = stats.reduce((n, s) => n + s.posts, 0);
-  const mixBars: BarDatum[] = [...stats]
-    .sort((a, b) => b.posts - a.posts)
-    .map((s) => ({
-      key: s.theme,
-      label: pillarLabel(s.theme),
-      value: s.posts,
-      meta: taggedInStats > 0 ? `${Math.round((s.posts / taggedInStats) * 100)}% of tagged posts` : undefined,
-      color: tagColor(s.theme),
-      href: postsHref(s.theme),
-      title: `${pillarLabel(s.theme)}: ${s.posts} post${s.posts === 1 ? '' : 's'}. Click for the posts`,
+  // How many posts carry each tag, both accounts together. A count of posts
+  // means the same thing on either account. Output, not performance.
+  const byTag = new Map<string, number>();
+  for (const s of stats) byTag.set(s.theme, (byTag.get(s.theme) ?? 0) + s.posts);
+  const taggedInStats = [...byTag.values()].reduce((n, v) => n + v, 0);
+  const mixBars: BarDatum[] = [...byTag.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([theme, posts]) => ({
+      key: theme,
+      label: pillarLabel(theme),
+      value: posts,
+      meta: `${Math.round((posts / taggedInStats) * 100)}% of tagged posts`,
+      color: tagColor(theme),
+      href: postsHref(theme),
+      title: `${pillarLabel(theme)}: ${posts} post${posts === 1 ? '' : 's'}. Click for the posts`,
     }));
 
-  // How each tag's posts did. A tag with no views figure at all is not drawn as zero.
-  const performanceBars: BarDatum[] = stats
-    .filter((s) => s.median_views !== null)
-    .map((s) => {
-      const count = s.views_known < s.posts ? `${s.views_known} of ${s.posts} posts` : `${s.posts} post${s.posts === 1 ? '' : 's'}`;
-      return {
-        key: s.theme,
-        label: pillarLabel(s.theme),
-        value: Math.round(s.median_views ?? 0),
-        meta: s.views_known < THRESHOLDS.minSamplePosts ? `${count}, small sample` : count,
-        color: tagColor(s.theme),
-        href: postsHref(s.theme),
-        title: `${pillarLabel(s.theme)}: median ${full(Math.round(s.median_views ?? 0))} views to date across ${count}. Click for the posts`,
-      };
-    });
-  const noFigure = stats.filter((s) => s.median_views === null);
-  const comparable = stats.filter((s) => s.views_known >= THRESHOLDS.minSamplePosts).length;
+  // Views by tag, one chart per account. Instagram and the Page do not read
+  // views the same way, so their posts are never pooled into one median. A
+  // tag with no views figure at all is listed, not drawn as zero.
+  const accounts = ACCOUNTS.map((platform) => {
+    const rows = stats.filter((s) => s.platform === platform);
+    const bars: BarDatum[] = rows
+      .filter((s) => s.median_views !== null)
+      .map((s) => {
+        const count = s.views_known < s.posts ? `${s.views_known} of ${s.posts} posts` : `${s.posts} post${s.posts === 1 ? '' : 's'}`;
+        return {
+          key: s.theme,
+          label: pillarLabel(s.theme),
+          value: Math.round(s.median_views ?? 0),
+          meta: s.views_known < THRESHOLDS.minSamplePosts ? `${count}, small sample` : count,
+          color: tagColor(s.theme),
+          href: postsHref(s.theme, platform),
+          title: `${pillarLabel(s.theme)} on ${platformLabel(platform)}: median ${full(
+            Math.round(s.median_views ?? 0)
+          )} lifetime views so far across ${count}, posts of different ages. Click for the posts`,
+        };
+      });
+    return { platform, rows, bars, noFigure: rows.filter((s) => s.median_views === null) };
+  });
 
-  const clickBars: BarDatum[] = both
+  const clickRows = both
     .filter((r) => (r.clicks as number) > 0)
-    .map((r) => ({
-      key: r.theme as string,
-      label: pillarLabel(r.theme as string),
-      value: (r.clicks as number) ?? 0,
-      meta: `${r.links} link${r.links === 1 ? '' : 's'}`,
-      color: tagColor(r.theme as string),
-    }));
+    .map((r) => ({ theme: r.theme as string, clicks: (r.clicks as number) ?? 0, links: (r.links as number) ?? 0 }));
 
   return (
     <div className="space-y-4">
@@ -102,7 +111,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
         meta={[
           { label: 'Tagged in this window', value: `${tagged} of ${windowed.total} posts` },
           { label: 'Untagged, all time', value: `${full(backlog.posts)} posts` },
-          { label: 'Tags in use in this window', value: String(stats.length) },
+          { label: 'Tags in use in this window', value: String(byTag.size) },
         ]}
       />
 
@@ -114,31 +123,49 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
 
       {stats.length > 0 && (
         <>
-          <SectionHeading note={`Median views to date per post · posts published ${phrase} · Instagram and Facebook Page · click a bar for its posts`}>
-            How each tag&apos;s posts did
+          <SectionHeading note={`Lifetime views so far · current totals, not matched by age · posts published ${phrase} · one chart per account`}>
+            Views by tag
           </SectionHeading>
-          <ChartCard
-            title="Median views to date, by tag"
-            note={
-              comparable >= 2
-                ? `${comparable} tags have at least ${THRESHOLDS.minSamplePosts} posts with a figure. Posts differ in age, so this is not a ranking`
-                : `Fewer than two tags have ${THRESHOLDS.minSamplePosts} posts with a figure, so no tag is compared with another yet`
-            }
-            info="The middle post for each tag, by total views as of the last read, for posts published in the window. Posts of different ages and both accounts are mixed, and Instagram’s API reports fewer views for images and carousels than the app, so a longer bar is not proof that a tag works better. The number of posts is beside every bar. Stories are not counted."
-          >
-            <BarList
-              data={performanceBars}
-              valueLabel="Median views to date"
-              emptyMessage="No tagged post in this window has a views figure yet."
-            />
-            {noFigure.length > 0 && (
-              <p className="text-xs mt-3" style={{ color: C.muted }}>
-                No views figure yet: {noFigure.map((s) => `${pillarLabel(s.theme)} (${s.posts})`).join(', ')}.
-              </p>
-            )}
-          </ChartCard>
+          <p className="text-sm px-4 py-3" style={{ ...CARD, color: C.text }}>
+            <span style={{ fontWeight: 700 }}>Not an age-matched comparison.</span>{' '}
+            <span style={{ color: C.muted }}>
+              Each bar is the middle post&apos;s lifetime views as they stand today. A tag whose posts are older has
+              had longer to collect views, so a longer bar does not show that a tag performs better. Open a bar to
+              see each post with its publish date.
+            </span>
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {accounts.map((a) => (
+              <ChartCard
+                key={a.platform}
+                title={`${platformLabel(a.platform)}: median lifetime views so far, by tag`}
+                swatch={platformColor(a.platform)}
+                note="Current totals for posts of different ages. Click a bar for its posts"
+                info={
+                  a.platform === 'instagram'
+                    ? 'The middle Instagram post for each tag, by lifetime views as of the last read from Meta’s API, for posts published in the window. Posts of different ages are mixed. Instagram’s API also reports fewer views for images and carousels than the app does. The number of posts is beside every bar. Stories are not counted.'
+                    : 'The middle Facebook Page post for each tag, by lifetime views as of the last read from Meta’s API, for posts published in the window. Posts of different ages are mixed. The number of posts is beside every bar. Stories are not counted.'
+                }
+              >
+                <BarList
+                  data={a.bars}
+                  valueLabel="Median lifetime views so far"
+                  emptyMessage={
+                    a.rows.length === 0
+                      ? `No tagged ${platformLabel(a.platform)} post was published in this window.`
+                      : `No tagged ${platformLabel(a.platform)} post in this window has a views figure yet.`
+                  }
+                />
+                {a.noFigure.length > 0 && (
+                  <p className="text-xs mt-3" style={{ color: C.muted }}>
+                    No views figure yet: {a.noFigure.map((s) => `${pillarLabel(s.theme)} (${s.posts})`).join(', ')}.
+                  </p>
+                )}
+              </ChartCard>
+            ))}
+          </div>
 
-          <SectionHeading note={`Number of posts per tag · posts published ${phrase} · output, not performance`}>
+          <SectionHeading note={`Number of posts per tag · posts published ${phrase} · both accounts · output, not performance`}>
             What you tagged
           </SectionHeading>
           <ChartCard
@@ -146,7 +173,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
             note={`${taggedInStats} tagged post${taggedInStats === 1 ? '' : 's'}${
               windowed.untagged > 0 ? `. ${windowed.untagged} more in this window have no tag, so the split is partial` : ''
             }`}
-            info="How the tagged posts published in the window split across tags. It says what you published, and nothing about how it did. No target shares are set, so no split is judged. Stories are not counted."
+            info="How the tagged posts published in the window split across tags, Instagram and the Facebook Page together. It says what you published, and nothing about how it did. No target shares are set, so no split is judged. Stories are not counted."
           >
             <BarList data={mixBars} valueLabel="Posts" emptyMessage="No tagged posts in this window." />
           </ChartCard>
@@ -154,17 +181,31 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
       )}
 
       <SectionHeading note={`Clicks by people ${phrase} · grouped by the tag on each /go/ link`}>Clicks by tag</SectionHeading>
-      {clickBars.length === 0 ? (
+      {clickRows.length === 0 ? (
         <p className="text-sm px-4 py-3" style={{ ...CARD, color: C.muted }}>
           No tagged /go/ link was clicked in this window. A link gets its tag when you create it.
         </p>
       ) : (
-        <ChartCard
-          title="Link clicks"
-          info="Clicks on /go/ links that carry a tag, inside the window. Crawlers and your own test clicks are excluded. This side works without tagging any posts."
-        >
-          <BarList data={clickBars} valueLabel="Clicks" color={tagColor(clickBars[0].key)} />
-        </ChartCard>
+        /* A plain list, not bars: no screen lists the links or clicks for one
+           tag, so nothing here should look like it opens one. */
+        <dl className="px-4 py-1" style={CARD}>
+          {clickRows.map((r, i) => (
+            <div
+              key={r.theme}
+              className="flex items-baseline justify-between gap-3 py-2.5"
+              style={{ borderTop: i > 0 ? `1px solid ${C.neutral}` : undefined }}
+            >
+              <dt className="flex items-center gap-2 text-sm min-w-0" style={{ color: C.text, fontWeight: 600 }}>
+                <span aria-hidden style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: tagColor(r.theme), flexShrink: 0 }} />
+                {pillarLabel(r.theme)}
+              </dt>
+              <dd className="text-sm tabular-nums" style={{ color: C.muted }}>
+                <span style={{ color: C.text, fontWeight: 800 }}>{full(r.clicks)}</span> click{r.clicks === 1 ? '' : 's'} on{' '}
+                {full(r.links)} link{r.links === 1 ? '' : 's'}
+              </dd>
+            </div>
+          ))}
+        </dl>
       )}
 
       <Disclosure summary="How tags work, and what this page cannot see">
@@ -178,8 +219,12 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
             The tags are {PILLARS.map((p) => p.label).join(', ')}. Hover a tag button to see what it covers.
           </li>
           <li>
-            Views are each post&apos;s total to date. Posts of different ages are mixed, so a tag whose posts are
-            older has had longer to collect views.
+            Views are each post&apos;s lifetime total so far. Posts of different ages are mixed, so nothing here is
+            an age-matched comparison, and no tag is ranked against another.
+          </li>
+          <li>
+            Clicks by tag are counts only. Individual links and clicks are on the admin Links and Click Log
+            screens, which cannot be filtered by tag.
           </li>
           <li>
             Facebook Profile posts have no tags and are not counted on this page.
@@ -284,7 +329,7 @@ function NeedsTagging({
                       <PlatformChip platform={p.platform} />
                       {p.format && <QuietChip>{formatLabel(p.format)}</QuietChip>}
                       <span>{shortDate(p.published_at)}</span>
-                      <span>{p.views === null ? 'No views figure' : `${full(p.views)} views to date`}</span>
+                      <span>{p.views === null ? 'No views figure' : `${full(p.views)} lifetime views so far`}</span>
                     </p>
                   </div>
                 </div>

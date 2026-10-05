@@ -78,6 +78,8 @@ export async function getUntaggedBacklog(): Promise<{ posts: number; stories: nu
 }
 
 export type ThemeStat = {
+  /** instagram or facebook. The two read views differently, so they are never pooled. */
+  platform: string;
   theme: string;
   posts: number;
   /** How many of those posts have a views figure. */
@@ -88,15 +90,16 @@ export type ThemeStat = {
 };
 
 /**
- * Tagged posts published in the window, by tag. The median is the figure to
- * compare on: a total follows how many posts carry the tag, and a mean is
- * moved by one large post. Views are totals to date for posts of different
- * ages, so this is a rough comparison and is labelled as such where shown.
+ * Tagged posts published in the window, by account and tag. The median is
+ * the figure shown: a total follows how many posts carry the tag, and a mean
+ * is moved by one large post. Views are each post's current lifetime total,
+ * for posts of different ages. This is not an age-matched comparison and
+ * must be labelled that way wherever it is drawn.
  */
 export async function getThemeStats(period: TimeWindow): Promise<ThemeStat[]> {
   const rows = await sql(`
     WITH ${LATEST}
-    SELECT p.content_theme AS theme,
+    SELECT p.platform, p.content_theme AS theme,
            COUNT(*)::int AS posts,
            COUNT(l.views)::int AS views_known,
            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY l.views)::float8 AS median_views,
@@ -105,8 +108,8 @@ export async function getThemeStats(period: TimeWindow): Promise<ThemeStat[]> {
     WHERE p.content_theme IS NOT NULL AND p.content_theme <> ''
       AND ${NOT_STORY}
       AND p.published_at IS NOT NULL AND ${windowExpr(period, 'p.published_at')}
-    GROUP BY p.content_theme
-    ORDER BY median_views DESC NULLS LAST, posts DESC
+    GROUP BY p.platform, p.content_theme
+    ORDER BY p.platform, median_views DESC NULLS LAST, posts DESC
   `);
   return rows as unknown as ThemeStat[];
 }

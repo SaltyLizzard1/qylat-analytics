@@ -245,6 +245,12 @@ export type FollowerSeries = {
    */
   gained: number | null;
   gainedHow: string;
+  /**
+   * Set when the account's first stored total is 0 and falls inside the
+   * window. That reading is left out of `points` and of `gained`, and
+   * `since` is the first total after it, where one exists in the window.
+   */
+  baselineUncertain: { recorded_on: string; since: { recorded_on: string; followers: number } | null } | null;
 };
 
 /** Follower totals for the three accounts. Each account's figure names its own platform in the query. */
@@ -263,9 +269,37 @@ export async function getFollowerSeries(period: TimeWindow): Promise<FollowerSer
       [platform]
     );
 
+    /*
+     * An account's first stored total being 0 is not trusted as a baseline.
+     * The Facebook Page's first reading, on 10 Sept 2026, was 0 from the API
+     * while the Page had 6 followers by the next morning's read (commit
+     * d035897). Whether the Page truly had none that afternoon or the API
+     * had not caught up cannot be established from what is stored, so the
+     * reading is kept in the table and left out of any trend or gain. The
+     * daily gains Meta reported for that first day are left out with it,
+     * since they describe the same unverified step from 0.
+     */
+    const firstEver = await sql(
+      `SELECT followers, recorded_on::text AS recorded_on FROM audience_snapshots
+       WHERE platform = $1 AND followers IS NOT NULL ORDER BY recorded_on LIMIT 1`,
+      [platform]
+    );
+    const zeroOn = firstEver[0] && Number(firstEver[0].followers) === 0 ? (firstEver[0].recorded_on as string) : null;
+    const zeroInWindow = zeroOn !== null && points.some((p) => p.recorded_on === zeroOn);
+    if (zeroInWindow) points.splice(points.findIndex((p) => p.recorded_on === zeroOn), 1);
+
     let gained: number | null = null;
     let gainedHow = 'No gain figure for this window';
-    if (platform === 'facebook-personal') {
+    if (zeroInWindow) {
+      if (points.length >= 2) {
+        const first = points[0];
+        const last = points[points.length - 1];
+        gained = Number(last.followers) - Number(first.followers);
+        gainedHow = `change between the totals read on ${first.recorded_on} and ${last.recorded_on}. The first total ever stored, 0 on ${zeroOn}, is left out because it cannot be confirmed as a true count`;
+      } else {
+        gainedHow = `The first total ever stored, 0 on ${zeroOn}, cannot be confirmed as a true count, and there are not two later totals in this window`;
+      }
+    } else if (platform === 'facebook-personal') {
       // No daily gains exist for the profile. Two totals inside the window
       // give the change between them, over however many days separate them.
       if (points.length >= 2) {
@@ -300,6 +334,12 @@ export async function getFollowerSeries(period: TimeWindow): Promise<FollowerSer
       points: points.map((p) => ({ recorded_on: p.recorded_on as string, followers: Number(p.followers) })),
       gained,
       gainedHow,
+      baselineUncertain: zeroInWindow
+        ? {
+            recorded_on: zeroOn as string,
+            since: points[0] ? { recorded_on: points[0].recorded_on as string, followers: Number(points[0].followers) } : null,
+          }
+        : null,
     });
   }
   return out;

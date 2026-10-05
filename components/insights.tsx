@@ -71,7 +71,9 @@ function Sparkline({ values, color, label }: { values: number[]; color: string; 
  * The three accounts' follower totals in one compact strip. An account with a
  * history shows its trend and the two ends of it. An account with one reading
  * says "Baseline needed", which is a fact about the record, not a judgement
- * of the account. Each cell opens that account's detail.
+ * of the account. An account whose first stored total cannot be confirmed
+ * says "Baseline uncertain" and counts its change from the first total that
+ * can. Each cell opens that account's detail.
  */
 export function AudienceStrip({
   accounts,
@@ -119,14 +121,25 @@ export function AudienceStrip({
                           {a.gained > 0 ? '+' : ''}
                           {full(a.gained)}
                         </span>{' '}
-                        in this window
+                        {a.baselineUncertain?.since
+                          ? `since ${full(a.baselineUncertain.since.followers)} on ${shortDate(a.baselineUncertain.since.recorded_on)}`
+                          : 'in this window'}
                       </>
                     )}
                     {a.latest ? `. Read ${shortDate(a.latest.recorded_on)}` : ''}
                   </p>
                 </div>
                 {trend ? (
-                  <div className="flex flex-col items-end" style={{ flexShrink: 0 }}>
+                  <div className="flex flex-col items-end gap-0.5" style={{ flexShrink: 0 }}>
+                    {a.baselineUncertain && (
+                      <span
+                        className="text-xs px-2 py-0.5"
+                        style={{ background: C.neutral, color: C.text, borderRadius: RADIUS.pill, fontWeight: 600 }}
+                        title={`The first total stored for this account, 0 on ${shortDate(a.baselineUncertain.recorded_on)}, cannot be confirmed as a true count, so it is not used as a starting point.`}
+                      >
+                        Baseline uncertain
+                      </span>
+                    )}
                     <Sparkline
                       values={a.points.map((p) => p.followers)}
                       color={color}
@@ -148,7 +161,7 @@ export function AudienceStrip({
                         : 'No follower total has been stored for this account.'
                     }
                   >
-                    Baseline needed
+                    {a.baselineUncertain ? 'Baseline uncertain' : 'Baseline needed'}
                   </span>
                 )}
               </div>
