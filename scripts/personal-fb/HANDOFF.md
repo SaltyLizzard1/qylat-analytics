@@ -127,3 +127,9 @@ Checked directly against production (`ep-small-mud-az5opu7m`), not assumed.
   of each figure and when it was read.
 - One run failed once with "browser has been closed" before loading. Cause
   unknown. The retry worked.
+- React hydration error #418 on the dashboard: currently unreproducible, cause
+  unknown. Logged twice on 2026-10-04 at 20:47 and 20:48 Bangkok time, on the
+  live site, inside a 390px test frame in Liz's Chrome. Not reproduced since in
+  a clean browser (development and production builds, genuine 390px viewport,
+  1360px, and framed) or in Liz's Chrome with the same steps. No application
+  cause was found. Investigation stopped at Liz's direction unless it returns.
