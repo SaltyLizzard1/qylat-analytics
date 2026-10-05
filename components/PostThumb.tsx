@@ -1,15 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { C, RADIUS } from '@/lib/theme';
 
 /**
- * Post thumbnail with a graceful failure.
+ * Post thumbnail that recovers, and fails gracefully when it cannot.
  *
- * Meta's CDN URLs expire. The sync refreshes them for posts inside its lookback
- * window, so recent thumbnails load and older ones eventually will not. A
- * broken image icon is uglier than no image, so a failed load falls back to a
- * neutral block carrying the format initial.
+ * Meta's CDN links expire. The sync reissues them for posts inside its
+ * lookback, so recent thumbnails load and older ones stop. Three steps, in
+ * order:
+ *   1. the stored link
+ *   2. `recoverSrc`, when given: a route that asks Meta for a new link
+ *   3. `fallback`, when given, or a neutral block with the label's initial
+ *
+ * A broken image icon is uglier than no image, so a failed load never shows.
+ *
+ * The load is also checked once after mounting. An image that fails before
+ * React has attached its error handler never reports the failure, and stayed
+ * on screen as an empty white box.
  *
  * A plain img rather than next/image on purpose. The Vercel image optimizer
  * bills transformations, and a leaderboard of thirty thumbnails would eat the
@@ -19,12 +27,26 @@ export function PostThumb({
   src,
   label,
   size = 44,
+  recoverSrc,
+  fallback,
 }: {
   src: string | null;
   label: string;
   size?: number;
+  /** Tried once if the stored link is missing or fails. */
+  recoverSrc?: string;
+  /** Shown when no image can be loaded. Sized by the caller to `size`. */
+  fallback?: React.ReactNode;
 }) {
-  const [failed, setFailed] = useState(false);
+  const sources = [src, recoverSrc].filter((s): s is string => !!s);
+  const [step, setStep] = useState(0);
+  const img = useRef<HTMLImageElement>(null);
+  const current = sources[step];
+
+  useEffect(() => {
+    const el = img.current;
+    if (el && el.complete && el.naturalWidth === 0) setStep((s) => s + 1);
+  }, [step]);
 
   const box = {
     width: size,
@@ -35,7 +57,8 @@ export function PostThumb({
     overflow: 'hidden',
   } as const;
 
-  if (!src || failed) {
+  if (!current) {
+    if (fallback) return <>{fallback}</>;
     return (
       <div
         style={{
@@ -59,13 +82,15 @@ export function PostThumb({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      ref={img}
+      key={current}
+      src={current}
       alt=""
       width={size}
       height={size}
       loading="lazy"
-      onError={() => setFailed(true)}
-      style={{ ...box, objectFit: 'cover', display: 'block' }}
+      onError={() => setStep((s) => s + 1)}
+      style={{ ...box, objectFit: 'cover', display: 'block', background: C.neutral }}
     />
   );
 }

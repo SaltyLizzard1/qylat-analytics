@@ -3,7 +3,7 @@ import { PeriodPicker } from '@/components/PeriodPicker';
 import { PlatformFilter } from '@/components/PlatformFilter';
 import { getDetailPosts, parsePlatform, parseWeek, withFilters, type DetailPost } from '@/lib/overview';
 import { PageHeader, Disclosure, Empty } from '@/components/charts';
-import { BackLink, SampleChip } from '@/components/overview';
+import { BackLink, DateTile, SampleChip } from '@/components/overview';
 import { Sub } from '@/components/DataRows';
 import { PostThumb } from '@/components/PostThumb';
 import { THRESHOLDS } from '@/lib/status';
@@ -41,9 +41,32 @@ function figure(v: number | null): React.ReactNode {
  * right edge where a table would put them.
  */
 function PostRow({ p }: { p: DetailPost }) {
+  // "23 Sept", in the dashboard's timezone, for the tile that stands in for a
+  // missing image.
+  const [day, month = ''] = shortDate(p.published_at).split(' ');
   const identity = (
     <span className="flex items-center gap-3 min-w-0">
-      <PostThumb src={p.thumbnail_url} label={platformLabel(p.platform)} size={48} />
+      <PostThumb
+        src={p.thumbnail_url}
+        // Meta can reissue an expired link for Instagram and the Page. The
+        // profile has no API and no stored image, so it goes straight to the
+        // date tile.
+        recoverSrc={p.platform === 'facebook-personal' ? undefined : `/api/thumb/${p.id}`}
+        label={platformLabel(p.platform)}
+        size={48}
+        fallback={
+          <DateTile
+            day={day}
+            month={month}
+            color={platformColor(p.platform)}
+            title={
+              p.platform === 'facebook-personal'
+                ? `Published ${day} ${month}. The collector does not read Facebook Profile images`
+                : `Published ${day} ${month}. No image could be loaded for this post`
+            }
+          />
+        }
+      />
       <span className="min-w-0">
         <span className="block text-sm" style={{ color: C.text, overflowWrap: 'anywhere' }}>
           {shortCaption(p)}
@@ -183,7 +206,11 @@ export default async function PostsDetailPage({
             Posts of different ages are listed together, so an older post has had longer to collect views. For a
             comparison at the same age, use Recent.
           </li>
-          <li>Facebook Profile posts have no thumbnail, because the collector does not read images.</li>
+          <li>
+            A post image that has expired is fetched again from Meta when the page needs it. Where none can be
+            shown, a tile with the publish date stands in. Facebook Profile posts always show the tile, because the
+            collector does not read images.
+          </li>
         </ul>
       </Disclosure>
     </div>

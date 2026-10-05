@@ -387,3 +387,53 @@ export function ChartEmpty({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+/**
+ * What stands in for a post image that cannot be shown: the day it was
+ * published, under a strip of the account's colour. A date is the next most
+ * recognisable thing about a post after its picture, and unlike a grey block
+ * it is different on every row. Rendered on the server, so the date is in the
+ * dashboard's timezone and identical before and after hydration.
+ */
+export function DateTile({
+  day,
+  month,
+  color,
+  title,
+  size = 48,
+}: {
+  /** "23" */
+  day: string;
+  /** "Sept" */
+  month: string;
+  color: string;
+  /** Hover text, saying why there is no image. */
+  title: string;
+  size?: number;
+}) {
+  return (
+    <div
+      title={title}
+      role="img"
+      aria-label={title}
+      className="flex flex-col items-center justify-center"
+      style={{
+        width: size,
+        height: size,
+        flexShrink: 0,
+        borderRadius: RADIUS.sm,
+        border: `1px solid ${C.border}`,
+        borderTop: `4px solid ${color}`,
+        background: C.neutral,
+        lineHeight: 1,
+      }}
+    >
+      <span className="tabular-nums" style={{ fontSize: '1rem', fontWeight: 600, color: C.text }}>
+        {day}
+      </span>
+      <span className="uppercase" style={{ fontSize: '0.6rem', letterSpacing: '0.06em', color: C.muted, marginTop: 3 }}>
+        {month}
+      </span>
+    </div>
+  );
+}
