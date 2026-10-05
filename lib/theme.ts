@@ -254,12 +254,19 @@ export function lighten(hex: string, amount: number): string {
 }
 
 /**
- * The earlier period beside the current one: a lighter tint of the same
- * series colour. Lighter means earlier, never worse. Still plainly visible on
- * a white card, and always printed with its own figure.
+ * The earlier period beside the current one: a tint of the same series colour
+ * inside an outline of the colour itself. The tint says "same series", the
+ * outline keeps the bar's edge at the series colour's full contrast, so the
+ * bar is plainly there on a white card. Lighter means earlier, never worse,
+ * and the bar is always printed with its own name and figure.
  */
 export function previousTint(hex: string): string {
-  return lighten(hex, 0.52);
+  return lighten(hex, 0.4);
+}
+
+/** The style of an earlier-period bar: tinted fill, outlined in the series colour. */
+export function previousBar(hex: string): { background: string; boxShadow: string } {
+  return { background: previousTint(hex), boxShadow: `inset 0 0 0 2px ${hex}` };
 }
 
 /** The pale centre of a point marker, inside an outline of the series colour. */

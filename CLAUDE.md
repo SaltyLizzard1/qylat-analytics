@@ -32,8 +32,9 @@ A selected control is filled with ink and also carries `aria-current` or
 
 A change against an earlier period is stated in ink with an arrow and the
 word up or down (`Delta` with `tone="neutral"`), and drawn as two bars: the
-current one in the series colour, the earlier one in `previousTint` of the
-same colour. Lighter means earlier, not worse. Status colour is for a status
+current one solid in the series colour, the earlier one styled by
+`previousBar`: a tint of the same colour inside an outline of it. Lighter
+means earlier, not worse. Status colour is for a status
 that `lib/status.ts` returned, nothing else.
 
 **No data mark is ink, white or grey.** Bars, lines, areas and point markers

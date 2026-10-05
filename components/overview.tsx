@@ -14,7 +14,7 @@ import {
   markerFill,
   platformColor,
   platformLabel,
-  previousTint,
+  previousBar,
   tint,
 } from '@/lib/theme';
 
@@ -75,9 +75,9 @@ export function QuietChip({ children }: { children: React.ReactNode }) {
 /**
  * Two bars on one scale: this window and the one before. Length is the
  * figure, and each bar carries its own number and name, so the pair reads
- * without colour. Both bars wear the series colour: the current one at full
- * strength, the earlier one as a lighter tint of it. Lighter means earlier,
- * not worse, and a shorter bar is not a verdict.
+ * without colour. Both bars wear the series colour: the current one solid,
+ * the earlier one a tint of it inside an outline of the same colour. Lighter
+ * means earlier, not worse, and a shorter bar is not a verdict.
  */
 export function CompareBars({
   current,
@@ -97,8 +97,8 @@ export function CompareBars({
   const max = Math.max(current, previous, 0);
   const width = (v: number) => (max <= 0 ? 0 : Math.max((v / max) * 100, v > 0 ? 3 : 0));
   const rows = [
-    { key: 'now', label: currentLabel, value: current, fill: color, strong: true },
-    { key: 'before', label: previousLabel, value: previous, fill: previousTint(color), strong: false },
+    { key: 'now', label: currentLabel, value: current, style: { background: color }, strong: true },
+    { key: 'before', label: previousLabel, value: previous, style: previousBar(color), strong: false },
   ];
   return (
     <div
@@ -112,9 +112,9 @@ export function CompareBars({
           <span className="text-xs" style={{ color: r.strong ? C.text : C.muted, fontWeight: r.strong ? 600 : 400 }}>
             {r.label}
           </span>
-          <span style={{ height: 10 }}>
+          <span style={{ height: 12 }}>
             <span
-              style={{ display: 'block', height: '100%', width: `${width(r.value)}%`, background: r.fill, borderRadius: RADIUS.pill }}
+              style={{ display: 'block', height: '100%', width: `${width(r.value)}%`, borderRadius: RADIUS.pill, ...r.style }}
             />
           </span>
           <span
