@@ -158,6 +158,37 @@ Checked directly against production (`ep-small-mud-az5opu7m`), not assumed.
   Tested and not the cause: browser extensions, the server HTML (identical
   across 38 fetches, 14 of them concurrent), a late script, a slow first byte,
   thumbnail loading and recovery, post content.
+- Next 16.2.12 went to production on 2026-10-05 for the hydration error.
+  Commit 6142284 on main. Deployment qylat-analytics-q6bb6y98m
+  (dpl_HJzdvzmeuex6H5nxjv8yn5y1bw7F), bundled React
+  19.3.0-canary-3f0b9e61-20260317. The build script is `next build --webpack`.
+  Observed after the upgrade, in Liz's Chrome, signed in: 12 of 12 first loads
+  of the Instagram 30 day drill-down in fresh tabs hydrated, plus 2 of the
+  Overview and 1 of Growth. Before it, 4 of 5 such loads failed. These are
+  counts, not a guarantee. The local test in `scripts/hydration-repro/` failed
+  29 of 160 sliced loads on 15.5.23 and 0 of 160 on 16.2.12. Two preview
+  deployments could not separate the versions: the old code failed only 2 of
+  254 loads there.
+  Rollback: `vercel rollback https://qylat-analytics-c2j5q6z7v-saltylizzard1s-projects.vercel.app --yes`
+  returns production to the last 15.5.23 build (dpl_43WGZPveLddofnsE3umKK2yrvsM6,
+  commit c145996). To undo a rollback, `vercel promote` the q6bb6y98m URL. To
+  take the upgrade out of main, revert 6142284; 8776e0f only adds the test.
+  Vercel does not build a commit it has already built as a preview, so a push
+  of such a commit to main needs `vercel promote <preview url>` to go live.
+- Follow-up, not part of the upgrade: every Vercel environment reads the
+  production database. The integration's DATABASE_URL covers Production,
+  Preview and Development and all three resolve to ep-small-mud. The
+  development endpoint ep-sweet-unit is only in the local `.env.local`, so the
+  note in CLAUDE.md about `vercel env pull` is wrong. A branch-specific
+  DATABASE_URL did not override it at runtime.
+- Left from the preview tests, for Liz to keep or remove: branches
+  hydration-investigation and hydration-baseline (each ends in a TEST ONLY
+  commit), their branch-only Preview variables, the database
+  preview_hydration_test on the development endpoint, and worktrees beside the
+  repo ending -hydration, -baseline and -release.
+- Formats is 413px wide at its narrowest, so it is 23px wider than a 390px
+  phone. Seen on 2026-10-05 on Next 16.2.12. Not checked on 15.5.23, and the
+  layout code did not change.
 - A post could show its date tile without its image ever being asked for.
   Found during the hydration work on 2026-10-05 and fixed in
   `components/PostThumb.tsx`. The check after mounting and the error handler
