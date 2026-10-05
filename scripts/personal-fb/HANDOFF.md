@@ -127,29 +127,35 @@ Checked directly against production (`ep-small-mud-az5opu7m`), not assumed.
   of each figure and when it was read.
 - One run failed once with "browser has been closed" before loading. Cause
   unknown. The retry worked.
-- React hydration error #418 on the dashboard: reproduced on 2026-10-05, cause
-  located in the framework, not fixed. First logged on 2026-10-04 at 20:47
-  Bangkok time, again on 2026-10-05 at 10:44, and then on four of four first
-  loads of a new tab on the live site.
-  What happens: the page's data arrives after its HTML, in pieces. Past 3,200
-  bytes the server splits a page's content into separate pieces. If React
-  reaches an element whose children are in a piece that has not arrived, it
-  waits, and when it resumes it attaches that element to the wrong node, one
-  level too deep. It then finds an `a` where it expected the Back link's `div`,
-  throws #418 and redraws the whole page in the browser. The page works. The
-  cost is a full redraw and every thumbnail loading twice.
-  Evidence: reproduced in a clean browser with no extensions, on a local
-  production build, by delivering the page in 30 KB slices 40 ms apart: 2 of
-  10 and 2 of 12 loads failed, each at the same element with the same stack as
-  the live error. It never failed when the page arrived in one piece,
-  which is why local checks always passed. Next 15.5.23 bundles React
-  19.2.0-canary-0bdb9206-20250818; its replay of a suspended host element does
-  not reset the hydration position.
-  Not established: why a new tab's first load fails so reliably on the live
-  site, and whether a newer Next has the fix. Next 16.3.8 is the latest and is
-  untested here. A load that failed hydration has no comment nodes left in the
-  document, which is a quick way to tell after the fact.
-  Not the cause, each tested: browser extensions, the server HTML (identical
+- React hydration error #418 on the dashboard: reproduced on 2026-10-05.
+  Suspected cause is a framework streaming defect, not dashboard code. Not
+  fixed. The thumbnail fix below does not change it.
+  Seen: first logged on 2026-10-04 at 20:47 Bangkok time, again on 2026-10-05
+  at 10:44, and then on each of the four first loads of a new tab that were
+  observed on the live site. Reloads in the same tab did not fail. The page
+  works. The cost is a full redraw in the browser and every thumbnail loading
+  twice. A load that failed has no comment nodes left in the document, which
+  is a quick way to tell after the fact.
+  Reproduction: a clean browser with no extensions, a local production build,
+  the page delivered in 30 KB slices 40 ms apart after a 2 second wait. 2 of
+  10 and 2 of 12 loads failed with the same stack as the live error. It did
+  not fail when the page arrived in one piece, which is why local checks
+  always passed.
+  What was captured in a failing load: React had completed the header and
+  navigation, 24 elements, then stopped at the first row of the page. The
+  fiber for the page's outer `div` held the DOM node of that div's first
+  child, so React looked one level too deep, found an `a` where it expected a
+  `div`, and threw.
+  Suspected mechanism, from reading the bundled source and not from stepping
+  through it: the server splits page content past 3,200 bytes into separate
+  pieces that arrive later. When React reaches an element whose children have
+  not arrived it suspends, and on replay it claims a DOM node a second time
+  without resetting its position. Next 15.5.23 bundles React
+  19.2.0-canary-0bdb9206-20250818.
+  Uncertain: whether that mechanism is the whole story, why a new tab's first
+  load fails so reliably on the live site, whether other pages fail the same
+  way at the same rate, and whether any newer Next or React fixes it.
+  Tested and not the cause: browser extensions, the server HTML (identical
   across 38 fetches, 14 of them concurrent), a late script, a slow first byte,
   thumbnail loading and recovery, post content.
 - A post could show its date tile without its image ever being asked for.
