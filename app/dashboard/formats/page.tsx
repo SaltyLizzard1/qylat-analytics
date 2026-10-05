@@ -4,7 +4,7 @@ import { parsePeriod, periodPhrase, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { Panel, PageHeader, Empty, Disclosure } from '@/components/charts';
 import { StatusBadge, StatusLegend } from '@/components/status';
-import { PostThumb } from '@/components/PostThumb';
+import { PostPicture } from '@/components/overview';
 import { Donut, type Slice } from '@/components/Donut';
 import { formatStatus, THRESHOLDS, PERFORMANCE_SHORT, PERFORMANCE_LABEL } from '@/lib/status';
 import { C, RADIUS, compact, shortDate, platformLabel, formatLabel, formatColor } from '@/lib/theme';
@@ -220,7 +220,13 @@ function PostRow({ post, age }: { post: FormatPost; age: number }) {
       style={{ borderTop: `1px solid ${C.border}` }}
     >
       <div className="col-span-4 sm:col-span-1 flex items-center gap-2 min-w-0">
-        <PostThumb src={post.thumbnail_url} label={formatLabel(post.format)} />
+        <PostPicture
+          id={post.id}
+          platform={post.platform}
+          src={post.thumbnail_url}
+          publishedAt={post.published_at}
+          label={formatLabel(post.format)}
+        />
         <div className="min-w-0">
           {/* Two lines on a phone, where the caption has the row to itself. One line beside the figures. */}
           <p className="text-sm line-clamp-2 sm:line-clamp-none sm:truncate" style={{ color: C.text, overflowWrap: 'anywhere' }}>

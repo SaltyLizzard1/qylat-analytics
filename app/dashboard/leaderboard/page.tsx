@@ -3,7 +3,7 @@ import { parsePeriod, periodPhrase } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { Panel, Empty, PageHeader, Disclosure } from '@/components/charts';
 import { StatusBadge } from '@/components/status';
-import { PostThumb } from '@/components/PostThumb';
+import { PostPicture } from '@/components/overview';
 import { performanceStatus, THRESHOLDS, type Level } from '@/lib/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import { pillarLabel } from '@/lib/pillars';
@@ -169,7 +169,13 @@ export default async function LeaderboardPage({
                     {i + 1}
                   </span>
 
-                  <PostThumb src={r.thumbnail_url as string | null} label={formatLabel(r.format as string)} />
+                  <PostPicture
+                    id={Number(r.id)}
+                    platform={platform}
+                    src={r.thumbnail_url as string | null}
+                    publishedAt={(r.published_at as string) ?? null}
+                    label={formatLabel(r.format as string)}
+                  />
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate mb-1" style={{ color: C.text }}>

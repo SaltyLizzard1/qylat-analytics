@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Delta } from '@/components/Delta';
 import { InfoTip } from '@/components/InfoTip';
+import { PostThumb } from '@/components/PostThumb';
 import { THRESHOLDS } from '@/lib/status';
 import {
   C,
@@ -15,6 +16,7 @@ import {
   platformColor,
   platformLabel,
   previousBar,
+  shortDate,
   tint,
 } from '@/lib/theme';
 
@@ -592,6 +594,56 @@ export function DateTile({
         {month}
       </span>
     </div>
+  );
+}
+
+/**
+ * A post's picture, the same way on every page: the stored image, then one
+ * try at a fresh link from the recovery route when the stored one has
+ * expired, then the date tile. Meta can reissue a link for Instagram and the
+ * Facebook Page. The Facebook Profile has no API and no stored image, so it
+ * goes straight to the tile, and the tile says why.
+ */
+export function PostPicture({
+  id,
+  platform,
+  src,
+  publishedAt,
+  label,
+  size = 44,
+}: {
+  id: number;
+  platform: string;
+  src: string | null;
+  publishedAt: string | Date | null;
+  /** For the plain letter block, used only when there is no publish date either. */
+  label: string;
+  size?: number;
+}) {
+  const profile = platform === 'facebook-personal';
+  const [day, month = ''] = publishedAt ? shortDate(publishedAt).split(' ') : [''];
+  return (
+    <PostThumb
+      src={src}
+      recoverSrc={profile ? undefined : `/api/thumb/${id}`}
+      label={label}
+      size={size}
+      fallback={
+        day ? (
+          <DateTile
+            day={day}
+            month={month}
+            color={platformColor(platform)}
+            size={size}
+            title={
+              profile
+                ? `Published ${day} ${month}. The collector does not read Facebook Profile images`
+                : `Published ${day} ${month}. No image could be loaded for this post`
+            }
+          />
+        ) : undefined
+      }
+    />
   );
 }
 
