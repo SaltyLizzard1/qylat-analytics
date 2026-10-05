@@ -69,8 +69,7 @@ export function DataRows<T>({
               className="grid gap-3 items-center px-3 py-2.5"
               style={{
                 gridTemplateColumns: template,
-                background: C.card,
-                border: `1px solid ${C.border}`,
+                background: C.neutral,
                 borderRadius: RADIUS.md,
               }}
             >

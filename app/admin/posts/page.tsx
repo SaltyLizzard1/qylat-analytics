@@ -70,7 +70,7 @@ export default async function PostsPage({
                 borderRadius: RADIUS.sm,
                 textDecoration: 'none',
                 background: active ? C.text : 'transparent',
-                color: active ? C.page : C.muted,
+                color: active ? C.onInk : C.muted,
                 fontWeight: active ? 600 : 400,
                 border: `1px solid ${active ? C.text : C.border}`,
               }}

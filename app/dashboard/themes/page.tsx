@@ -200,7 +200,7 @@ export default async function ThemesPage({
             className="inline-block px-4 py-2 rounded-lg text-sm font-semibold"
             style={{
               background: C.text,
-              color: C.page,
+              color: C.onInk,
               border: `1px solid ${C.text}`,
               textDecoration: 'none',
             }}

@@ -59,9 +59,8 @@ export function PostThumb({
   const box = {
     width: size,
     height: size,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.md,
     flexShrink: 0,
-    border: `1px solid ${C.border}`,
     overflow: 'hidden',
   } as const;
 

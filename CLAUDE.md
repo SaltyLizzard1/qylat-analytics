@@ -15,14 +15,29 @@ The two never collide, and that was measured rather than assumed.
 
 ### Base palette
 
-- Page and card background: `#FFFFFF`
-- Card border: `1px solid #D0D0D0`
-- Primary text: `#111111`
-- Secondary text: `#555555`
-- Neutral boxes, insets, table headers: `#F2F2F2`
-- Primary buttons: background `#111111`, text `#FFFFFF`
+Neutrals only, all in `C` in `lib/theme.ts`. Use the tokens, never the hex.
 
-Depth comes from a hairline border plus the neutral shadow in `lib/theme.ts`.
+- Page background: `C.page` `#F1F2F9`, a soft cool tint
+- Card and panel surface: `C.card` `#FFFFFF`, with `SHADOW` and no outline
+- Header, selected controls, primary buttons: `C.ink` `#13152B`, text `C.onInk`
+- Primary text: `C.text` `#13152B`. Secondary text: `C.muted` `#555A72`
+- Insets, tracks, quiet chips: `C.neutral` `#E9EBF5`
+- Hairlines and inputs only: `C.border` `#DADDEA`
+- An earlier period beside the current one: `C.previous` `#A4A9C4`
+
+A card sits on the tinted page, so it needs no border. Do not put a card
+inside a card, and do not outline every box.
+
+A selected control is filled with ink and also carries `aria-current` or
+`aria-pressed`. An account keeps its identity dot whether selected or not.
+
+A change against an earlier period is stated in ink with an arrow and the
+word up or down (`Delta` with `tone="neutral"`), and drawn as two bars with
+the earlier one in `C.previous`. Fewer is not worse. Status colour is for a
+status that `lib/status.ts` returned, nothing else.
+
+`tint(hex)` gives a wash of an identity colour for a chip or an area. It never
+creates a new hue.
 
 ### The identity palette
 
@@ -106,8 +121,9 @@ a text label. Worth fixing if the palette is ever revisited.
 ## Typography
 
 No Cormorant Garamond. No Google Fonts. `system-ui` everywhere.
-Headings: font-weight 600, colour `#111111`, negative letter-spacing from
-`lib/theme.ts`.
+Page titles are weight 800, headings and figures 700, with the negative
+letter-spacing in `TITLE` and `FIGURE` from `lib/theme.ts`. Small uppercase
+labels use `EYEBROW` and are never smaller than 0.68rem.
 
 ## No em dashes
 

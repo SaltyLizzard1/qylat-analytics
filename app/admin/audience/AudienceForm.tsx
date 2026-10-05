@@ -80,7 +80,7 @@ export function AudienceForm({
         type="submit"
         disabled={isPending}
         className="w-full py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
-        style={{ background: C.text, color: C.page, border: `1px solid ${C.text}` }}
+        style={{ background: C.text, color: C.onInk, border: `1px solid ${C.text}` }}
       >
         {isPending ? 'Saving...' : 'Save entry'}
       </button>

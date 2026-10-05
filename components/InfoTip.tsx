@@ -75,7 +75,7 @@ export function InfoTip({ text, about }: { text: string; about?: string }) {
             borderRadius: RADIUS.pill,
             border: `1px solid ${open ? C.text : C.border}`,
             background: open ? C.text : C.card,
-            color: open ? C.page : C.muted,
+            color: open ? C.onInk : C.muted,
             fontSize: '0.62rem',
             fontWeight: 600,
           }}

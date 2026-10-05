@@ -56,7 +56,7 @@ export function ThemePicker({
                 borderRadius: RADIUS.sm,
                 border: `1px solid ${active ? C.text : C.border}`,
                 background: active ? C.text : C.card,
-                color: active ? C.page : C.muted,
+                color: active ? C.onInk : C.muted,
                 fontWeight: active ? 600 : 400,
               }}
             >
@@ -94,7 +94,7 @@ export function ThemePicker({
           className="text-xs px-2.5 py-1.5 flex-shrink-0 disabled:opacity-50"
           style={{
             background: C.text,
-            color: C.page,
+            color: C.onInk,
             border: `1px solid ${C.text}`,
             borderRadius: RADIUS.sm,
           }}

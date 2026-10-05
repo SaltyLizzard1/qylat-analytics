@@ -1,54 +1,78 @@
 import { DASHBOARD_TZ } from '@/lib/period';
 
 /**
- * The only colors allowed in this project. Plain black and white.
- * No cream, gold, tan or any warm tint. Severity states come from lib/severity.ts.
+ * The base palette. Neutrals only: no hue here says anything about a platform
+ * or about how something is doing.
+ *
+ * The page is a soft cool tint and the cards on it are white, so a card reads
+ * as a surface without an outline. The header is a deep ink. Colour that means
+ * something still comes from two places only: status from lib/severity.ts and
+ * identity from the IDENTITY palette below.
  */
 export const C = {
-  page: '#FFFFFF',
+  /** Page background. */
+  page: '#F1F2F9',
+  /** Card and panel surface. */
   card: '#FFFFFF',
-  border: '#D0D0D0',
-  text: '#111111',
-  muted: '#555555',
-  neutral: '#F2F2F2',
+  /** Hairline for dividers and inputs. Not for outlining every card. */
+  border: '#DADDEA',
+  text: '#13152B',
+  muted: '#555A72',
+  /** Insets, tracks and quiet chips. */
+  neutral: '#E9EBF5',
+  /** The mark for an earlier period, beside the current one. Neutral on purpose: earlier is not worse. */
+  previous: '#A4A9C4',
+  /** The header, selected controls and primary buttons. */
+  ink: '#13152B',
+  /** A raised surface on ink: nav pills, header buttons. */
+  inkRaised: '#262A4A',
+  /** Text on ink. */
+  onInk: '#FFFFFF',
+  /** Secondary text on ink. 7.6 to 1 on ink. */
+  onInkMuted: '#B9BDD8',
 } as const;
 
-/**
- * Depth without colour. The page and cards are both white, so a card needs a
- * hairline plus a barely-there neutral shadow to read as a surface. The shadow
- * is pure black at very low alpha, so it introduces no tint.
- */
-export const SHADOW = '0 1px 2px rgba(17, 17, 17, 0.04), 0 2px 10px rgba(17, 17, 17, 0.03)';
+/** Depth comes from this shadow and the tinted page, not from an outline. */
+export const SHADOW = '0 1px 2px rgba(19, 21, 43, 0.06), 0 6px 20px rgba(19, 21, 43, 0.06)';
 
-export const RADIUS = { sm: '6px', md: '10px', lg: '14px', pill: '999px' } as const;
+export const RADIUS = { sm: '8px', md: '12px', lg: '18px', pill: '999px' } as const;
 
 export const CARD = {
   background: C.card,
-  border: `1px solid ${C.border}`,
-  borderRadius: RADIUS.md,
+  borderRadius: RADIUS.lg,
   boxShadow: SHADOW,
 } as const;
 
 export const HEADING = {
-  fontWeight: 600,
+  fontWeight: 700,
   color: C.text,
-  letterSpacing: '-0.011em',
+  letterSpacing: '-0.014em',
 } as const;
 
-/** Page title. Tighter tracking at larger sizes stops headings looking loose. */
+/** Page title and figures. Tighter tracking at larger sizes stops them looking loose. */
 export const TITLE = {
-  fontWeight: 600,
+  fontWeight: 700,
   color: C.text,
-  letterSpacing: '-0.021em',
+  letterSpacing: '-0.024em',
 } as const;
 
-/** Small uppercase eyebrow above a heading or over a chart. */
+/** Small uppercase label over a figure or a chart. Never smaller than this. */
 export const EYEBROW = {
-  fontSize: '0.6875rem',
-  letterSpacing: '0.08em',
+  fontSize: '0.72rem',
+  letterSpacing: '0.07em',
   textTransform: 'uppercase',
+  fontWeight: 600,
   color: C.muted,
 } as const;
+
+/**
+ * A soft wash of an identity colour, for a chip or an area under a line. The
+ * colour itself is unchanged, so the wash can never drift into another hue.
+ */
+export function tint(hex: string, alpha = 0.14): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
 
 /** Compact number formatting for dense tables. 12400 becomes 12.4k. */
 export function compact(n: number | null | undefined): string {
@@ -266,11 +290,11 @@ export const FIGURE = {
    * without spilling, and the cap is what it reaches on the wide layout.
    */
   hero: {
-    fontSize: 'clamp(1.875rem, 6vw, 2.625rem)',
-    lineHeight: 1.04,
-    letterSpacing: '-0.032em',
-    fontWeight: 600,
+    fontSize: 'clamp(2rem, 7vw, 3rem)',
+    lineHeight: 1.02,
+    letterSpacing: '-0.035em',
+    fontWeight: 700,
   },
-  standard: { fontSize: '1.75rem', lineHeight: 1.1, letterSpacing: '-0.021em', fontWeight: 600 },
-  inline: { fontSize: '1rem', lineHeight: 1.2, letterSpacing: '-0.011em', fontWeight: 600 },
+  standard: { fontSize: '1.9rem', lineHeight: 1.08, letterSpacing: '-0.026em', fontWeight: 700 },
+  inline: { fontSize: '1.0625rem', lineHeight: 1.2, letterSpacing: '-0.012em', fontWeight: 700 },
 } as const;

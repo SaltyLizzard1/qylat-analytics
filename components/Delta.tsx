@@ -15,17 +15,23 @@ import { C } from '@/lib/theme';
  *
  * The arithmetic is pctChange in lib/status.ts, shared with trendStatus, so
  * the badge on a tile and the arrow under it can never disagree.
+ *
+ * `tone="neutral"` drops the status colour and keeps the arrow and the
+ * figure. Use it where a fall is not a verdict: posting less in a window, or
+ * a count too small to judge. The direction is still stated, in ink.
  */
 export function Delta({
   current,
   previous,
   invert = false,
   suffix = 'vs previous',
+  tone = 'status',
 }: {
   current: number;
   previous: number;
   invert?: boolean;
   suffix?: string;
+  tone?: 'status' | 'neutral';
 }) {
   const change = pctChange(current, previous);
 
@@ -41,7 +47,7 @@ export function Delta({
 
   const flat = Math.abs(change) < 0.005;
   const good = invert ? change < 0 : change > 0;
-  const colour = flat ? C.muted : good ? severityGood.color : severityBad.color;
+  const colour = flat ? C.muted : tone === 'neutral' ? C.text : good ? severityGood.color : severityBad.color;
   const arrow = flat ? '' : change > 0 ? '▲' : '▼';
 
   return (
@@ -51,7 +57,7 @@ export function Delta({
       title={`${current.toLocaleString()} against ${previous.toLocaleString()} in the previous period`}
     >
       {arrow && <span aria-hidden>{arrow} </span>}
-      {flat ? 'level' : `${Math.abs(change * 100).toFixed(0)}%`}
+      {flat ? 'level' : `${tone === 'neutral' ? (change > 0 ? 'up ' : 'down ') : ''}${Math.abs(change * 100).toFixed(0)}%`}
       <span style={{ color: C.muted, fontWeight: 400 }}> {suffix}</span>
     </span>
   );

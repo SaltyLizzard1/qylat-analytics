@@ -24,6 +24,7 @@ import {
   ChartCard,
   ChartEmpty,
   ColumnChart,
+  FilterBar,
   MetricCard,
   MiniTrend,
   SampleChip,
@@ -129,7 +130,7 @@ export default async function DashboardPage({
   }));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <PageHeader
         title="Overview"
         meta={[
@@ -140,10 +141,10 @@ export default async function DashboardPage({
       />
 
       {/* Filters first: everything below answers to them. */}
-      <div className="px-4 py-3 flex flex-col gap-2.5" style={CARD}>
-        <PeriodPicker period={period} />
+      <FilterBar>
+        <PeriodPicker period={period} bare />
         <PlatformFilter current={platform} />
-      </div>
+      </FilterBar>
 
       {/* The five second answer. */}
       <div className={`grid grid-cols-2 ${single ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3`}>
@@ -153,17 +154,24 @@ export default async function DashboardPage({
             <MetricCard
               key={f.platform}
               label={`${platformLabel(f.platform)} followers`}
+              accent={platformColor(f.platform)}
               value={f.latest ? full(f.latest.followers) : 'Not read'}
               href={link(f.platform === 'facebook-personal' ? '/dashboard/profile' : '/dashboard/audience', {
                 back: 'overview',
               })}
               info={`Followers gained in the window: ${f.gainedHow}.`}
             >
-              <CardLine>
-                {f.gained === null
-                  ? 'Change in this window not known'
-                  : `${f.gained > 0 ? '+' : ''}${full(f.gained)} in this window`}
-              </CardLine>
+              {f.gained === null ? (
+                <CardLine>Change in this window not known</CardLine>
+              ) : (
+                <span className="text-sm tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
+                  {f.gained > 0 ? '+' : ''}
+                  {full(f.gained)}{' '}
+                  <span className="text-xs" style={{ color: C.muted, fontWeight: 400 }}>
+                    in this window
+                  </span>
+                </span>
+              )}
               <CardLine>{f.latest ? `Read ${shortDate(f.latest.recorded_on)}` : 'No total stored yet'}</CardLine>
             </MetricCard>
           ))}
@@ -171,10 +179,10 @@ export default async function DashboardPage({
         <MetricCard label="Posts published" value={full(posts)} href={link('/dashboard/posts')}>
           <CardLine>{period.label}. Stories not counted</CardLine>
           {comparing && api.length > 0 && (
-            <span className="flex flex-wrap items-center gap-x-1.5">
-              {profileShown && <CardLine>Instagram and Page: {full(apiPosts)},</CardLine>}
+            <div className="flex flex-col gap-1.5">
+              {profileShown && <CardLine>Instagram and Page: {full(apiPosts)}</CardLine>}
               <Change current={apiPosts} previous={apiPrevPosts} against={period.compareLabel} />
-            </span>
+            </div>
           )}
           {comparing && profileShown && <CardLine>Profile: earlier window not collected</CardLine>}
         </MetricCard>
@@ -570,16 +578,15 @@ function itemHref(item: AttentionItem, period: Period, platform: PlatformChoice)
 function AttentionRow({ item, href }: { item: AttentionItem; href: string }) {
   return (
     <li
-      className="px-3 py-2.5"
+      className="px-4 py-3"
       style={{
-        background: C.card,
-        borderRadius: RADIUS.sm,
-        border: `1px solid ${C.border}`,
-        borderLeft: `3px solid ${LEVEL_STYLE[item.level].color}`,
+        ...CARD,
+        borderRadius: RADIUS.md,
+        borderLeft: `5px solid ${LEVEL_STYLE[item.level].color}`,
       }}
     >
       <div className="flex items-start justify-between gap-3 mb-0.5">
-        <Link href={href} className="text-sm" style={{ fontWeight: 600, color: C.text, textDecoration: 'none' }}>
+        <Link href={href} style={{ fontWeight: 700, color: C.text, textDecoration: 'none', fontSize: '0.95rem' }}>
           {item.title}
         </Link>
         <span className="flex items-center gap-1.5 flex-shrink-0">
@@ -595,7 +602,7 @@ function AttentionRow({ item, href }: { item: AttentionItem; href: string }) {
           />
         </span>
       </div>
-      <p className="text-xs leading-relaxed" style={{ color: C.muted }}>
+      <p className="text-sm leading-relaxed" style={{ color: C.muted }}>
         <span style={{ color: C.text }}>{item.detail}</span>
         {'. '}
         {item.action}

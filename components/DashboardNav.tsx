@@ -13,9 +13,10 @@ import { C, RADIUS } from '@/lib/theme';
 const PERIOD_PARAMS = ['period', 'from', 'to', 'compare', 'platform'] as const;
 
 /**
- * Client component purely so the current tab can be marked. The active state
- * is a filled pill rather than a colour, which keeps the nav inside the black
- * and white base and leaves colour meaning status only.
+ * Client component purely so the current tab can be marked. On the ink header
+ * the current tab is a white pill with ink text, the strongest contrast on the
+ * bar, so where you are is the first thing read. It is also marked with
+ * aria-current, so it does not rest on the fill alone.
  */
 export function DashboardNav({ items }: { items: { href: string; label: string }[] }) {
   const pathname = usePathname();
@@ -37,7 +38,7 @@ export function DashboardNav({ items }: { items: { href: string; label: string }
   };
 
   return (
-    <nav className="flex items-center gap-1 px-2 pb-2 overflow-x-auto">
+    <nav className="flex items-center gap-1 px-3 pb-2.5 overflow-x-auto" aria-label="Dashboard sections">
       {items.map((item) => {
         const active =
           item.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(item.href);
@@ -48,11 +49,11 @@ export function DashboardNav({ items }: { items: { href: string; label: string }
             aria-current={active ? 'page' : undefined}
             className="text-sm px-3 py-1.5 whitespace-nowrap transition-colors"
             style={{
-              borderRadius: RADIUS.sm,
+              borderRadius: RADIUS.pill,
               textDecoration: 'none',
-              background: active ? C.text : 'transparent',
-              color: active ? C.page : C.muted,
-              fontWeight: active ? 600 : 400,
+              background: active ? C.onInk : 'transparent',
+              color: active ? C.ink : C.onInkMuted,
+              fontWeight: active ? 700 : 500,
             }}
           >
             {item.label}

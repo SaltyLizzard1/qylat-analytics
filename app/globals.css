@@ -14,9 +14,49 @@
   box-sizing: border-box;
 }
 
+/* The same values as C.page and C.text in lib/theme.ts. */
 body {
-  background-color: #FFFFFF;
-  color: #111111;
+  background-color: #F1F2F9;
+  color: #13152B;
   font-family: system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Every link and control shows where the keyboard is. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #13152B;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* A clickable chart mark answers the pointer, so it reads as a target. */
+svg a.mark:hover .bar,
+svg a.mark:focus-visible .bar {
+  opacity: 0.78;
+}
+svg a.mark:hover .hit,
+svg a.mark:focus-visible .hit {
+  fill: rgba(19, 21, 43, 0.05);
+}
+.row-link {
+  transition: background-color 120ms ease;
+}
+.row-link:hover {
+  background-color: #E9EBF5;
+}
+.lift {
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+.lift:hover,
+.lift:focus-within {
+  box-shadow: 0 2px 4px rgba(19, 21, 43, 0.08), 0 12px 28px rgba(19, 21, 43, 0.12);
+  transform: translateY(-1px);
+}
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
 }

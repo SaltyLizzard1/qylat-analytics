@@ -17,86 +17,60 @@ const NAV = [
   { href: '/dashboard/profile', label: 'Profile' },
 ];
 
+/** A quiet control on the ink header. */
+const HEADER_BUTTON = {
+  background: C.inkRaised,
+  color: C.onInk,
+  borderRadius: RADIUS.pill,
+  textDecoration: 'none',
+  fontWeight: 600,
+} as const;
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: '100vh', background: C.page }}>
-      <header
-        className="sticky top-0 z-10"
-        style={{ background: C.page, borderBottom: `1px solid ${C.border}` }}
-      >
-        <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          <div className="flex items-center gap-2.5">
+      {/* Deep ink, so the header reads as the frame and the page as the work. */}
+      <header className="sticky top-0 z-20" style={{ background: C.ink }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2.5">
             <Link
               href="/dashboard"
-              style={{
-                fontWeight: 600,
-                color: C.text,
-                textDecoration: 'none',
-                fontSize: '1.1rem',
-                letterSpacing: '0.02em',
-              }}
+              className="flex items-baseline gap-2"
+              style={{ color: C.onInk, textDecoration: 'none' }}
             >
-              QYLAT
-            </Link>
-            <span
-              className="text-xs uppercase px-2 py-0.5"
-              style={{
-                background: C.neutral,
-                color: C.muted,
-                borderRadius: RADIUS.sm,
-                letterSpacing: '0.08em',
-              }}
-            >
-              Analytics
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href="/admin/sync"
-              className="text-xs px-3 py-1.5"
-              style={{
-                border: `1px solid ${C.border}`,
-                borderRadius: RADIUS.sm,
-                color: C.text,
-                textDecoration: 'none',
-              }}
-            >
-              Sync now
-            </Link>
-            <Link
-              href="/admin/links"
-              className="text-xs px-3 py-1.5"
-              style={{
-                border: `1px solid ${C.border}`,
-                borderRadius: RADIUS.sm,
-                color: C.text,
-                textDecoration: 'none',
-              }}
-            >
-              Admin
-            </Link>
-            <form action={logout}>
-              <button
-                type="submit"
-                className="text-xs px-3 py-1.5"
-                style={{
-                  border: `1px solid ${C.border}`,
-                  borderRadius: RADIUS.sm,
-                  color: C.muted,
-                  background: C.page,
-                }}
+              <span style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '0.01em' }}>QYLAT</span>
+              <span
+                className="uppercase hidden sm:inline"
+                style={{ color: C.onInkMuted, fontSize: '0.72rem', letterSpacing: '0.12em', fontWeight: 600 }}
               >
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
+                Analytics
+              </span>
+            </Link>
 
-        <DashboardNav items={NAV} />
+            <div className="flex items-center gap-1.5">
+              <Link href="/admin/sync" className="text-xs px-3 py-1.5 whitespace-nowrap" style={HEADER_BUTTON}>
+                Sync now
+              </Link>
+              <Link href="/admin/links" className="text-xs px-3 py-1.5 whitespace-nowrap" style={HEADER_BUTTON}>
+                Admin
+              </Link>
+              <form action={logout}>
+                <button
+                  type="submit"
+                  className="text-xs px-2 py-1.5 whitespace-nowrap"
+                  style={{ background: 'transparent', color: C.onInkMuted, borderRadius: RADIUS.pill, cursor: 'pointer' }}
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <DashboardNav items={NAV} />
+        </div>
       </header>
 
-      <main className="px-4 py-7 max-w-5xl mx-auto">{children}</main>
+      <main className="px-4 py-7 max-w-6xl mx-auto">{children}</main>
     </div>
   );
 }

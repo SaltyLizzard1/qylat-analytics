@@ -119,7 +119,7 @@ export default async function GrowthPage({
                 className="inline-block px-4 py-2 text-sm font-semibold"
                 style={{
                   background: C.text,
-                  color: C.page,
+                  color: C.onInk,
                   border: `1px solid ${C.text}`,
                   borderRadius: '6px',
                   textDecoration: 'none',

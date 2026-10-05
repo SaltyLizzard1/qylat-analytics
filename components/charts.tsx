@@ -1,16 +1,15 @@
 import Link from 'next/link';
-import { C, CARD, FIGURE, RADIUS, TITLE, compact } from '@/lib/theme';
+import { C, CARD, EYEBROW, FIGURE, RADIUS, TITLE, compact, tint } from '@/lib/theme';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import type { Status } from '@/lib/status';
 
 /**
- * Monochrome chart primitives, all server rendered.
+ * Chart primitives and page furniture, all server rendered.
  *
- * The base design is black and white: identity comes from labels and magnitude
- * from bar length, so there is no categorical colour encoding and no palette to
- * validate. Colour appears only as status, only through lib/severity.ts, and
- * always beside a text label.
+ * Identity comes from labels first and an identity hue second, and magnitude
+ * from bar length, never from colour. Status colour comes only through
+ * lib/severity.ts and always sits beside a text label.
  *
  * Every chart plots a single measure on a single axis. Two measures of
  * different scale become two charts, never a second y axis.
@@ -45,12 +44,7 @@ export function StatTile({
   return (
     <div className={hero ? 'px-4 py-4' : 'px-4 py-3.5'} style={CARD}>
       <div className="flex items-start justify-between gap-2 mb-2">
-        <p
-          className="text-xs uppercase"
-          style={{ color: C.muted, letterSpacing: '0.08em' }}
-        >
-          {label}
-        </p>
+        <p style={EYEBROW}>{label}</p>
         {status !== undefined && <StatusBadge status={status} compact />}
       </div>
       <p className="tabular-nums" style={{ ...TITLE, ...FIGURE[size] }}>
@@ -75,19 +69,13 @@ export function StatTile({
  */
 export function SectionHeading({ children, note }: { children: React.ReactNode; note?: string }) {
   return (
-    <div className="flex items-baseline gap-3 pt-2">
-      <span
-        className="text-xs uppercase whitespace-nowrap"
-        style={{ color: C.text, letterSpacing: '0.1em', fontWeight: 600 }}
-      >
-        {children}
-      </span>
+    <div className="pt-4">
+      <h2 style={{ ...TITLE, fontSize: '1.2rem', lineHeight: 1.2 }}>{children}</h2>
       {note && (
-        <span className="text-xs truncate" style={{ color: C.muted }}>
+        <p className="text-xs mt-0.5" style={{ color: C.muted }}>
           {note}
-        </span>
+        </p>
       )}
-      <span aria-hidden style={{ flex: 1, height: 1, background: C.border }} />
     </div>
   );
 }
@@ -144,20 +132,17 @@ export function BarList({
 
   return (
     <div>
-      <p
-        className="text-xs uppercase pb-2 mb-3"
-        style={{ color: C.muted, letterSpacing: '0.08em', borderBottom: `1px solid ${C.border}` }}
-      >
+      <p className="mb-2.5" style={EYEBROW}>
         {valueLabel}
       </p>
 
-      <div className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-1">
         {data.map((d) => {
           const row = (
             <>
             <div className="flex items-center justify-between gap-3 mb-1.5">
               <span className="flex items-center gap-2 min-w-0">
-                <span className="text-sm truncate" style={{ color: C.text }}>
+                <span className="text-sm truncate" style={{ color: C.text, fontWeight: 600 }}>
                   {d.label}
                 </span>
                 {d.status !== undefined && <StatusBadge status={d.status} compact />}
@@ -169,14 +154,14 @@ export function BarList({
                   </span>
                 )}
                 <span
-                  className="text-sm tabular-nums"
-                  style={{ fontWeight: 600, color: C.text }}
+                  className="tabular-nums"
+                  style={{ fontWeight: 800, color: C.text, fontSize: '1.1rem', letterSpacing: '-0.02em' }}
                 >
                   {compact(d.value)}
                 </span>
               </span>
             </div>
-            <div style={{ height: 6 }}>
+            <div style={{ height: 12 }}>
               <div
                 style={{
                   height: '100%',
@@ -190,11 +175,17 @@ export function BarList({
           );
           const title = d.title ?? `${d.label}: ${d.value.toLocaleString()}`;
           return d.href ? (
-            <Link key={d.key} href={d.href} title={title} className="block" style={{ textDecoration: 'none' }}>
+            <Link
+              key={d.key}
+              href={d.href}
+              title={title}
+              className="block row-link px-2 py-2 -mx-2"
+              style={{ textDecoration: 'none', borderRadius: RADIUS.md }}
+            >
               {row}
             </Link>
           ) : (
-            <div key={d.key} title={title}>
+            <div key={d.key} title={title} className="py-2">
               {row}
             </div>
           );
@@ -252,13 +243,8 @@ export function TrendChart({
 
   return (
     <div>
-      <div
-        className="flex items-baseline justify-between pb-2 mb-3"
-        style={{ borderBottom: `1px solid ${C.border}` }}
-      >
-        <span className="text-xs uppercase" style={{ color: C.muted, letterSpacing: '0.08em' }}>
-          {valueLabel}
-        </span>
+      <div className="flex items-baseline justify-between mb-2">
+        <span style={EYEBROW}>{valueLabel}</span>
         <span className="text-xs tabular-nums" style={{ color: C.muted }}>
           peak {compact(points[peakIndex].value)}
         </span>
@@ -289,7 +275,7 @@ export function TrendChart({
             strokeWidth="1"
           />
 
-          <path d={area} fill={C.neutral} />
+          <path d={area} fill={tint(C.ink, 0.07)} />
           <path
             d={line}
             fill="none"
@@ -302,7 +288,7 @@ export function TrendChart({
           {points.map((p, i) => (
             <g key={`${p.label}-${i}`}>
               {/* Surface ring keeps a marker readable where the line doubles back. */}
-              <circle cx={x(i)} cy={y(p.value)} r="4" fill={C.page} stroke={C.text} strokeWidth="2" />
+              <circle cx={x(i)} cy={y(p.value)} r="4" fill={C.card} stroke={C.text} strokeWidth="2" />
               {p.href ? (
                 <a href={p.href} aria-label={`${p.label}: ${p.value.toLocaleString()}`} style={{ cursor: 'pointer' }}>
                   <circle cx={x(i)} cy={y(p.value)} r="13" fill="transparent">
@@ -366,10 +352,9 @@ export function PairedTrend({
 export function Empty({ message }: { message: string }) {
   return (
     <div
-      className="text-center py-10 text-sm"
+      className="text-center py-10 px-4 text-sm"
       style={{
         background: C.neutral,
-        border: `1px dashed ${C.border}`,
         borderRadius: RADIUS.md,
         color: C.muted,
       }}
@@ -399,9 +384,7 @@ export function Panel({
   return (
     <section className="p-5" style={CARD}>
       <div className="flex items-start justify-between gap-3 mb-1">
-        <h2 className="text-base" style={{ fontWeight: 600, color: C.text, letterSpacing: '-0.011em' }}>
-          {title}
-        </h2>
+        <h2 style={{ ...TITLE, fontSize: '1.15rem', lineHeight: 1.25 }}>{title}</h2>
         {status !== undefined && <StatusBadge status={status} />}
       </div>
       {description && (
@@ -446,8 +429,8 @@ export function Disclosure({
   return (
     <details className="group">
       <summary
-        className="text-xs cursor-pointer inline-flex items-center gap-1.5 select-none"
-        style={{ color: C.muted }}
+        className="text-xs cursor-pointer inline-flex items-center gap-1.5 select-none px-2.5 py-1"
+        style={{ color: C.text, background: C.neutral, borderRadius: RADIUS.pill, fontWeight: 600 }}
       >
         <span
           aria-hidden
@@ -456,16 +439,16 @@ export function Disclosure({
         >
           ▶
         </span>
-        <span style={{ textDecoration: 'underline', textDecorationColor: C.border }}>{summary}</span>
+        <span>{summary}</span>
       </summary>
       <div
         className="text-xs leading-relaxed mt-2 px-3 py-2.5"
         style={{
-          background: C.neutral,
+          background: C.card,
           color: C.muted,
-          borderRadius: RADIUS.sm,
-          borderLeft: `2px solid ${C.border}`,
-          maxWidth: '68ch',
+          borderRadius: RADIUS.md,
+          boxShadow: CARD.boxShadow,
+          maxWidth: '72ch',
         }}
       >
         {children}
@@ -481,8 +464,7 @@ export function Note({ children }: { children: React.ReactNode }) {
       style={{
         background: C.neutral,
         color: C.muted,
-        borderRadius: RADIUS.sm,
-        borderLeft: `2px solid ${C.border}`,
+        borderRadius: RADIUS.md,
       }}
     >
       {children}
@@ -510,17 +492,24 @@ export function PageHeader({
 }) {
   return (
     <div>
-      <h1 className={meta?.length || lead ? 'mb-1.5' : ''} style={{ ...TITLE, fontSize: '1.6rem' }}>
+      <h1
+        className={meta?.length || lead ? 'mb-2' : ''}
+        style={{ ...TITLE, fontWeight: 800, fontSize: 'clamp(1.75rem, 5vw, 2.25rem)', lineHeight: 1.1 }}
+      >
         {title}
       </h1>
       {meta && meta.length > 0 && (
-        <dl className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+        <dl className="flex flex-wrap items-center gap-1.5">
           {meta.map((m) => (
-            <div key={m.label} className="flex items-baseline gap-1.5">
-              <dt className="text-xs uppercase" style={{ color: C.muted, letterSpacing: '0.08em' }}>
+            <div
+              key={m.label}
+              className="flex items-baseline gap-1.5 px-2.5 py-1"
+              style={{ background: C.card, borderRadius: RADIUS.pill, boxShadow: '0 1px 2px rgba(19, 21, 43, 0.06)' }}
+            >
+              <dt className="text-xs" style={{ color: C.muted }}>
                 {m.label}
               </dt>
-              <dd className="text-xs tabular-nums" style={{ color: C.text, fontWeight: 600 }}>
+              <dd className="text-xs tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
                 {m.value}
               </dd>
             </div>
@@ -528,7 +517,7 @@ export function PageHeader({
         </dl>
       )}
       {lead && (
-        <p className="text-sm leading-relaxed" style={{ color: C.muted, maxWidth: '70ch' }}>
+        <p className="text-sm leading-relaxed mt-2" style={{ color: C.muted, maxWidth: '70ch' }}>
           {lead}
         </p>
       )}

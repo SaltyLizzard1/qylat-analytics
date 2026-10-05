@@ -3,7 +3,7 @@ import { logout } from '@/app/login/actions';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#FFFFFF' }}>
+    <div style={{ minHeight: '100vh', background: '#F1F2F9' }}>
       <header
         className="sticky top-0 z-10 flex items-center justify-between px-4 py-3"
         style={{ background: '#FFFFFF', borderBottom: '1px solid #D0D0D0' }}

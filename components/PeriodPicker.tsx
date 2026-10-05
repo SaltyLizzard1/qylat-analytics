@@ -3,7 +3,7 @@
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { PERIOD_CHOICES, applyPeriod, type Period, type PeriodKind } from '@/lib/period';
-import { C, RADIUS } from '@/lib/theme';
+import { C, CARD, EYEBROW, RADIUS } from '@/lib/theme';
 
 /**
  * The comparison window, in the URL.
@@ -15,8 +15,13 @@ import { C, RADIUS } from '@/lib/theme';
  * Three ways to pick a window: rolling presets, calendar months, and a custom
  * date range. All three resolve in lib/period.ts, so this component only
  * writes parameters and never does date arithmetic of its own.
+ *
+ * The choices sit in one segmented track. The selected one is filled with ink,
+ * and is also marked aria-pressed, so the state does not rest on the fill.
+ * With `bare` the control draws no surface of its own, for use inside a
+ * filter bar that already has one.
  */
-export function PeriodPicker({ period }: { period: Period }) {
+export function PeriodPicker({ period, bare = false }: { period: Period; bare?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -46,19 +51,23 @@ export function PeriodPicker({ period }: { period: Period }) {
     { kind: 'this-month', label: 'This month' },
     { kind: 'last-month', label: 'Last month' },
   ];
+  const comparing = period.compare === 'previous';
 
   return (
     <div
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2.5"
-      style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: RADIUS.md }}
+      className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${bare ? '' : 'px-4 py-3'}`}
+      style={bare ? undefined : CARD}
     >
-      <span className="text-xs uppercase" style={{ color: C.muted, letterSpacing: '0.08em' }}>
-        Period
-      </span>
+      <span style={EYEBROW}>Period</span>
 
-      <div className="flex flex-wrap gap-1">
+      <div
+        className="flex flex-wrap gap-0.5 p-0.5"
+        role="group"
+        aria-label="Period"
+        style={{ background: C.neutral, borderRadius: RADIUS.md }}
+      >
         {PERIOD_CHOICES.map((d) => (
-          <Chip
+          <Segment
             key={d}
             active={period.kind === 'rolling' && period.days === d}
             onClick={() => {
@@ -67,10 +76,10 @@ export function PeriodPicker({ period }: { period: Period }) {
             }}
           >
             {d === 1 ? '24h' : `${d}d`}
-          </Chip>
+          </Segment>
         ))}
         {calendar.map((c) => (
-          <Chip
+          <Segment
             key={c.kind}
             active={period.kind === c.kind}
             onClick={() => {
@@ -79,11 +88,11 @@ export function PeriodPicker({ period }: { period: Period }) {
             }}
           >
             {c.label}
-          </Chip>
+          </Segment>
         ))}
-        <Chip active={period.custom} onClick={() => setCustomOpen((v) => !v)}>
+        <Segment active={period.custom} onClick={() => setCustomOpen((v) => !v)}>
           Custom
-        </Chip>
+        </Segment>
       </div>
 
       {customOpen && (
@@ -96,8 +105,8 @@ export function PeriodPicker({ period }: { period: Period }) {
           <button
             type="button"
             onClick={applyCustom}
-            className="text-xs px-2 py-1"
-            style={{ background: C.text, color: C.page, border: `1px solid ${C.text}`, borderRadius: RADIUS.sm }}
+            className="text-xs px-3 py-1.5"
+            style={{ background: C.ink, color: C.onInk, borderRadius: RADIUS.sm, fontWeight: 600, cursor: 'pointer' }}
           >
             Apply
           </button>
@@ -106,23 +115,47 @@ export function PeriodPicker({ period }: { period: Period }) {
 
       {/* The window is never implicit. */}
       <span className="text-xs" style={{ color: C.muted }}>
-        {period.label}
-        {period.compare === 'previous' ? ` against ${period.compareLabel}` : ', no comparison'}
+        <span style={{ color: C.text, fontWeight: 600 }}>{period.label}</span>
+        {comparing ? ` against ${period.compareLabel}` : ', no comparison'}
       </span>
 
       <button
         type="button"
-        onClick={() => push({ compare: period.compare === 'previous' ? 'none' : 'previous' })}
-        className="text-xs px-2 py-1 ml-auto"
-        style={{ border: `1px solid ${C.border}`, borderRadius: RADIUS.sm, color: C.muted, background: C.card }}
+        onClick={() => push({ compare: comparing ? 'none' : 'previous' })}
+        className="text-xs pl-1.5 pr-3 py-1 ml-auto inline-flex items-center gap-2"
+        style={{ background: C.neutral, borderRadius: RADIUS.pill, color: C.text, fontWeight: 600, cursor: 'pointer' }}
       >
-        {period.compare === 'previous' ? 'Hide comparison' : 'Show comparison'}
+        {/* A small switch. The words beside it name the action, as before. */}
+        <span
+          aria-hidden
+          style={{
+            width: 26,
+            height: 16,
+            borderRadius: RADIUS.pill,
+            background: comparing ? C.ink : C.border,
+            position: 'relative',
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              top: 2,
+              left: comparing ? 12 : 2,
+              width: 12,
+              height: 12,
+              borderRadius: RADIUS.pill,
+              background: C.card,
+            }}
+          />
+        </span>
+        {comparing ? 'Hide comparison' : 'Show comparison'}
       </button>
     </div>
   );
 }
 
-function Chip({
+function Segment({
   active,
   onClick,
   children,
@@ -135,13 +168,14 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className="text-xs px-2.5 py-1"
+      aria-pressed={active}
+      className="text-xs px-2.5 py-1.5"
       style={{
         borderRadius: RADIUS.sm,
-        border: `1px solid ${active ? C.text : C.border}`,
-        background: active ? C.text : C.card,
-        color: active ? C.page : C.muted,
-        fontWeight: active ? 600 : 400,
+        background: active ? C.ink : 'transparent',
+        color: active ? C.onInk : C.text,
+        fontWeight: active ? 700 : 500,
+        cursor: 'pointer',
       }}
     >
       {children}
@@ -170,8 +204,8 @@ function DateInput({
         border: `1px solid ${C.border}`,
         borderRadius: RADIUS.sm,
         color: C.text,
-        fontSize: '0.78rem',
-        padding: '0.2rem 0.45rem',
+        fontSize: '0.8rem',
+        padding: '0.25rem 0.5rem',
       }}
     />
   );
