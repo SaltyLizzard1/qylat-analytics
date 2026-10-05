@@ -127,15 +127,34 @@ Checked directly against production (`ep-small-mud-az5opu7m`), not assumed.
   of each figure and when it was read.
 - One run failed once with "browser has been closed" before loading. Cause
   unknown. The retry worked.
-- React hydration error #418 on the dashboard: currently unreproducible, cause
-  unknown. Logged twice on 2026-10-04 at 20:47 and 20:48 Bangkok time, on the
-  live site, inside a 390px test frame in Liz's Chrome. Not reproduced since in
-  a clean browser (development and production builds, genuine 390px viewport,
-  1360px, and framed) or in Liz's Chrome with the same steps. No application
-  cause was found. Investigation stopped at Liz's direction unless it returns.
-  It returned once on 2026-10-05 at 10:44, on the live Instagram drill-down
-  loaded top level in Liz's Chrome, and not on the Page or Profile drill-downs
-  loaded just before it. The page worked. The development build of the same
-  page in the same browser printed no mismatch beyond the `cz-shortcut-listen`
-  body attribute an extension adds. Still unexplained. Every occurrence so far
-  has been in Liz's Chrome on the production build.
+- React hydration error #418 on the dashboard: reproduced on 2026-10-05, cause
+  located in the framework, not fixed. First logged on 2026-10-04 at 20:47
+  Bangkok time, again on 2026-10-05 at 10:44, and then on four of four first
+  loads of a new tab on the live site.
+  What happens: the page's data arrives after its HTML, in pieces. Past 3,200
+  bytes the server splits a page's content into separate pieces. If React
+  reaches an element whose children are in a piece that has not arrived, it
+  waits, and when it resumes it attaches that element to the wrong node, one
+  level too deep. It then finds an `a` where it expected the Back link's `div`,
+  throws #418 and redraws the whole page in the browser. The page works. The
+  cost is a full redraw and every thumbnail loading twice.
+  Evidence: reproduced in a clean browser with no extensions, on a local
+  production build, by delivering the page in 30 KB slices 40 ms apart: 2 of
+  10 and 2 of 12 loads failed, each at the same element with the same stack as
+  the live error. It never failed when the page arrived in one piece,
+  which is why local checks always passed. Next 15.5.23 bundles React
+  19.2.0-canary-0bdb9206-20250818; its replay of a suspended host element does
+  not reset the hydration position.
+  Not established: why a new tab's first load fails so reliably on the live
+  site, and whether a newer Next has the fix. Next 16.3.8 is the latest and is
+  untested here. A load that failed hydration has no comment nodes left in the
+  document, which is a quick way to tell after the fact.
+  Not the cause, each tested: browser extensions, the server HTML (identical
+  across 38 fetches, 14 of them concurrent), a late script, a slow first byte,
+  thumbnail loading and recovery, post content.
+- A post could show its date tile without its image ever being asked for.
+  Found during the hydration work on 2026-10-05 and fixed in
+  `components/PostThumb.tsx`. The check after mounting and the error handler
+  could both count the same failed image, which skipped the recovery step. With
+  the CPU slowed six times it happened in 4 of 14 loads before the fix and 0 of
+  24 after.
