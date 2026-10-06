@@ -87,6 +87,13 @@ export const THRESHOLDS = {
    * one hour after publishing sits beside one caught at 23.
    */
   formatAgeHours: 72,
+  /**
+   * A reading this many hours older than the newest reading for the same
+   * content is flagged as stale on the Content page. Provisional: the API
+   * and the collector each read about once a day, so two days apart is more
+   * than a normal gap between them.
+   */
+  staleReadHours: 48,
 
   /**
    * Cover photo and profile picture changes that Facebook returned as posts.

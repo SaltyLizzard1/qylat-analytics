@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db';
 import { SOCIAL_PLATFORMS, type PlatformFilter, type SocialPlatform } from '@/lib/overview';
 import type { TimeWindow } from '@/lib/period';
+import { THRESHOLDS } from '@/lib/status';
 
 /**
  * One piece of content across Instagram, the Facebook Page and the Facebook
@@ -13,38 +14,45 @@ import type { TimeWindow } from '@/lib/period';
  *
  * What may be added across accounts, and what may not:
  *
- *   Views. Instagram `views` and the Page's `post_media_view` are each the
- *   post's running total as of the latest daily read, so the two are added
- *   as the subtotal "Instagram + Facebook Page views". It is a sum of
+ *   Views. Instagram `views`, the Page's `post_media_view` and the Profile's
+ *   Content Library Views are each the post's running total as of its own
+ *   last read, so they are added as "Total reported views". It is a sum of
  *   reported views, never unique viewers and never reach: the same person on
- *   two accounts counts twice. The Profile's Views are stored with scope
- *   'unknown', and a figure with an unknown scope is shown beside the
- *   subtotal, labelled as not included, and never added to it.
+ *   two accounts counts twice. The readings are not taken at the same
+ *   moment, so the page calls them latest recorded figures and shows each
+ *   account's read date.
  *
- *   What was checked about the Profile's Views on 6 Oct 2026, read-only, in
- *   Facebook's own screens:
- *     - The Content Library's date range picks which posts are listed, by
- *       publish date. It does not limit the figure. With a range of 14 to 20
- *       Sept, three posts showed 1,365, 1,063 and 456, each above what the
- *       collector stored for the same post on 5 Oct (1,363, 1,059, 454). A
- *       figure limited to a week that ended 16 days earlier could not have
- *       grown. So the figure is a running total to date.
- *     - One post's own insights screen headed its chart "1,365 Facebook
- *       views", the same figure as its library row, and listed "Instagram
- *       views 133" on a separate line. So the Facebook figure does not
- *       contain Instagram's.
- *     - The Page's API figure is lower than Instagram's for the same content
- *       in 18 of 20 stored pairs, so it cannot contain Instagram's either.
- *   What still stands between this and one total across three accounts: the
- *   stored scope is still 'unknown' on every Profile row, the check covers
- *   three posts on one day, and the Profile is only re-read for posts
- *   published in the last 28 days while the API stops re-reading older
- *   posts, so the three figures for older content are as of different days.
- *   Including the Profile is Liz's decision and is one change: the collector
- *   writing scope 'lifetime' for the library's Views.
+ *   A Profile figure is added only when its own stored row says scope
+ *   'lifetime', which the collector writes for the library's Views from the
+ *   change that came with this. Rows collected before that are stored
+ *   'unknown' and stay that way: they are shown beside the total, labelled
+ *   as not included, and never added. Nothing relabels them.
  *
- *   Comments and shares. Counts of the same thing on each account, added
- *   under the same scope rule.
+ *   What that rests on, checked read-only on 6 Oct 2026 in Meta's own
+ *   screens:
+ *     - Profile, scope. The Content Library's date range picks which posts
+ *       are listed, by publish date, and does not limit the figure. With a
+ *       range of 14 to 20 Sept, three posts showed 1,365, 1,063 and 456,
+ *       each above what the collector stored for the same post on 5 Oct
+ *       (1,363, 1,059, 454). A figure limited to a week that ended 16 days
+ *       earlier could not have grown.
+ *     - Profile, no Instagram inside it. One post's insights screen headed
+ *       its chart "1,365 Facebook views", the same figure as its library
+ *       row, and listed "Instagram views 133" on a separate line.
+ *     - Page, no Instagram inside it. The Graph API reference describes
+ *       post_media_view only as "The number of times your content was
+ *       played or displayed" and does not say which apps it covers, so the
+ *       documentation settles nothing. Meta's insights screen for a Page
+ *       post (the carousel of 2 Oct) reads "28 Facebook views" with
+ *       "Instagram views 283" on its own line. The API's post_media_view
+ *       for that post was 26 at the read the day before, and the Instagram
+ *       copy's API views were 263. So the API field is the "Facebook views"
+ *       line, not the two added.
+ *   The limits of that: three Profile posts and one Page post, on one day.
+ *
+ *   Comments and shares. Counts of the same thing on Instagram and the
+ *   Page, added. The Profile's are stored 'unknown' and were not part of
+ *   the check above, so they are shown per account and never added.
  *
  *   Reactions. Instagram reports likes, Facebook reports reactions of every
  *   kind. Different definitions, so they are shown per account under their
@@ -78,8 +86,12 @@ export type Copy = {
   reactions: number | null;
   comments: number | null;
   shares: number | null;
-  /** Whether this account's figures are known to be running totals. */
-  scope: Scope;
+  /**
+   * Whether each figure is known to be a running total, taken from the
+   * stored observation. Per figure, because the Profile's Views were
+   * verified and its comments and shares were not.
+   */
+  scope: Record<Metric, Scope>;
   /** When the figures were last read. Null when the post has never been read. */
   read_at: string | null;
 };
@@ -118,7 +130,8 @@ export async function getCopies(): Promise<Copy[]> {
     SELECT p.id, p.platform, p.format, p.caption, p.thumbnail_url, p.permalink,
            ${iso('p.published_at')} AS published_at, NULL::text AS published_label,
            l.views::float8 AS views, l.likes::float8 AS reactions, l.comments::float8 AS comments,
-           l.shares::float8 AS shares, 'lifetime' AS scope, ${iso('l.recorded_at')} AS read_at
+           l.shares::float8 AS shares, 'lifetime' AS views_scope, 'lifetime' AS other_scope,
+           ${iso('l.recorded_at')} AS read_at
     FROM content_posts p LEFT JOIN latest l ON l.post_id = p.id
     WHERE p.format IS DISTINCT FROM 'story' AND p.published_at IS NOT NULL
   `);
@@ -137,8 +150,11 @@ export async function getCopies(): Promise<Copy[]> {
              MAX(value) FILTER (WHERE label = 'Reactions') AS reactions,
              MAX(value) FILTER (WHERE label = 'Comments')  AS comments,
              MAX(value) FILTER (WHERE label = 'Shares')    AS shares,
-             -- One scope for the post: a running total only if every figure says so.
-             BOOL_AND(scope = 'lifetime')                   AS all_lifetime,
+             -- The scope stored with the latest Views observation, and nothing
+             -- inferred for it. Comments and shares come from the timeline and
+             -- are a running total only if their own rows say so.
+             MAX(scope) FILTER (WHERE label = 'Views')       AS views_scope,
+             BOOL_AND(scope = 'lifetime') FILTER (WHERE label IN ('Comments', 'Shares')) AS other_lifetime,
              MAX(collected_at)                              AS read_at
       FROM latest GROUP BY post_id
     )
@@ -146,7 +162,8 @@ export async function getCopies(): Promise<Copy[]> {
            ${iso('p.published_at')} AS published_at, pp.published_label,
            f.views::float8 AS views, f.reactions::float8 AS reactions, f.comments::float8 AS comments,
            f.shares::float8 AS shares,
-           CASE WHEN f.all_lifetime THEN 'lifetime' ELSE 'unknown' END AS scope,
+           CASE WHEN f.views_scope = 'lifetime' THEN 'lifetime' ELSE 'unknown' END AS views_scope,
+           CASE WHEN f.other_lifetime THEN 'lifetime' ELSE 'unknown' END AS other_scope,
            ${iso('f.read_at')} AS read_at
     FROM posts p
     JOIN profile_posts pp ON pp.post_id = p.id AND pp.kind = 'post'
@@ -154,7 +171,13 @@ export async function getCopies(): Promise<Copy[]> {
     WHERE p.platform = 'facebook-personal' AND p.published_at IS NOT NULL
   `)
     : [];
-  return [...api, ...profile] as unknown as Copy[];
+  return [...api, ...profile].map((r) => {
+    const { views_scope, other_scope, ...rest } = r as Record<string, unknown>;
+    return {
+      ...rest,
+      scope: { views: views_scope as Scope, comments: other_scope as Scope, shares: other_scope as Scope },
+    } as unknown as Copy;
+  });
 }
 
 export type Suggestion = { a: Copy; b: Copy; reason: string };
@@ -316,22 +339,43 @@ export type Total = {
   /** Accounts with no copy linked. */
   absent: SocialPlatform[];
   partial: boolean;
+  /** The earliest and latest read among the figures in the sum. Never one moment. */
+  readFrom: string | null;
+  readTo: string | null;
+  /**
+   * Accounts in the sum whose figure was read more than
+   * THRESHOLDS.staleReadHours before the newest reading for this content.
+   */
+  stale: SocialPlatform[];
 };
+
+/** Whether a copy's reading is stale beside the newest reading for the same content. */
+export function isStale(item: Item, c: Copy): boolean {
+  const reads = item.copies.map((x) => x.read_at).filter(Boolean) as string[];
+  if (!c.read_at || reads.length === 0) return false;
+  const newest = Math.max(...reads.map((r) => new Date(r).getTime()));
+  return newest - new Date(c.read_at).getTime() > THRESHOLDS.staleReadHours * 3_600_000;
+}
 
 /** A combined total for one metric, with exactly which accounts it stands on. */
 export function totalOf(item: Item, metric: Metric): Total {
   const included: SocialPlatform[] = [];
   const missing: SocialPlatform[] = [];
   const apartFrom: SocialPlatform[] = [];
+  const stale: SocialPlatform[] = [];
+  const reads: string[] = [];
   let sum = 0;
   for (const c of item.copies) {
-    if (c.scope !== 'lifetime') apartFrom.push(c.platform);
+    if (c.scope[metric] !== 'lifetime') apartFrom.push(c.platform);
     else if (c[metric] === null) missing.push(c.platform);
     else {
       included.push(c.platform);
       sum += c[metric] as number;
+      if (c.read_at) reads.push(c.read_at);
+      if (isStale(item, c)) stale.push(c.platform);
     }
   }
+  reads.sort();
   const present = new Set(item.copies.map((c) => c.platform));
   // Always named in the same account order, whichever copy was published first.
   const ordered = (list: SocialPlatform[]) => SOCIAL_PLATFORMS.filter((p) => list.includes(p));
@@ -342,5 +386,8 @@ export function totalOf(item: Item, metric: Metric): Total {
     apart: ordered(apartFrom),
     absent: SOCIAL_PLATFORMS.filter((p) => !present.has(p)),
     partial: missing.length > 0,
+    readFrom: reads[0] ?? null,
+    readTo: reads[reads.length - 1] ?? null,
+    stale: ordered(stale),
   };
 }

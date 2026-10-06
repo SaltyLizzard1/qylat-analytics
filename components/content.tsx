@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { InfoTip } from '@/components/InfoTip';
 import { PlatformChip, PostPicture, QuietChip, SampleChip } from '@/components/overview';
 import { SOCIAL_PLATFORMS } from '@/lib/overview';
-import { totalOf, type Copy, type Item, type Metric, type Total } from '@/lib/combined';
+import { THRESHOLDS } from '@/lib/status';
+import { isStale, totalOf, type Copy, type Item, type Metric, type Total } from '@/lib/combined';
 import { C, EYEBROW, RADIUS, TITLE, formatLabel, full, platformColor, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
 
 /**
@@ -24,37 +25,54 @@ export function face(item: Item): Copy {
   return item.copies.find((c) => c.thumbnail_url) ?? item.copies.find((c) => (c.caption ?? '').trim()) ?? item.copies[0];
 }
 
-/**
- * Named for exactly what is in the sum. Until the Profile's figures are
- * stored with a known scope, the sum is Instagram and the Page, and is
- * called that instead of a total.
- */
-const METRIC_NAME: Record<Metric, string> = {
-  views: 'Instagram + Facebook Page views',
-  comments: 'Instagram + Facebook Page comments',
-  shares: 'Instagram + Facebook Page shares',
-};
-
 const METRIC_NOUN: Record<Metric, string> = { views: 'views', comments: 'comments', shares: 'shares' };
+
+/**
+ * Named for exactly what is in the sum. "Total reported views" when every
+ * linked copy's figure is in it. When a copy's figure is left out because
+ * its stored scope is unknown, the sum is named for the accounts it does
+ * hold, so a subtotal is never called a total.
+ */
+export function totalName(metric: Metric, total: Total): string {
+  if (total.apart.length === 0) return `Total reported ${METRIC_NOUN[metric]}`;
+  const counted = [...total.included, ...total.missing];
+  const ordered = SOCIAL_PLATFORMS.filter((p) => counted.includes(p));
+  return ordered.length > 0 ? `${names(ordered)} ${METRIC_NOUN[metric]}` : `Reported ${METRIC_NOUN[metric]}`;
+}
+
+/** Why a copy's figure is beside the sum and not in it. Brief, and specific to the figure. */
+function apartReason(metric: Metric): string {
+  return metric === 'views' ? 'Not included: recorded before its scope was confirmed' : 'Not included: scope not confirmed';
+}
 
 const METRIC_INFO: Record<Metric, string> = {
   views:
-    'Instagram and Facebook Page views, each the post’s running total at its last read, added together. A sum of reported views, not unique viewers and not reach: one person watching on two accounts counts twice. Facebook Profile views are shown beside it and not included: they are stored without a confirmed scope. Checked in Facebook’s own screens on 6 October 2026, they behaved as running totals and did not contain Instagram’s views, but that check covers three posts. Instagram’s API reports fewer views for images and carousels than the app does.',
+    'Each account’s running total of views at its own last read, added together. A sum of reported views, not unique viewers and not reach: one person watching on two accounts counts twice. The figures are the latest recorded for each account and were not read at the same moment. A Facebook Profile figure is added only when it was collected with a confirmed scope. Earlier Profile figures are shown beside the sum and not included. Instagram’s API reports fewer views for images and carousels than the app does.',
   comments:
-    'Instagram and Facebook Page comments as of each last read, added together. Facebook Profile comments are shown per account and not included.',
+    'Instagram and Facebook Page comments at each last read, added together. Facebook Profile comments are shown per account and not included: their scope has not been confirmed.',
   shares:
-    'Instagram and Facebook Page shares as of each last read, added together. Facebook Profile shares are shown per account and not included. The Facebook Page reports shares only for some posts.',
+    'Instagram and Facebook Page shares at each last read, added together. Facebook Profile shares are shown per account and not included: their scope has not been confirmed. The Facebook Page reports shares only for some posts.',
 };
 
 function names(platforms: string[]): string {
   return platforms.map((p) => platformLabel(p)).join(' + ');
 }
 
+/** "read 5 Oct", or "read 25 Sept to 5 Oct" when the figures were read on different days. */
+function readSpan(total: Total): string {
+  if (!total.readFrom || !total.readTo) return '';
+  const from = shortDate(total.readFrom);
+  const to = shortDate(total.readTo);
+  return from === to ? `read ${to}` : `read ${from} to ${to}`;
+}
+
 /**
  * A combined total, with everything that qualifies it in view: which
- * accounts are in the sum, "Partial" when a figure that belongs in it is
- * missing, and which accounts are shown apart because their scope is not
- * known. With `href` the figure is the link to the breakdown.
+ * accounts are in the sum, that the figures are the latest recorded and on
+ * which days they were read, "Partial" when a figure that belongs in it is
+ * missing, "Stale" when one reading is well behind the others, and any
+ * figure left out because its scope is unknown. With `href` the figure is
+ * the link to the breakdown.
  */
 export function TotalBlock({
   metric,
@@ -70,7 +88,9 @@ export function TotalBlock({
   href?: string;
   size?: 'large' | 'small';
 }) {
+  const name = totalName(metric, total);
   const value = total.value === null ? 'No figure' : full(total.value);
+  const span = readSpan(total);
   const figure = (
     <span
       className="tabular-nums"
@@ -88,15 +108,15 @@ export function TotalBlock({
   return (
     <div className="min-w-0">
       <p className="flex items-center gap-1.5" style={EYEBROW}>
-        {METRIC_NAME[metric]}
-        <InfoTip text={METRIC_INFO[metric]} about={METRIC_NAME[metric]} />
+        {name}
+        <InfoTip text={METRIC_INFO[metric]} about={name} />
       </p>
       {href ? (
         <Link
           href={href}
-          aria-label={`${METRIC_NAME[metric]}: ${value}${total.partial ? ', partial' : ''}${
+          aria-label={`${name}: ${value}${total.partial ? ', partial' : ''}${
             total.apart.length > 0 ? `. ${names(total.apart)} not included` : ''
-          }. Open the account breakdown`}
+          }. Latest recorded figures${span ? `, ${span}` : ''}. Open the account breakdown`}
           style={{ textDecoration: 'none' }}
           className="inline-flex items-baseline gap-1.5"
         >
@@ -108,6 +128,10 @@ export function TotalBlock({
       ) : (
         figure
       )}
+      <p className="text-xs mt-1" style={{ color: C.muted }}>
+        <span style={{ color: C.text, fontWeight: 600 }}>Latest recorded figures</span>
+        {span ? ` · ${span}` : ''}
+      </p>
       <p className="flex flex-wrap items-center gap-1.5 text-xs mt-1" style={{ color: C.muted }}>
         {total.included.length > 0 ? <span>{names(total.included)}</span> : <span>No account has a figure to add</span>}
         {total.partial && (
@@ -119,9 +143,18 @@ export function TotalBlock({
             Partial
           </span>
         )}
+        {total.stale.length > 0 && (
+          <span
+            className="px-2 py-0.5"
+            style={{ background: C.neutral, color: C.text, borderRadius: RADIUS.pill, fontWeight: 700 }}
+            title={`${names(total.stale)} was read more than ${THRESHOLDS.staleReadHours} hours before the newest reading for this content`}
+          >
+            Stale reading: {names(total.stale)}
+          </span>
+        )}
       </p>
       {item.copies
-        .filter((c) => c.scope !== 'lifetime')
+        .filter((c) => c.scope[metric] !== 'lifetime')
         .map((c) => (
           <p key={c.id} className="flex flex-wrap items-center gap-1.5 text-xs mt-1" style={{ color: C.muted }}>
             <span>
@@ -131,7 +164,7 @@ export function TotalBlock({
               </span>
               {c[metric] === null ? '' : ` ${METRIC_NOUN[metric]}`}
             </span>
-            <SampleChip>Not included</SampleChip>
+            <SampleChip>{apartReason(metric)}</SampleChip>
           </p>
         ))}
     </div>
@@ -153,10 +186,12 @@ export function missingLabel(c: Copy): string {
 /**
  * One metric by account, as bars in each account's colour on one scale. An
  * account with a copy and no figure says so in words and draws nothing. An
- * account with no copy says that, which is a different thing. A figure shown
- * apart from the total is marked.
+ * account with no copy says "No copy linked", which is a different thing. A
+ * figure left out of the sum is marked. With `detail`, each account also
+ * shows its share of the sum and the day it was read, with a stale reading
+ * flagged: the figures are the latest recorded, not one moment.
  */
-export function AccountBars({ item, metric }: { item: Item; metric: Metric }) {
+export function AccountBars({ item, metric, detail = false }: { item: Item; metric: Metric; detail?: boolean }) {
   const total = totalOf(item, metric);
   const max = Math.max(1, ...item.copies.map((c) => c[metric] ?? 0));
   // The same account order on every card, whichever copy was published first.
@@ -165,12 +200,17 @@ export function AccountBars({ item, metric }: { item: Item; metric: Metric }) {
     <ul className="flex flex-col gap-2">
       {copies.map((c) => {
         const v = c[metric];
+        const counted = c.scope[metric] === 'lifetime';
+        const share = counted && v !== null && total.value ? Math.round((v / total.value) * 100) : null;
         return (
           <li key={c.id}>
             <div className="flex items-baseline justify-between gap-2">
               <span className="flex flex-wrap items-center gap-1.5 text-xs min-w-0" style={{ color: C.muted }}>
                 <PlatformChip platform={c.platform} />
-                {c.scope !== 'lifetime' && v !== null && <span>not included in the subtotal</span>}
+                {!counted && v !== null && <span>not included</span>}
+                {detail && share !== null && <span>{share}% of the total</span>}
+                {detail && <span>{c.read_at ? `read ${shortDate(c.read_at)}` : 'not read yet'}</span>}
+                {detail && isStale(item, c) && <SampleChip>Stale reading</SampleChip>}
               </span>
               <span
                 className="tabular-nums"

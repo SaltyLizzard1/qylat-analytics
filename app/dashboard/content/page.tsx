@@ -8,6 +8,7 @@ import { PageHeader, SectionHeading, Disclosure } from '@/components/charts';
 import { FilterBar, PlatformChip, PostPicture, QuietChip } from '@/components/overview';
 import { AccountBars, CopyLine, TotalBlock, face, oneLine, publishedText } from '@/components/content';
 import { GroupButton } from '@/components/GroupControls';
+import { THRESHOLDS } from '@/lib/status';
 import { C, CARD, RADIUS, full, platformLabel } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -160,15 +161,21 @@ export default async function ContentPage({
       <Disclosure summary="What is added across accounts, and what is not">
         <ul className="space-y-2">
           <li>
-            <span style={{ color: C.text, fontWeight: 600 }}>Instagram + Facebook Page views</span> adds those two
-            accounts&apos; views, each the post&apos;s running total at its last read. It is not unique viewers and
-            not reach.
+            <span style={{ color: C.text, fontWeight: 600 }}>Total reported views</span> adds each account&apos;s
+            views, each the post&apos;s running total at its own last read. It is not unique viewers and not reach,
+            and the figures were not read at the same moment: each is the latest recorded, with its read date on
+            the breakdown.
           </li>
           <li>
-            <span style={{ color: C.text, fontWeight: 600 }}>Facebook Profile figures are shown beside it, not included.</span>{' '}
-            They are stored without a confirmed scope. Checked in Facebook&apos;s own screens on 6 October 2026, the
-            Profile&apos;s views behaved as running totals and did not contain Instagram&apos;s, on three posts.
-            They stay out of the sum until that is recorded with the figures.
+            <span style={{ color: C.text, fontWeight: 600 }}>A Facebook Profile figure is added only when it was collected with a confirmed scope.</span>{' '}
+            Profile views recorded before the scope was confirmed are shown beside the sum and not included, and
+            the sum is then named for the accounts it holds. Profile comments and shares are never added.
+          </li>
+          <li>
+            <span style={{ color: C.text, fontWeight: 600 }}>Stale reading</span> marks a figure read more than{' '}
+            {THRESHOLDS.staleReadHours} hours before the newest reading for the same content.{' '}
+            <span style={{ color: C.text, fontWeight: 600 }}>Partial</span> marks a sum that is missing a figure
+            that belongs in it.
           </li>
           <li>
             <span style={{ color: C.text, fontWeight: 600 }}>No copy linked</span> means no post on that account has

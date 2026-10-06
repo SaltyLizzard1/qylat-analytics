@@ -1,6 +1,6 @@
 import { parsePeriod, type PeriodParams } from '@/lib/period';
 import { SOCIAL_PLATFORMS, parsePlatform, withFilters } from '@/lib/overview';
-import { getItemForPost, reactionsLabel, totalOf, type Copy } from '@/lib/combined';
+import { getItemForPost, isStale, reactionsLabel, totalOf, type Copy } from '@/lib/combined';
 import { PageHeader, SectionHeading, Empty } from '@/components/charts';
 import { BackLink, PlatformChip, PostPicture, QuietChip, SampleChip } from '@/components/overview';
 import { AccountBars, NO_COPY, TotalBlock, face, missingLabel, oneLine, publishedText } from '@/components/content';
@@ -93,18 +93,18 @@ export default async function ContentItemPage({
         </p>
       </section>
 
-      <SectionHeading note="Views by account · each bar in its account's colour · Facebook Profile shown, not included · likes and reactions are not added">
+      <SectionHeading note="Views by account · latest recorded figures, read on the days shown · not unique viewers · likes and reactions are not added">
         Account breakdown
       </SectionHeading>
       <section className="p-4" style={CARD}>
-        <AccountBars item={item} metric="views" />
+        <AccountBars item={item} metric="views" detail />
       </section>
 
       <ul className="flex flex-col gap-3">
         {SOCIAL_PLATFORMS.map((p) => {
           const c = item.copies.find((x) => x.platform === p);
           return c ? (
-            <CopyCard key={p} c={c} canUnlink={linking && grouped} />
+            <CopyCard key={p} c={c} canUnlink={linking && grouped} stale={isStale(item, c)} />
           ) : (
             <li key={p} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2" style={CARD}>
               <PlatformChip platform={p} />
@@ -134,7 +134,7 @@ export default async function ContentItemPage({
 }
 
 /** One account's own post: what it is, its figures under their own names, and when they were read. */
-function CopyCard({ c, canUnlink }: { c: Copy; canUnlink: boolean }) {
+function CopyCard({ c, canUnlink, stale }: { c: Copy; canUnlink: boolean; stale: boolean }) {
   const missing = missingLabel(c);
   const identity = (
     <span className="flex items-center gap-3 min-w-0">
@@ -169,7 +169,9 @@ function CopyCard({ c, canUnlink }: { c: Copy; canUnlink: boolean }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: C.muted }}>
           <span>{c.read_at ? `Figures read ${shortDateTime(c.read_at)}` : 'Figures not read yet'}</span>
-          {c.scope !== 'lifetime' && <SampleChip>Not included in the subtotals</SampleChip>}
+          {c.scope.views !== 'lifetime' && <SampleChip>Views not included: recorded before the scope was confirmed</SampleChip>}
+          {c.scope.comments !== 'lifetime' && <SampleChip>Comments and shares not included</SampleChip>}
+          {stale && <SampleChip>Stale reading</SampleChip>}
         </p>
         {canUnlink && <GroupButton op="unlink" a={c.id} label="Unlink" about={`${platformLabel(c.platform)} copy`} />}
       </div>
