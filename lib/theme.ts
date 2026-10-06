@@ -111,6 +111,13 @@ export function shortDate(value: string | Date | null): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: DASHBOARD_TZ });
 }
 
+/** "11 September" in the dashboard's zone, for a sentence that names a date in full. */
+export function longDate(value: string | Date | null): string {
+  if (!value) return '--';
+  const d = value instanceof Date ? value : new Date(value);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: DASHBOARD_TZ });
+}
+
 /** "19 Sept, 18:41" in the dashboard's zone. */
 export function shortDateTime(value: string | Date | null | undefined): string {
   if (!value) return '--';

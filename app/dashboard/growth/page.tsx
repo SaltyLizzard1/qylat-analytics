@@ -10,11 +10,15 @@ import {
 import { PageHeader, Panel, PairedTrend, Empty, StatTile, Disclosure } from '@/components/charts';
 import { StatusBadge, StatusLegend } from '@/components/status';
 import { growthStatus } from '@/lib/status';
+import { getUncertainBaseline, includesOpeningStep } from '@/lib/baseline';
+import { ReportedGainsNote } from '@/components/baseline';
 import { C, SERIES, compact, full, platformColor, shortDate } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
 const LOOKAHEAD_DAYS = 2;
+/** The one account whose follower gains this page draws. */
+const GROWTH_PLATFORM = 'instagram';
 
 export default async function GrowthPage({
   searchParams,
@@ -22,12 +26,16 @@ export default async function GrowthPage({
   searchParams: Promise<{ period?: string; compare?: string }>;
 }) {
   const period = parsePeriod(await searchParams);
-  const [themes, weekly, untagged, signal] = await Promise.all([
+  const [themes, weekly, untagged, signal, uncertain] = await Promise.all([
     getThemeFollowerAttribution(LOOKAHEAD_DAYS),
     getWeeklyGrowthOverlap(period),
     getUntaggedPostCount(),
     getFollowerSignalStrength(),
+    // This page draws Instagram's reported daily gains. The shared rule in
+    // lib/baseline.ts decides whether they carry an uncertain opening step.
+    getUncertainBaseline(GROWTH_PLATFORM),
   ]);
+  const openingStep = includesOpeningStep(uncertain, period) ? uncertain : null;
 
   const postPoints = weekly.map((r) => ({
     label: shortDate(r.week as string),
@@ -99,10 +107,13 @@ export default async function GrowthPage({
         {weeks < 2 ? (
           <Empty message="Needs at least two weeks with both post and follower data." />
         ) : (
+          <>
+          {openingStep && <ReportedGainsNote b={openingStep} />}
           <PairedTrend
             top={{ points: postPoints, label: 'Posts published', color: SERIES.general }}
             bottom={{ points: followerPoints, label: 'New Instagram followers', color: platformColor('instagram') }}
           />
+          </>
         )}
       </Panel>
 

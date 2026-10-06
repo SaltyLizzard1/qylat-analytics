@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { InfoTip } from '@/components/InfoTip';
+import { BaselineChip } from '@/components/baseline';
+import { changeLabel } from '@/lib/baseline';
 import { ChartEmpty, PlatformChip, PostPicture, SampleChip } from '@/components/overview';
 import { THRESHOLDS } from '@/lib/status';
 import type { FormatAtAge } from '@/lib/cohort';
@@ -73,7 +75,7 @@ function Sparkline({ values, color, label }: { values: number[]; color: string; 
  * says "Baseline needed", which is a fact about the record, not a judgement
  * of the account. An account whose first stored total cannot be confirmed
  * says "Baseline uncertain" and counts its change from the first total that
- * can. Each cell opens that account's detail.
+ * can, by the rule in lib/baseline.ts. Each cell opens that account's detail.
  */
 export function AudienceStrip({
   accounts,
@@ -98,7 +100,10 @@ export function AudienceStrip({
             >
               <div className="flex items-center justify-between gap-2">
                 <PlatformChip platform={a.platform}>{platformLabel(a.platform)} followers</PlatformChip>
-                <InfoTip text={`Followers gained in the window: ${a.gainedHow}.`} about={`${platformLabel(a.platform)} followers`} />
+                <InfoTip
+                  text={a.baseline ? a.baseline.explanation : `Followers gained in the window: ${a.gainedHow}.`}
+                  about={`${platformLabel(a.platform)} followers`}
+                />
               </div>
               <div className="flex items-end justify-between gap-3 mt-1.5">
                 <div className="min-w-0">
@@ -113,7 +118,9 @@ export function AudienceStrip({
                     </Link>
                   </p>
                   <p className="text-xs mt-1" style={{ color: C.muted }}>
-                    {a.gained === null ? (
+                    {a.baseline?.change ? (
+                      <span style={{ color: C.text, fontWeight: 700 }}>{changeLabel(a.baseline.change)}</span>
+                    ) : a.gained === null ? (
                       'Change in this window not known'
                     ) : (
                       <>
@@ -121,9 +128,7 @@ export function AudienceStrip({
                           {a.gained > 0 ? '+' : ''}
                           {full(a.gained)}
                         </span>{' '}
-                        {a.baselineUncertain?.since
-                          ? `since ${full(a.baselineUncertain.since.followers)} on ${shortDate(a.baselineUncertain.since.recorded_on)}`
-                          : 'in this window'}
+                        in this window
                       </>
                     )}
                     {a.latest ? `. Read ${shortDate(a.latest.recorded_on)}` : ''}
@@ -131,15 +136,7 @@ export function AudienceStrip({
                 </div>
                 {trend ? (
                   <div className="flex flex-col items-end gap-0.5" style={{ flexShrink: 0 }}>
-                    {a.baselineUncertain && (
-                      <span
-                        className="text-xs px-2 py-0.5"
-                        style={{ background: C.neutral, color: C.text, borderRadius: RADIUS.pill, fontWeight: 600 }}
-                        title={`The first total stored for this account, 0 on ${shortDate(a.baselineUncertain.recorded_on)}, cannot be confirmed as a true count, so it is not used as a starting point.`}
-                      >
-                        Baseline uncertain
-                      </span>
-                    )}
+                    {a.baseline && <BaselineChip b={a.baseline.uncertain} />}
                     <Sparkline
                       values={a.points.map((p) => p.followers)}
                       color={color}
@@ -151,6 +148,8 @@ export function AudienceStrip({
                       {full(first.followers)} to {full(last.followers)}
                     </span>
                   </div>
+                ) : a.baseline ? (
+                  <BaselineChip b={a.baseline.uncertain} />
                 ) : (
                   <span
                     className="text-xs px-2 py-1"
@@ -161,7 +160,7 @@ export function AudienceStrip({
                         : 'No follower total has been stored for this account.'
                     }
                   >
-                    {a.baselineUncertain ? 'Baseline uncertain' : 'Baseline needed'}
+                    Baseline needed
                   </span>
                 )}
               </div>

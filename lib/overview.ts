@@ -1,4 +1,14 @@
 import { sql } from '@/lib/db';
+import {
+  affects,
+  baselineExplanation,
+  getFollowerTotals,
+  getUncertainBaseline,
+  includesOpeningStep,
+  supportedTotals,
+  type SupportedChange,
+  type UncertainBaseline,
+} from '@/lib/baseline';
 import { DASHBOARD_TZ, applyPeriod, windowExpr, windowDateExpr, type Period, type TimeWindow } from '@/lib/period';
 
 /**
@@ -246,11 +256,18 @@ export type FollowerSeries = {
   gained: number | null;
   gainedHow: string;
   /**
-   * Set when the account's first stored total is 0 and falls inside the
-   * window. That reading is left out of `points` and of `gained`, and
-   * `since` is the first total after it, where one exists in the window.
+   * Set when the window is affected by an uncertain opening total, by the
+   * rule in lib/baseline.ts. `points` then leaves that reading out, `gained`
+   * is the change between recorded totals, and `change` says what it runs
+   * from. `reported` is what the platform's own daily gains add up to in the
+   * window, kept apart and never used as the headline.
    */
-  baselineUncertain: { recorded_on: string; since: { recorded_on: string; followers: number } | null } | null;
+  baseline: {
+    uncertain: UncertainBaseline;
+    change: SupportedChange | null;
+    reported: number | null;
+    explanation: string;
+  } | null;
 };
 
 /** Follower totals for the three accounts. Each account's figure names its own platform in the query. */
@@ -263,42 +280,27 @@ export async function getFollowerSeries(period: TimeWindow): Promise<FollowerSer
        WHERE platform = $1 AND followers IS NOT NULL ORDER BY recorded_on DESC LIMIT 1`,
       [platform]
     );
-    const points = await sql(
-      `SELECT recorded_on::text AS recorded_on, followers FROM audience_snapshots
-       WHERE platform = $1 AND followers IS NOT NULL AND ${inWindow} ORDER BY recorded_on`,
-      [platform]
-    );
-
-    /*
-     * An account's first stored total being 0 is not trusted as a baseline.
-     * The Facebook Page's first reading, on 10 Sept 2026, was 0 from the API
-     * while the Page had 6 followers by the next morning's read (commit
-     * d035897). Whether the Page truly had none that afternoon or the API
-     * had not caught up cannot be established from what is stored, so the
-     * reading is kept in the table and left out of any trend or gain. The
-     * daily gains Meta reported for that first day are left out with it,
-     * since they describe the same unverified step from 0.
-     */
-    const firstEver = await sql(
-      `SELECT followers, recorded_on::text AS recorded_on FROM audience_snapshots
-       WHERE platform = $1 AND followers IS NOT NULL ORDER BY recorded_on LIMIT 1`,
-      [platform]
-    );
-    const zeroOn = firstEver[0] && Number(firstEver[0].followers) === 0 ? (firstEver[0].recorded_on as string) : null;
-    const zeroInWindow = zeroOn !== null && points.some((p) => p.recorded_on === zeroOn);
-    if (zeroInWindow) points.splice(points.findIndex((p) => p.recorded_on === zeroOn), 1);
+    const uncertain = await getUncertainBaseline(platform);
+    const affected = affects(uncertain, period);
+    const stored = await getFollowerTotals(platform, period);
+    const { points, change } = supportedTotals(stored, affected ? uncertain : null);
 
     let gained: number | null = null;
     let gainedHow = 'No gain figure for this window';
-    if (zeroInWindow) {
-      if (points.length >= 2) {
-        const first = points[0];
-        const last = points[points.length - 1];
-        gained = Number(last.followers) - Number(first.followers);
-        gainedHow = `change between the totals read on ${first.recorded_on} and ${last.recorded_on}. The first total ever stored, 0 on ${zeroOn}, is left out because it cannot be confirmed as a true count`;
-      } else {
-        gainedHow = `The first total ever stored, 0 on ${zeroOn}, cannot be confirmed as a true count, and there are not two later totals in this window`;
-      }
+    let reported: number | null = null;
+    if (affected) {
+      // The headline is the change between recorded totals. The platform's
+      // reported gains are read too, and only ever shown labelled as such.
+      const g = await sql(
+        `SELECT SUM(new_followers)::int AS gained, COUNT(new_followers)::int AS days FROM audience_snapshots
+         WHERE platform = $1 AND new_followers IS NOT NULL AND ${inWindow}`,
+        [platform]
+      );
+      if (Number(g[0]?.days) > 0) reported = Number(g[0].gained);
+      gained = change ? change.delta : null;
+      gainedHow = change
+        ? `change between the totals recorded on ${change.from.recorded_on} and ${change.to.recorded_on}`
+        : 'Not enough recorded totals after the uncertain first reading in this window';
     } else if (platform === 'facebook-personal') {
       // No daily gains exist for the profile. Two totals inside the window
       // give the change between them, over however many days separate them.
@@ -331,13 +333,21 @@ export async function getFollowerSeries(period: TimeWindow): Promise<FollowerSer
             source: latest[0].source as string,
           }
         : null,
-      points: points.map((p) => ({ recorded_on: p.recorded_on as string, followers: Number(p.followers) })),
+      points,
       gained,
       gainedHow,
-      baselineUncertain: zeroInWindow
+      baseline: affected
         ? {
-            recorded_on: zeroOn as string,
-            since: points[0] ? { recorded_on: points[0].recorded_on as string, followers: Number(points[0].followers) } : null,
+            uncertain,
+            change,
+            reported,
+            explanation: `${baselineExplanation(uncertain)}${
+              reported !== null
+                ? ` In this window those reported daily figures add up to ${reported}${
+                    includesOpeningStep(uncertain, period) ? ', which includes that step' : ''
+                  }.`
+                : ''
+            }`,
           }
         : null,
     });

@@ -1,3 +1,4 @@
+import { getUncertainBaseline, includesOpeningStep, reportedGainsDisclosure, type UncertainBaseline } from '@/lib/baseline';
 import { sql } from '@/lib/db';
 import {
   arrivalStatus,
@@ -90,10 +91,20 @@ export async function getAttentionItems(period: Period): Promise<AttentionItem[]
       for (const row of t.rows) {
         const status = trendStatus(row.cur as number, row.prev as number, t.what, period.compareLabel);
         if (status && status.level !== 'good') {
+          // Reported follower gains are shown as the platform gave them. Where
+          // either window takes in the step up from an uncertain first
+          // reading, the finding says so. The rule is in lib/baseline.ts.
+          let disclosure = '';
+          if (t.what === 'new followers') {
+            const uncertain = await getUncertainBaseline(row.platform as string);
+            if (includesOpeningStep(uncertain, period) || includesOpeningStep(uncertain, period.previous)) {
+              disclosure = `. As reported by Meta. ${reportedGainsDisclosure(uncertain as UncertainBaseline)}`;
+            }
+          }
           items.push({
             level: status.level,
             title: `${platformLabel(row.platform as string)} ${t.what} are down`,
-            detail: `${status.reason}, ${periodPhrase(period)}`,
+            detail: `${status.reason}, ${periodPhrase(period)}${disclosure}`,
             href: t.href,
             action: 'Compare what was posted in the two windows. A quieter posting week explains most drops',
           });
