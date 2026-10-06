@@ -65,6 +65,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               Audience
             </Link>
+            <Link
+              href="/admin/inbox"
+              className="text-xs px-2 py-1.5 hidden sm:block"
+              style={{ color: '#111111', textDecoration: 'underline' }}
+            >
+              I2P Inbox
+            </Link>
           </nav>
         </div>
 

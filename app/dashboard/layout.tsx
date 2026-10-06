@@ -15,6 +15,7 @@ const NAV = [
   { href: '/dashboard/growth', label: 'Growth' },
   { href: '/dashboard/funnel', label: 'Funnel' },
   { href: '/dashboard/profile', label: 'Profile' },
+  { href: '/admin/inbox', label: 'I2P Inbox' },
 ];
 
 /** A quiet control on the ink header. */
