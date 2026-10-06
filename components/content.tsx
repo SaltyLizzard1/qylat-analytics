@@ -24,19 +24,26 @@ export function face(item: Item): Copy {
   return item.copies.find((c) => c.thumbnail_url) ?? item.copies.find((c) => (c.caption ?? '').trim()) ?? item.copies[0];
 }
 
+/**
+ * Named for exactly what is in the sum. Until the Profile's figures are
+ * stored with a known scope, the sum is Instagram and the Page, and is
+ * called that instead of a total.
+ */
 const METRIC_NAME: Record<Metric, string> = {
-  views: 'Total reported views',
-  comments: 'Total reported comments',
-  shares: 'Total reported shares',
+  views: 'Instagram + Facebook Page views',
+  comments: 'Instagram + Facebook Page comments',
+  shares: 'Instagram + Facebook Page shares',
 };
+
+const METRIC_NOUN: Record<Metric, string> = { views: 'views', comments: 'comments', shares: 'shares' };
 
 const METRIC_INFO: Record<Metric, string> = {
   views:
-    'Each account’s running total of views as of its last read, added together. A sum of reported views, not unique viewers and not reach: one person watching on two accounts counts twice. Only figures known to be running totals are added. Instagram’s API reports fewer views for images and carousels than the app does.',
+    'Instagram and Facebook Page views, each the post’s running total at its last read, added together. A sum of reported views, not unique viewers and not reach: one person watching on two accounts counts twice. Facebook Profile views are shown beside it and not included: they are stored without a confirmed scope. Checked in Facebook’s own screens on 6 October 2026, they behaved as running totals and did not contain Instagram’s views, but that check covers three posts. Instagram’s API reports fewer views for images and carousels than the app does.',
   comments:
-    'Each account’s count of comments as of its last read, added together. Only figures known to be running totals are added.',
+    'Instagram and Facebook Page comments as of each last read, added together. Facebook Profile comments are shown per account and not included.',
   shares:
-    'Each account’s count of shares as of its last read, added together. Only figures known to be running totals are added. The Facebook Page reports shares only for some posts.',
+    'Instagram and Facebook Page shares as of each last read, added together. Facebook Profile shares are shown per account and not included. The Facebook Page reports shares only for some posts.',
 };
 
 function names(platforms: string[]): string {
@@ -52,11 +59,14 @@ function names(platforms: string[]): string {
 export function TotalBlock({
   metric,
   total,
+  item,
   href,
   size = 'large',
 }: {
   metric: Metric;
   total: Total;
+  /** The content the total is for, so a figure left out of the sum can be shown beside it. */
+  item: Item;
   href?: string;
   size?: 'large' | 'small';
 }) {
@@ -84,7 +94,9 @@ export function TotalBlock({
       {href ? (
         <Link
           href={href}
-          aria-label={`${METRIC_NAME[metric]}: ${value}${total.partial ? ', partial' : ''}. Open the account breakdown`}
+          aria-label={`${METRIC_NAME[metric]}: ${value}${total.partial ? ', partial' : ''}${
+            total.apart.length > 0 ? `. ${names(total.apart)} not included` : ''
+          }. Open the account breakdown`}
           style={{ textDecoration: 'none' }}
           className="inline-flex items-baseline gap-1.5"
         >
@@ -107,11 +119,31 @@ export function TotalBlock({
             Partial
           </span>
         )}
-        {total.apart.length > 0 && <SampleChip>{names(total.apart)} not added: scope not confirmed</SampleChip>}
       </p>
+      {item.copies
+        .filter((c) => c.scope !== 'lifetime')
+        .map((c) => (
+          <p key={c.id} className="flex flex-wrap items-center gap-1.5 text-xs mt-1" style={{ color: C.muted }}>
+            <span>
+              {platformLabel(c.platform)}:{' '}
+              <span className="tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
+                {c[metric] === null ? missingLabel(c) : full(c[metric] as number)}
+              </span>
+              {c[metric] === null ? '' : ` ${METRIC_NOUN[metric]}`}
+            </span>
+            <SampleChip>Not included</SampleChip>
+          </p>
+        ))}
     </div>
   );
 }
+
+/**
+ * What an account with no copy says. Nothing records that a piece of content
+ * was deliberately not posted somewhere, so the page only says what it knows:
+ * no copy has been linked.
+ */
+export const NO_COPY = 'No copy linked';
 
 /** Why a copy has no figure for a metric: never read, or read and not given. */
 export function missingLabel(c: Copy): string {
@@ -124,16 +156,7 @@ export function missingLabel(c: Copy): string {
  * account with no copy says that, which is a different thing. A figure shown
  * apart from the total is marked.
  */
-export function AccountBars({
-  item,
-  metric,
-  absentLabel,
-}: {
-  item: Item;
-  metric: Metric;
-  /** What to call an account with no copy: "Not posted here" for a confirmed group, "No copy linked" otherwise. */
-  absentLabel: string;
-}) {
+export function AccountBars({ item, metric }: { item: Item; metric: Metric }) {
   const total = totalOf(item, metric);
   const max = Math.max(1, ...item.copies.map((c) => c[metric] ?? 0));
   // The same account order on every card, whichever copy was published first.
@@ -147,7 +170,7 @@ export function AccountBars({
             <div className="flex items-baseline justify-between gap-2">
               <span className="flex flex-wrap items-center gap-1.5 text-xs min-w-0" style={{ color: C.muted }}>
                 <PlatformChip platform={c.platform} />
-                {c.scope !== 'lifetime' && v !== null && <span>not in total</span>}
+                {c.scope !== 'lifetime' && v !== null && <span>not included in the subtotal</span>}
               </span>
               <span
                 className="tabular-nums"
@@ -170,7 +193,7 @@ export function AccountBars({
         <li key={p} className="flex items-baseline justify-between gap-2">
           <PlatformChip platform={p} />
           <span className="text-xs" style={{ color: C.muted }}>
-            {absentLabel}
+            {NO_COPY}
           </span>
         </li>
       ))}

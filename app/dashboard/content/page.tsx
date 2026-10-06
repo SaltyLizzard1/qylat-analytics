@@ -160,13 +160,19 @@ export default async function ContentPage({
       <Disclosure summary="What is added across accounts, and what is not">
         <ul className="space-y-2">
           <li>
-            <span style={{ color: C.text, fontWeight: 600 }}>Total reported views</span> adds Instagram and Facebook
-            Page views, each the post&apos;s running total at its last read. It is not unique viewers and not reach.
+            <span style={{ color: C.text, fontWeight: 600 }}>Instagram + Facebook Page views</span> adds those two
+            accounts&apos; views, each the post&apos;s running total at its last read. It is not unique viewers and
+            not reach.
           </li>
           <li>
-            <span style={{ color: C.text, fontWeight: 600 }}>Facebook Profile figures are shown beside the total.</span>{' '}
-            The collector reads them from a screen headed &quot;Last 28 days&quot; and could not establish whether
-            they are running totals, so they are not added.
+            <span style={{ color: C.text, fontWeight: 600 }}>Facebook Profile figures are shown beside it, not included.</span>{' '}
+            They are stored without a confirmed scope. Checked in Facebook&apos;s own screens on 6 October 2026, the
+            Profile&apos;s views behaved as running totals and did not contain Instagram&apos;s, on three posts.
+            They stay out of the sum until that is recorded with the figures.
+          </li>
+          <li>
+            <span style={{ color: C.text, fontWeight: 600 }}>No copy linked</span> means no post on that account has
+            been linked to this content. It does not say the content was never posted there.
           </li>
           <li>
             <span style={{ color: C.text, fontWeight: 600 }}>Likes and reactions are never added.</span> Instagram
@@ -203,8 +209,8 @@ function GroupCard({ item, href }: { item: Item; href: string }) {
           </p>
         </div>
       </div>
-      <TotalBlock metric="views" total={views} href={href} />
-      <AccountBars item={item} metric="views" absentLabel="Not posted here" />
+      <TotalBlock metric="views" total={views} item={item} href={href} />
+      <AccountBars item={item} metric="views" />
     </li>
   );
 }

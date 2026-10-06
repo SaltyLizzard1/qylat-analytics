@@ -15,12 +15,33 @@ import type { TimeWindow } from '@/lib/period';
  *
  *   Views. Instagram `views` and the Page's `post_media_view` are each the
  *   post's running total as of the latest daily read, so the two are added
- *   and called "Total reported views". It is a sum of reported views, never
- *   unique viewers and never reach: the same person on two accounts counts
- *   twice. The Profile's Views come from Facebook's Content Library with a
- *   scope the collector could not establish (the screen it reads is headed
- *   "Last 28 days"), stored as scope 'unknown'. A figure with an unknown
- *   scope is shown beside the total and never added to it.
+ *   as the subtotal "Instagram + Facebook Page views". It is a sum of
+ *   reported views, never unique viewers and never reach: the same person on
+ *   two accounts counts twice. The Profile's Views are stored with scope
+ *   'unknown', and a figure with an unknown scope is shown beside the
+ *   subtotal, labelled as not included, and never added to it.
+ *
+ *   What was checked about the Profile's Views on 6 Oct 2026, read-only, in
+ *   Facebook's own screens:
+ *     - The Content Library's date range picks which posts are listed, by
+ *       publish date. It does not limit the figure. With a range of 14 to 20
+ *       Sept, three posts showed 1,365, 1,063 and 456, each above what the
+ *       collector stored for the same post on 5 Oct (1,363, 1,059, 454). A
+ *       figure limited to a week that ended 16 days earlier could not have
+ *       grown. So the figure is a running total to date.
+ *     - One post's own insights screen headed its chart "1,365 Facebook
+ *       views", the same figure as its library row, and listed "Instagram
+ *       views 133" on a separate line. So the Facebook figure does not
+ *       contain Instagram's.
+ *     - The Page's API figure is lower than Instagram's for the same content
+ *       in 18 of 20 stored pairs, so it cannot contain Instagram's either.
+ *   What still stands between this and one total across three accounts: the
+ *   stored scope is still 'unknown' on every Profile row, the check covers
+ *   three posts on one day, and the Profile is only re-read for posts
+ *   published in the last 28 days while the API stops re-reading older
+ *   posts, so the three figures for older content are as of different days.
+ *   Including the Profile is Liz's decision and is one change: the collector
+ *   writing scope 'lifetime' for the library's Views.
  *
  *   Comments and shares. Counts of the same thing on each account, added
  *   under the same scope rule.

@@ -3,7 +3,7 @@ import { SOCIAL_PLATFORMS, parsePlatform, withFilters } from '@/lib/overview';
 import { getItemForPost, reactionsLabel, totalOf, type Copy } from '@/lib/combined';
 import { PageHeader, SectionHeading, Empty } from '@/components/charts';
 import { BackLink, PlatformChip, PostPicture, QuietChip, SampleChip } from '@/components/overview';
-import { AccountBars, TotalBlock, face, missingLabel, oneLine, publishedText } from '@/components/content';
+import { AccountBars, NO_COPY, TotalBlock, face, missingLabel, oneLine, publishedText } from '@/components/content';
 import { GroupButton, LinkPicker } from '@/components/GroupControls';
 import { C, CARD, EYEBROW, formatLabel, full, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
 
@@ -53,7 +53,6 @@ export default async function ContentItemPage({
 
   const f = face(item);
   const grouped = item.groupId !== null;
-  const absentLabel = grouped ? 'Not posted here' : 'No copy linked';
   const present = new Set(item.copies.map((c) => c.platform));
 
   // Posts that could be linked by hand: on an account this content has no
@@ -80,16 +79,25 @@ export default async function ContentItemPage({
       />
 
       <section className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4" style={CARD} aria-label="Combined totals">
-        <TotalBlock metric="views" total={totalOf(item, 'views')} />
-        <TotalBlock metric="comments" total={totalOf(item, 'comments')} size="small" />
-        <TotalBlock metric="shares" total={totalOf(item, 'shares')} size="small" />
+        <TotalBlock metric="views" total={totalOf(item, 'views')} item={item} />
+        <TotalBlock metric="comments" total={totalOf(item, 'comments')} item={item} size="small" />
+        <TotalBlock metric="shares" total={totalOf(item, 'shares')} item={item} size="small" />
+        {/* The figures are not all as of the same moment, so each account's read time is in view with the sums. */}
+        <p className="sm:col-span-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: C.muted }}>
+          <span style={{ color: C.text, fontWeight: 600 }}>Last read</span>
+          {SOCIAL_PLATFORMS.flatMap((p) => item.copies.filter((c) => c.platform === p)).map((c) => (
+            <span key={c.id}>
+              {platformLabel(c.platform)}: {c.read_at ? shortDateTime(c.read_at) : 'not read yet'}
+            </span>
+          ))}
+        </p>
       </section>
 
-      <SectionHeading note="Views by account · each bar in its account's colour · likes and reactions are not added">
+      <SectionHeading note="Views by account · each bar in its account's colour · Facebook Profile shown, not included · likes and reactions are not added">
         Account breakdown
       </SectionHeading>
       <section className="p-4" style={CARD}>
-        <AccountBars item={item} metric="views" absentLabel={absentLabel} />
+        <AccountBars item={item} metric="views" />
       </section>
 
       <ul className="flex flex-col gap-3">
@@ -101,7 +109,7 @@ export default async function ContentItemPage({
             <li key={p} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2" style={CARD}>
               <PlatformChip platform={p} />
               <span className="text-sm" style={{ color: C.muted }}>
-                {absentLabel}
+                {NO_COPY}
               </span>
             </li>
           );
@@ -161,7 +169,7 @@ function CopyCard({ c, canUnlink }: { c: Copy; canUnlink: boolean }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: C.muted }}>
           <span>{c.read_at ? `Figures read ${shortDateTime(c.read_at)}` : 'Figures not read yet'}</span>
-          {c.scope !== 'lifetime' && <SampleChip>Scope not confirmed · not added to totals</SampleChip>}
+          {c.scope !== 'lifetime' && <SampleChip>Not included in the subtotals</SampleChip>}
         </p>
         {canUnlink && <GroupButton op="unlink" a={c.id} label="Unlink" about={`${platformLabel(c.platform)} copy`} />}
       </div>
