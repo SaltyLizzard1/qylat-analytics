@@ -1,5 +1,6 @@
 import { sql } from '@/lib/db';
 import { SOCIAL_PLATFORMS, type PlatformFilter, type SocialPlatform } from '@/lib/overview';
+import type { Evidence } from '@/lib/automatch';
 import type { TimeWindow } from '@/lib/period';
 import { THRESHOLDS } from '@/lib/status';
 
@@ -9,8 +10,12 @@ import { THRESHOLDS } from '@/lib/status';
  *
  * Nothing stored says two posts are the same content: posts has one row per
  * account post and no field joining them. So a group exists only where Liz
- * confirmed it (migration 012). A matching caption or a nearby publish time
- * produces a suggestion and never a merge.
+ * confirmed it by hand, or where the matcher in lib/automatch.ts found
+ * complete identical captions with exactly one candidate per account. A
+ * caption that only opens the same way, or a nearby publish time, produces a
+ * suggestion and never a merge. Linking decides what is added together. It
+ * does not make any figure newer: each account's figure is as old as its own
+ * last read, which the page shows.
  *
  * What may be added across accounts, and what may not:
  *
@@ -94,6 +99,10 @@ export type Copy = {
   scope: Record<Metric, Scope>;
   /** When the figures were last read. Null when the post has never been read. */
   read_at: string | null;
+  /** How this copy came to be in its group. Null when it is in none. */
+  linked_by: 'manual' | 'auto' | null;
+  /** What the matcher saw, for a copy it linked. */
+  evidence: Evidence | null;
 };
 
 export function reactionsLabel(platform: string): string {
@@ -176,6 +185,8 @@ export async function getCopies(): Promise<Copy[]> {
     return {
       ...rest,
       scope: { views: views_scope as Scope, comments: other_scope as Scope, shares: other_scope as Scope },
+      linked_by: null,
+      evidence: null,
     } as unknown as Copy;
   });
 }
@@ -190,7 +201,23 @@ export type Item = {
   copies: Copy[];
   /** The earliest publish time among the copies. */
   first_published: string;
+  /** Whether the matcher linked every copy, some of them, or none. */
+  auto: 'all' | 'some' | 'none';
 };
+
+function autoOf(copies: Copy[]): Item['auto'] {
+  const n = copies.filter((c) => c.linked_by === 'auto').length;
+  return n === 0 ? 'none' : n === copies.length ? 'all' : 'some';
+}
+
+/**
+ * Membership rows with how each was made. Read through to_jsonb so the same
+ * query works before migration 013, when the two columns do not exist yet
+ * and every link reads as one Liz made.
+ */
+const MEMBERS = `SELECT m.post_id, m.group_id,
+  COALESCE(to_jsonb(m)->>'linked_by', 'manual') AS linked_by, to_jsonb(m)->'evidence' AS evidence
+  FROM content_group_members m`;
 
 export type Combined = {
   linking: boolean;
@@ -253,8 +280,12 @@ export async function getCombined(period: TimeWindow, platform: PlatformFilter):
   const groupOf = new Map<number, number>();
   const dismissed = new Set<string>();
   if (linking) {
-    for (const r of await sql`SELECT post_id, group_id FROM content_group_members`) {
-      if (byId.has(r.post_id as number)) groupOf.set(r.post_id as number, r.group_id as number);
+    for (const r of await sql(MEMBERS)) {
+      const c = byId.get(r.post_id as number);
+      if (!c) continue;
+      groupOf.set(c.id, r.group_id as number);
+      c.linked_by = r.linked_by as Copy['linked_by'];
+      c.evidence = (r.evidence as Evidence | null) ?? null;
     }
     for (const r of await sql`SELECT post_a, post_b FROM content_group_dismissals`) dismissed.add(`${r.post_a}-${r.post_b}`);
   }
@@ -266,10 +297,10 @@ export async function getCombined(period: TimeWindow, platform: PlatformFilter):
   const order = (copies: Copy[]) => [...copies].sort((x, y) => x.published_at.localeCompare(y.published_at));
   for (const [groupId, copies] of groups) {
     const sorted = order(copies);
-    items.push({ key: sorted[0].id, groupId, copies: sorted, first_published: sorted[0].published_at });
+    items.push({ key: sorted[0].id, groupId, copies: sorted, first_published: sorted[0].published_at, auto: autoOf(sorted) });
   }
   for (const c of all) {
-    if (!groupOf.has(c.id)) items.push({ key: c.id, groupId: null, copies: [c], first_published: c.published_at });
+    if (!groupOf.has(c.id)) items.push({ key: c.id, groupId: null, copies: [c], first_published: c.published_at, auto: 'none' });
   }
 
   const shown = items
@@ -312,17 +343,22 @@ export async function getItemForPost(postId: number): Promise<{ linking: boolean
   let copies = [self];
   let groupId: number | null = null;
   if (linking) {
-    const rows = await sql`
-      SELECT m.post_id, m.group_id FROM content_group_members m
-      WHERE m.group_id = (SELECT group_id FROM content_group_members WHERE post_id = ${postId})`;
+    const rows = await sql(
+      `${MEMBERS} WHERE m.group_id = (SELECT group_id FROM content_group_members WHERE post_id = $1)`,
+      [postId]
+    );
     if (rows.length > 0) {
       groupId = rows[0].group_id as number;
-      const ids = new Set(rows.map((r) => r.post_id as number));
-      copies = all.filter((c) => ids.has(c.id));
+      const how = new Map(rows.map((r) => [r.post_id as number, r]));
+      copies = all.filter((c) => how.has(c.id));
+      for (const c of copies) {
+        c.linked_by = how.get(c.id)?.linked_by as Copy['linked_by'];
+        c.evidence = (how.get(c.id)?.evidence as Evidence | null) ?? null;
+      }
     }
   }
   copies.sort((x, y) => x.published_at.localeCompare(y.published_at));
-  return { linking, item: { key: copies[0].id, groupId, copies, first_published: copies[0].published_at }, all };
+  return { linking, item: { key: copies[0].id, groupId, copies, first_published: copies[0].published_at, auto: autoOf(copies) }, all };
 }
 
 export type Metric = 'views' | 'comments' | 'shares';

@@ -20,7 +20,11 @@ import {
   type MetaConfig,
   type InsightResult,
   type InstagramMedia,
+  type FacebookPost,
 } from '@/lib/meta';
+import { autoLinkAfterIngestion } from '@/lib/autolink';
+import { hasGroupTables } from '@/lib/combined';
+import { THRESHOLDS } from '@/lib/status';
 
 export const dynamic = 'force-dynamic';
 // Vercel Hobby caps a function at 60s unless Fluid Compute is on. The daily
@@ -174,55 +178,58 @@ async function resolveKnownSlug(caption: string | null | undefined): Promise<str
   return rows.length > 0 ? (rows[0].slug as string) : null;
 }
 
+/** One Page post into posts and post_metrics. */
+async function syncFacebookPost(cfg: MetaConfig, post: FacebookPost, report: PlatformReport): Promise<void> {
+  try {
+    const linkSlug = await resolveKnownSlug(post.message);
+
+    const postId = await upsertPost({
+      platform: 'facebook',
+      platformPostId: post.id,
+      format: facebookFormat(post),
+      mediaProductType: facebookMediaType(post),
+      publishedAt: post.created_time,
+      caption: post.message ?? null,
+      thumbnailUrl: post.full_picture ?? null,
+      permalink: post.permalink_url ?? null,
+      linkSlug,
+      pageUpdate: facebookPageUpdate(post),
+    });
+    report.postsUpserted += 1;
+
+    const insights = await fetchFacebookPostInsights(cfg, post.id);
+    recordUnavailable(report, post.id, insights);
+
+    const likes = post.reactions?.summary?.total_count ?? null;
+    const comments = post.comments?.summary?.total_count ?? null;
+    const shares = post.shares?.count ?? null;
+
+    await writeMetrics(postId, {
+      views: num(insights.values, 'post_media_view'),
+      reach: num(insights.values, 'post_total_media_view_unique'),
+      engagement: sumDefined(likes, comments, shares),
+      likes,
+      comments,
+      saves: null, // Facebook does not expose saves on Page posts.
+      shares,
+      profileVisits: null, // Page level only, not per post.
+      // post_clicks counts every click on the post, not link clicks alone.
+      // First-party truth for link clicks lives in click_events.
+      linkClicks: num(insights.values, 'post_clicks'),
+    });
+    report.metricsWritten += 1;
+  } catch (e) {
+    report.errors.push({ object: post.id, reason: errText(e) });
+  }
+}
+
 async function syncFacebook(cfg: MetaConfig, since: Date): Promise<PlatformReport> {
   const report = emptyReport();
 
   const posts = await fetchFacebookPosts(cfg, since);
   report.fetched = posts.length;
 
-  for (const post of posts) {
-    try {
-      const linkSlug = await resolveKnownSlug(post.message);
-
-      const postId = await upsertPost({
-        platform: 'facebook',
-        platformPostId: post.id,
-        format: facebookFormat(post),
-        mediaProductType: facebookMediaType(post),
-        publishedAt: post.created_time,
-        caption: post.message ?? null,
-        thumbnailUrl: post.full_picture ?? null,
-        permalink: post.permalink_url ?? null,
-        linkSlug,
-        pageUpdate: facebookPageUpdate(post),
-      });
-      report.postsUpserted += 1;
-
-      const insights = await fetchFacebookPostInsights(cfg, post.id);
-      recordUnavailable(report, post.id, insights);
-
-      const likes = post.reactions?.summary?.total_count ?? null;
-      const comments = post.comments?.summary?.total_count ?? null;
-      const shares = post.shares?.count ?? null;
-
-      await writeMetrics(postId, {
-        views: num(insights.values, 'post_media_view'),
-        reach: num(insights.values, 'post_total_media_view_unique'),
-        engagement: sumDefined(likes, comments, shares),
-        likes,
-        comments,
-        saves: null, // Facebook does not expose saves on Page posts.
-        shares,
-        profileVisits: null, // Page level only, not per post.
-        // post_clicks counts every click on the post, not link clicks alone.
-        // First-party truth for link clicks lives in click_events.
-        linkClicks: num(insights.values, 'post_clicks'),
-      });
-      report.metricsWritten += 1;
-    } catch (e) {
-      report.errors.push({ object: post.id, reason: errText(e) });
-    }
-  }
+  for (const post of posts) await syncFacebookPost(cfg, post, report);
 
   return report;
 }
@@ -358,6 +365,62 @@ async function syncAudience(cfg: MetaConfig) {
   return report;
 }
 
+type LinkedRefresh = { instagram: number; facebook: number; waiting: number; errors: { object: string; reason: string }[] } | { skipped: string };
+
+/**
+ * Re-reads linked posts the normal window no longer reaches.
+ *
+ * The daily cron reads 7 days, to stay inside the 60 seconds this plan
+ * allows. So a post's figures stop moving after its first week, and a
+ * combined total for older content rests on week-old Instagram and Page
+ * readings beside a fresh Profile one. This reads linked Instagram and Page
+ * posts published within THRESHOLDS.linkedRefreshDays that fall outside the
+ * window, at most THRESHOLDS.linkedRefreshMax per account per run, least
+ * recently read first, so a larger backlog is worked through over several
+ * days instead of in one long request.
+ *
+ * It uses the two list calls the sync already makes, over a longer window,
+ * and one insights call per post re-read. It changes nothing about which
+ * posts the normal sync reads, and it cannot refresh the Profile: that is
+ * read only by the collector, on demand, for the last 28 days.
+ */
+async function refreshLinked(cfg: MetaConfig, since: Date, fb: PlatformReport, ig: PlatformReport): Promise<LinkedRefresh> {
+  if (!(await hasGroupTables())) return { skipped: 'no linked content yet' };
+  const due = await sql(
+    `SELECT p.platform, p.platform_post_id, p.published_at,
+            (SELECT MAX(m.recorded_at) FROM post_metrics m WHERE m.post_id = p.id) AS read_at
+     FROM content_group_members g JOIN posts p ON p.id = g.post_id
+     WHERE p.platform IN ('instagram', 'facebook')
+       AND p.published_at < $1::timestamptz
+       AND p.published_at >= NOW() - make_interval(days => $2)
+     ORDER BY read_at ASC NULLS FIRST`,
+    [since.toISOString(), THRESHOLDS.linkedRefreshDays]
+  );
+  const out = { instagram: 0, facebook: 0, waiting: 0, errors: [] as { object: string; reason: string }[] };
+  for (const platform of ['instagram', 'facebook'] as const) {
+    const mine = due.filter((d) => d.platform === platform);
+    const now = mine.slice(0, THRESHOLDS.linkedRefreshMax);
+    out.waiting += mine.length - now.length;
+    if (now.length === 0) continue;
+    const wanted = new Set(now.map((d) => d.platform_post_id as string));
+    const from = new Date(Math.min(...now.map((d) => new Date(d.published_at as string).getTime())) - 60_000);
+    try {
+      if (platform === 'instagram') {
+        const media = (await fetchInstagramMedia(cfg, from)).filter((m) => wanted.has(m.id));
+        for (const item of media) await syncInstagramItem(cfg, item, ig);
+        out.instagram = media.length;
+      } else {
+        const posts = (await fetchFacebookPosts(cfg, from)).filter((x) => wanted.has(x.id));
+        for (const post of posts) await syncFacebookPost(cfg, post, fb);
+        out.facebook = posts.length;
+      }
+    } catch (e) {
+      out.errors.push({ object: `linked ${platform}`, reason: errText(e) });
+    }
+  }
+  return out;
+}
+
 export async function GET(request: NextRequest) {
   if (!authorized(request)) {
     return NextResponse.json(
@@ -402,6 +465,20 @@ export async function GET(request: NextRequest) {
 
   const hardFailure = 'failed' in facebook || 'failed' in instagram;
 
+  // Linked content the window above did not reach, then matching. Both run
+  // only after a sync that worked, in this request, and neither can turn it
+  // into a failure.
+  let linkedRefresh: LinkedRefresh = { skipped: 'the sync failed' };
+  let matching: Awaited<ReturnType<typeof autoLinkAfterIngestion>> = { status: 'skipped: the sync failed' };
+  if (!('failed' in facebook) && !('failed' in instagram)) {
+    try {
+      linkedRefresh = await refreshLinked(cfg, since, facebook, instagram);
+    } catch (e) {
+      linkedRefresh = { skipped: `failed: ${errText(e)}` };
+    }
+    matching = await autoLinkAfterIngestion();
+  }
+
   return NextResponse.json(
     {
       ok: !hardFailure,
@@ -412,6 +489,8 @@ export async function GET(request: NextRequest) {
       facebook,
       instagram,
       audience,
+      linkedRefresh,
+      matching,
     },
     { status: hardFailure ? 502 : 200 }
   );

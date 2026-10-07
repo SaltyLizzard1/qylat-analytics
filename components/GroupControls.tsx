@@ -52,7 +52,7 @@ export function GroupButton({
   about,
   primary = false,
 }: {
-  op: 'link' | 'unlink' | 'dismiss';
+  op: 'link' | 'unlink' | 'undo' | 'dismiss';
   a: number;
   b?: number;
   label: string;
