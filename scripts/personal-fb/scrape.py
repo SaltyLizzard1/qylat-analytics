@@ -82,6 +82,23 @@ DEBUG_DIR = ROOT / "debug"
 LIBRARY_URL = "https://www.facebook.com/professional_dashboard/content/content_library/?date_range=LAST_28D"
 AUDIENCE_URL = "https://www.facebook.com/professional_dashboard/profile_insights/audience/"
 LIBRARY_TABLE = 'table[aria-label="Content Library"]'
+
+# Figures known to be the post's running total to date, by (source, label).
+# Everything else is sent as "unknown" and stays that way.
+#
+# Only the Content Library's Views is here. Checked on 6 Oct 2026 in
+# Facebook's own screens: the library's date range picks which posts are
+# listed, by publish date, and does not limit the figure. With a range of 14
+# to 20 Sept, three posts showed 1,365, 1,063 and 456, each above what this
+# collector had stored for the same post the day before, which a figure
+# limited to that week could not do. One post's own insights screen headed
+# the same number "Facebook views" and listed Instagram's views on a
+# separate line.
+#
+# Nothing else was checked. The library's Comments and Engagement, and every
+# timeline figure, keep "unknown". Rows already stored are not touched by
+# this: only observations collected from here on carry the scope.
+LIFETIME_FIGURES = {("library", "Views")}
 # How many Content Library rows to read. The table loads more as it scrolls.
 LIBRARY_MAX_ROWS = 100
 SETUP_TIMEOUT_S = 900
@@ -1261,6 +1278,7 @@ def build_payload(result: dict, profile_url: str, now: datetime | None = None) -
                     "source": "library",
                     "label": label,
                     **m,
+                    "scope": "lifetime" if ("library", label) in LIFETIME_FIGURES else "unknown",
                     "period_label": library["period_label"],
                     "period_start": lib_start,
                     "period_end": lib_end,

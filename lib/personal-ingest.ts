@@ -57,6 +57,12 @@ export type CleanObservation = {
   value: number | null;
   unit: string | null;
   exact: boolean | null;
+  /**
+   * 'lifetime' only for the Content Library's Views, the one figure verified
+   * as a running total. Everything else is 'unknown', including every
+   * payload from a collector that sends no scope at all.
+   */
+  scope: 'unknown' | 'lifetime';
   period_label: string | null;
   period_start: string | null;
   period_end: string | null;
@@ -287,6 +293,15 @@ export function validatePayload(body: unknown): { payload: CleanPayload } | { er
         if (!raw) errors.push(`${at} has a value without the text it was read from.`);
       }
 
+      // A scope is a claim about what a figure means, so it is accepted only
+      // where that was verified: the library's Views. Anything else claiming
+      // a known scope is refused outright, not quietly stored as unknown.
+      const scope = o.scope ?? 'unknown';
+      if (scope !== 'unknown' && scope !== 'lifetime') errors.push(`${at}.scope is unknown.`);
+      if (scope === 'lifetime' && !(source === 'library' && label === 'Views')) {
+        errors.push(`${at} claims a lifetime scope, which is only accepted for the Content Library's Views.`);
+      }
+
       const periodLabel = textOrNull(o.period_label, 120);
       const periodStart = dayOrNull(o.period_start);
       const periodEnd = dayOrNull(o.period_end);
@@ -302,6 +317,7 @@ export function validatePayload(body: unknown): { payload: CleanPayload } | { er
         value: typeof value === 'number' ? value : null,
         unit: typeof unit === 'string' ? unit : null,
         exact: typeof exact === 'boolean' ? exact : null,
+        scope: scope === 'lifetime' ? 'lifetime' : 'unknown',
         period_label: periodLabel ?? null,
         period_start: periodStart ?? null,
         period_end: periodEnd ?? null,
@@ -460,17 +476,20 @@ export function buildStatements(p: CleanPayload, hash: string): Statement[] {
       params: [posts, p.collection_id, p.timezone],
     },
     {
-      // One row per figure shown, null value included. scope takes its
-      // default, unknown, until lifetime against period totals is settled.
+      // One row per figure shown, null value included. The raw text, the
+      // source, the label and the collection time are stored as sent. scope
+      // is 'unknown' unless the payload says otherwise, which validation
+      // allows only for the library's Views. Rows from earlier collections
+      // are never rewritten: their scope stays as it was stored.
       text: `
         INSERT INTO profile_metrics (
-          collection, post_id, source, label, raw, value, unit, exact,
+          collection, post_id, source, label, raw, value, unit, exact, scope,
           period_label, period_start, period_end, collected_at
         )
-        SELECT c.id, p.id, x.source, x.label, x.raw, x.value, x.unit, x.exact,
+        SELECT c.id, p.id, x.source, x.label, x.raw, x.value, x.unit, x.exact, COALESCE(x.scope, 'unknown'),
                x.period_label, x.period_start, x.period_end, c.collected_at
         FROM jsonb_to_recordset($1::jsonb) AS x(
-          tracking_id text, source text, label text, raw text, value numeric, unit text, exact boolean,
+          tracking_id text, source text, label text, raw text, value numeric, unit text, exact boolean, scope text,
           period_label text, period_start date, period_end date
         )
         JOIN profile_collections c ON c.collection_id = $2::uuid

@@ -7,6 +7,7 @@ const NAV = [
   { href: '/dashboard', label: 'Overview' },
   { href: '/dashboard/recent', label: 'Recent' },
   { href: '/dashboard/leaderboard', label: 'Leaderboard' },
+  { href: '/dashboard/content', label: 'Content' },
   { href: '/dashboard/platforms', label: 'Platforms' },
   { href: '/dashboard/formats', label: 'Formats' },
   { href: '/dashboard/themes', label: 'Themes' },
