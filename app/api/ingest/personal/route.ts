@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { ingestAuthorized } from '@/lib/ingest-auth';
 import { buildStatements, findCollection, payloadHash, validatePayload } from '@/lib/personal-ingest';
+import { autoLinkAfterIngestion, hasAutoColumns } from '@/lib/autolink';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -60,8 +61,12 @@ export async function POST(request: NextRequest) {
     const answered = await earlierDelivery();
     if (answered) return answered;
 
-    const statements = buildStatements(payload, hash);
+    const statements = buildStatements(payload, hash, { crossPosted: await hasAutoColumns() });
     const results = await sql.transaction(statements.map((s) => sql(s.text, s.params)));
+
+    // The collection is stored. Matching runs now, in this request, and can
+    // never undo or fail what was just written.
+    const matching = await autoLinkAfterIngestion();
 
     const sentFollowers = payload.followers !== null;
     const audienceRows = sentFollowers ? (results[results.length - 1] as unknown[]) : [];
@@ -86,6 +91,7 @@ export async function POST(request: NextRequest) {
         audience: payload.sources.audience.status,
       },
       unmatched: payload.unmatched,
+      matching,
     });
   } catch (e) {
     // Two deliveries of one collection can both pass the lookup above before

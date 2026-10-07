@@ -4,6 +4,7 @@ import { PeriodPicker } from '@/components/PeriodPicker';
 import { PlatformFilter } from '@/components/PlatformFilter';
 import { parsePlatform, withFilters } from '@/lib/overview';
 import { getCombined, totalOf, type Item } from '@/lib/combined';
+import { describeEvidence } from '@/lib/automatch';
 import { PageHeader, SectionHeading, Disclosure } from '@/components/charts';
 import { FilterBar, PlatformChip, PostPicture, QuietChip } from '@/components/overview';
 import { AccountBars, CopyLine, TotalBlock, face, oneLine, publishedText } from '@/components/content';
@@ -99,7 +100,7 @@ export default async function ContentPage({
         </>
       )}
 
-      <SectionHeading note={`Confirmed by you · current totals as of each account's last read · any copy published ${periodPhrase(period)}`}>
+      <SectionHeading note={`Linked by you or automatically · latest recorded figures, each as old as its own read date · any copy published ${periodPhrase(period)}`}>
         Linked content
       </SectionHeading>
       {groups.length === 0 ? (
@@ -109,7 +110,7 @@ export default async function ContentPage({
       ) : (
         <ul className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {groups.map((g) => (
-            <GroupCard key={g.key} item={g} href={itemHref(g.key)} />
+            <GroupCard key={g.key} item={g} href={itemHref(g.key)} linking={linking} />
           ))}
         </ul>
       )}
@@ -186,8 +187,16 @@ export default async function ContentPage({
             reports likes, Facebook reports reactions of every kind. Engagement, reach and viewers are not combined.
           </li>
           <li>
-            <span style={{ color: C.text, fontWeight: 600 }}>Nothing is merged automatically.</span> A matching
-            caption or a close publish time only suggests a match.
+            <span style={{ color: C.text, fontWeight: 600 }}>Linked automatically</span> means the complete caption
+            is identical on each account once emoji are ignored, each account has exactly one post with it, and the copies were published
+            within {THRESHOLDS.autoLinkToleranceHours} hours of each other. Undo separates them and they are not
+            linked again. A caption that only opens the same way stays a suggestion.
+          </li>
+          <li>
+            <span style={{ color: C.text, fontWeight: 600 }}>Linking does not make a figure newer.</span> Each
+            account&apos;s figure is as old as its own last read. The daily sync re-reads linked Instagram and Page
+            posts for {THRESHOLDS.linkedRefreshDays} days. The Profile is read only when you run a collection, and
+            only for posts published in the last 28 days.
           </li>
         </ul>
       </Disclosure>
@@ -196,8 +205,9 @@ export default async function ContentPage({
 }
 
 /** One confirmed piece of content: what it is, where it ran, the combined views and each account's share. */
-function GroupCard({ item, href }: { item: Item; href: string }) {
+function GroupCard({ item, href, linking }: { item: Item; href: string; linking: boolean }) {
   const f = face(item);
+  const evidence = item.copies.find((c) => c.evidence)?.evidence ?? null;
   const views = totalOf(item, 'views');
   return (
     <li className="p-4 flex flex-col gap-3" style={CARD}>
@@ -216,6 +226,15 @@ function GroupCard({ item, href }: { item: Item; href: string }) {
           </p>
         </div>
       </div>
+      {item.auto !== 'none' && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: C.muted }}>
+            <QuietChip>{item.auto === 'all' ? 'Linked automatically' : 'Partly linked automatically'}</QuietChip>
+            {evidence && <span>{describeEvidence(evidence)}</span>}
+          </p>
+          {linking && <GroupButton op="undo" a={item.key} label="Undo" about={`the automatic link for ${oneLine(f.caption, 40)}`} />}
+        </div>
+      )}
       <TotalBlock metric="views" total={views} item={item} href={href} />
       <AccountBars item={item} metric="views" />
     </li>

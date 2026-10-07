@@ -96,6 +96,32 @@ export const THRESHOLDS = {
   staleReadHours: 48,
 
   /**
+   * How far apart two copies with an identical complete caption may be
+   * published and still be linked automatically. Chosen from production on
+   * 7 Oct 2026: of 23 identical-caption pairs across accounts, most were
+   * published in the same minute, and the widest real gap was 13 hours 11
+   * minutes (one account in the morning, the others that evening). 24 hours
+   * covers that with room and stays inside a day. The reasoning is in
+   * lib/automatch.ts.
+   */
+  autoLinkToleranceHours: 24,
+  /** A caption shorter than this identifies nothing and is never linked automatically. */
+  autoLinkMinCaption: 20,
+  /**
+   * Linked Instagram and Page posts published within this many days are
+   * re-read by the daily sync even when they are older than its own window,
+   * so a combined total does not rest on a reading from the post's first
+   * week. Matches the default period the dashboard opens on.
+   */
+  linkedRefreshDays: 30,
+  /**
+   * At most this many linked posts per account are re-read in one sync,
+   * least recently read first. The sync has 60 seconds on this plan and each
+   * post costs one or two Graph API calls.
+   */
+  linkedRefreshMax: 10,
+
+  /**
    * Cover photo and profile picture changes that Facebook returned as posts.
    * Any at all is worth a look, since one could be a real post that lost its
    * caption.

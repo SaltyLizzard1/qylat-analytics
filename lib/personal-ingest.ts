@@ -41,6 +41,12 @@ export type CleanPost = {
   format: 'story' | null;
   caption: string | null;
   caption_complete: boolean | null;
+  /**
+   * Facebook's own "Cross posted" label on the Content Library row: true,
+   * false when the row says "Published", null when the collector did not
+   * read it. Supporting evidence for matching, never an identification.
+   */
+  cross_posted: boolean | null;
   published_at: string | null;
   published_label: string | null;
   permalink: string | null;
@@ -195,6 +201,8 @@ export function validatePayload(body: unknown): { payload: CleanPayload } | { er
       if (caption === '') errors.push(`${at}.caption is empty. Send null for no caption.`);
       const complete = p.caption_complete ?? null;
       if (complete !== null && typeof complete !== 'boolean') errors.push(`${at}.caption_complete is not a boolean.`);
+      const crossPosted = p.cross_posted ?? null;
+      if (crossPosted !== null && typeof crossPosted !== 'boolean') errors.push(`${at}.cross_posted is not a boolean.`);
 
       const publishedAt = isoOrNull(p.published_at);
       if (publishedAt === undefined) errors.push(`${at}.published_at is not a date.`);
@@ -239,6 +247,7 @@ export function validatePayload(body: unknown): { payload: CleanPayload } | { er
         format,
         caption: caption ?? null,
         caption_complete: typeof complete === 'boolean' ? complete : null,
+        cross_posted: typeof crossPosted === 'boolean' ? crossPosted : null,
         published_at: publishedAt ?? null,
         published_label: publishedLabel ?? null,
         permalink: permalink ?? null,
@@ -386,7 +395,7 @@ const POST_COLUMNS = `x(
  * The last one is the audience upsert when a follower total was sent: it
  * returns a row when it wrote, and none when another source owns that day.
  */
-export function buildStatements(p: CleanPayload, hash: string): Statement[] {
+export function buildStatements(p: CleanPayload, hash: string, opts: { crossPosted: boolean } = { crossPosted: false }): Statement[] {
   const posts = JSON.stringify(p.posts);
   const observations = JSON.stringify(p.observations);
   const s = p.sources;
@@ -498,6 +507,20 @@ export function buildStatements(p: CleanPayload, hash: string): Statement[] {
       params: [observations, p.collection_id],
     },
   ];
+
+  if (opts.crossPosted) {
+    // Only when migration 013 has added the column. A marker the collector
+    // did not read (null) never overwrites one it read on an earlier run.
+    // Pushed before the followers statement, which the route reads last.
+    statements.push({
+      text: `
+        UPDATE profile_posts pp SET cross_posted = x.cross_posted
+        FROM jsonb_to_recordset($1::jsonb) AS x(tracking_id text, cross_posted boolean)
+        JOIN posts p ON p.platform_post_id = 'personal:' || x.tracking_id AND p.platform = '${PLATFORM}'
+        WHERE pp.post_id = p.id AND x.cross_posted IS NOT NULL`,
+      params: [posts],
+    });
+  }
 
   if (p.followers !== null) {
     statements.push({

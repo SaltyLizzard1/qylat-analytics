@@ -1230,6 +1230,21 @@ def check_timezone(pairs: list[tuple[dict, dict]], rows: list[dict], now: dateti
     return {"status": status, "posts_compared": checked, "largest_gap_minutes": round(worst), "future_times": len(future)}
 
 
+def cross_posted(status: str | None) -> bool | None:
+    """
+    Facebook's own label on a Content Library row: "Cross posted" when the
+    post also went to Instagram, "Published" when it did not. Anything else,
+    or no label, is unknown. It says a twin exists, not which Instagram post
+    it is, so the dashboard keeps it as supporting evidence only.
+    """
+    text = " ".join((status or "").split()).lower()
+    if text == "cross posted":
+        return True
+    if text == "published":
+        return False
+    return None
+
+
 def build_payload(result: dict, profile_url: str, now: datetime | None = None) -> dict:
     """
     Merge the three sources into one collection. Posts are identified by the
@@ -1270,6 +1285,7 @@ def build_payload(result: dict, profile_url: str, now: datetime | None = None) -
             "timeline_id": None,
             "in_library": True,
             "on_timeline": False,
+            "cross_posted": cross_posted(r.get("status")),
         }
         for label, m in r["metrics"].items():
             observations.append(

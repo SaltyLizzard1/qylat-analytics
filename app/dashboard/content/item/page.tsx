@@ -1,6 +1,7 @@
 import { parsePeriod, type PeriodParams } from '@/lib/period';
 import { SOCIAL_PLATFORMS, parsePlatform, withFilters } from '@/lib/overview';
 import { getItemForPost, isStale, reactionsLabel, totalOf, type Copy } from '@/lib/combined';
+import { describeEvidence } from '@/lib/automatch';
 import { PageHeader, SectionHeading, Empty } from '@/components/charts';
 import { BackLink, PlatformChip, PostPicture, QuietChip, SampleChip } from '@/components/overview';
 import { AccountBars, NO_COPY, TotalBlock, face, missingLabel, oneLine, publishedText } from '@/components/content';
@@ -93,6 +94,13 @@ export default async function ContentItemPage({
         </p>
       </section>
 
+      {item.auto !== 'none' && linking && (
+        <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: C.muted }}>
+          <QuietChip>{item.auto === 'all' ? 'Linked automatically' : 'Partly linked automatically'}</QuietChip>
+          <GroupButton op="undo" a={item.key} label="Undo automatic link" about="this content" />
+        </div>
+      )}
+
       <SectionHeading note="Views by account · latest recorded figures, read on the days shown · not unique viewers · likes and reactions are not added">
         Account breakdown
       </SectionHeading>
@@ -172,6 +180,8 @@ function CopyCard({ c, canUnlink, stale }: { c: Copy; canUnlink: boolean; stale:
           {c.scope.views !== 'lifetime' && <SampleChip>Views not included: recorded before the scope was confirmed</SampleChip>}
           {c.scope.comments !== 'lifetime' && <SampleChip>Comments and shares not included</SampleChip>}
           {stale && <SampleChip>Stale reading</SampleChip>}
+          {c.linked_by === 'auto' && <SampleChip>Linked automatically</SampleChip>}
+          {c.linked_by === 'auto' && c.evidence && <span>{describeEvidence(c.evidence)}</span>}
         </p>
         {canUnlink && <GroupButton op="unlink" a={c.id} label="Unlink" about={`${platformLabel(c.platform)} copy`} />}
       </div>
