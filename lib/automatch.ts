@@ -7,18 +7,27 @@
  *
  * The rule, all of it required:
  *
- *   1. The complete caption is identical on every copy, after collapsing
- *      whitespace and nothing else. An emoji or a hashtag present on one
- *      account and not on another is a different caption. Those stay as
- *      suggestions for Liz.
+ *   1. The complete caption is identical on every copy, once emoji are
+ *      removed and the whitespace they leave is collapsed. Every other
+ *      character counts: a word, a hashtag, a comma against a dash, or a
+ *      capital letter that differs makes it a different caption, and those
+ *      stay as suggestions for Liz. Emoji are ignored because the Profile's
+ *      captions reach the collector without them: on production, Instagram
+ *      had "one long side quest." followed by a laughing emoji, the Profile
+ *      copy of the same post had it without, and that was the only difference in most
+ *      of the pairs the stricter rule left unlinked. Nothing stored is
+ *      changed: the comparison works on a copy, and each caption stays as
+ *      the account gave it.
  *   2. The caption is known to be complete. API captions always are. A
  *      Profile caption counts only when the collector marked it complete: the
  *      Content Library shows a shortened title, and a shortened title that
  *      happens to equal a full caption is not evidence.
- *   3. The caption is at least `minCaption` characters. A blank or two word
- *      caption identifies nothing.
- *   4. No account has used that exact caption on more than one post, at any
- *      time. A reused caption cannot say which post is the copy.
+ *   3. The caption is at least `minCaption` characters after emoji are
+ *      removed. A blank, two word or emoji-only caption identifies nothing.
+ *   4. No account has used that caption on more than one post, at any time,
+ *      compared the same way. So two posts that differ only by an emoji on
+ *      one account count as a reused caption and nothing is linked: removing
+ *      emoji can only ever make a match less eligible, never more.
  *   5. Exactly one candidate per account, on at least two accounts, and every
  *      pair of copies was published within `toleranceHours` of each other.
  *   6. No pair among them was dismissed or unlinked by Liz. A rejected match
@@ -63,8 +72,12 @@ export type MatchPost = {
 export type MatchOptions = { toleranceHours: number; minCaption: number };
 
 export type Evidence = {
-  rule: 'identical-caption-v1';
+  /** v1 compared captions exactly. v2 ignores emoji. */
+  rule: 'identical-caption-v1' | 'identical-caption-v2';
+  /** Length of the caption as compared, emoji removed. */
   caption_length: number;
+  /** True when the stored captions differ and only emoji tell them apart. */
+  emoji_ignored?: boolean;
   accounts: string[];
   /** The widest gap between any two copies, in seconds. */
   max_gap_seconds: number;
@@ -85,8 +98,24 @@ export type PlannedLink = {
 
 export type Excluded = { posts: number[]; reason: string };
 
-/** Whitespace collapsed and nothing else changed. Two captions match only if this is equal. */
+/**
+ * Emoji and the invisible characters that join or style them: pictographs,
+ * the variation selector, the zero width joiner, skin tones, the keycap mark,
+ * flag letters and tag characters. Digits, "#" and "*" are not in it.
+ */
+const EMOJI = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}\u{1F3FB}-\u{1F3FF}\u{1F1E6}-\u{1F1FF}\u{E0020}-\u{E007F}]/gu;
+
+/**
+ * The caption as it is compared: emoji removed, then whitespace collapsed.
+ * Two captions match only if this is equal. The stored caption is never
+ * changed.
+ */
 export function normaliseCaption(caption: string | null): string {
+  return (caption ?? '').normalize('NFC').replace(EMOJI, '').replace(/\s+/g, ' ').trim();
+}
+
+/** Whitespace collapsed only, to tell whether emoji were what differed. */
+function plainCaption(caption: string | null): string {
   return (caption ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
 }
 
@@ -193,8 +222,9 @@ export function planAutoLinks(
       members: after.map((p) => p.id).sort((a, b) => a - b),
       add: add.map((p) => p.id).sort((a, b) => a - b),
       evidence: {
-        rule: 'identical-caption-v1',
+        rule: 'identical-caption-v2',
         caption_length: caption.length,
+        emoji_ignored: new Set(after.map((p) => plainCaption(p.caption))).size > 1,
         accounts: [...new Set(after.map((p) => p.platform))].sort(),
         max_gap_seconds: Math.round(widest / 1000),
         tolerance_hours: opts.toleranceHours,
@@ -216,5 +246,5 @@ export function describeEvidence(e: Evidence): string {
       : e.profile_cross_posted === false
         ? '. Facebook does not mark the Profile copy as cross posted'
         : '';
-  return `Identical ${e.caption_length} character caption, ${apart}${marker}`;
+  return `Identical ${e.caption_length} character caption${e.emoji_ignored ? ', emoji ignored' : ''}, ${apart}${marker}`;
 }

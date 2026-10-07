@@ -23,6 +23,7 @@ import {
   type FacebookPost,
 } from '@/lib/meta';
 import { autoLinkAfterIngestion } from '@/lib/autolink';
+import { withinBudget } from '@/lib/budget';
 import { hasGroupTables } from '@/lib/combined';
 import { THRESHOLDS } from '@/lib/status';
 
@@ -365,7 +366,19 @@ async function syncAudience(cfg: MetaConfig) {
   return report;
 }
 
-type LinkedRefresh = { instagram: number; facebook: number; waiting: number; errors: { object: string; reason: string }[] } | { skipped: string };
+type StalePost = { platform: string; post: string; lastRead: string | null };
+type LinkedRefresh =
+  | { skipped: string; stale?: StalePost[] }
+  | { refreshed: number; stoppedForTime: boolean; stale: StalePost[]; errors: { object: string; reason: string }[] };
+
+/**
+ * How long after the request started optional work may still begin. The
+ * function is killed at maxDuration and returns nothing if it gets there, so
+ * the refresh stops well short and what it could not reach is reported.
+ */
+const OPTIONAL_WORK_UNTIL_MS = 40_000;
+/** Matching is a handful of queries. It may start a little later than a refresh. */
+const MATCHING_UNTIL_MS = 50_000;
 
 /**
  * Re-reads linked posts the normal window no longer reaches.
@@ -375,16 +388,22 @@ type LinkedRefresh = { instagram: number; facebook: number; waiting: number; err
  * combined total for older content rests on week-old Instagram and Page
  * readings beside a fresh Profile one. This reads linked Instagram and Page
  * posts published within THRESHOLDS.linkedRefreshDays that fall outside the
- * window, at most THRESHOLDS.linkedRefreshMax per account per run, least
- * recently read first, so a larger backlog is worked through over several
- * days instead of in one long request.
+ * window, least recently read first.
  *
- * It uses the two list calls the sync already makes, over a longer window,
- * and one insights call per post re-read. It changes nothing about which
- * posts the normal sync reads, and it cannot refresh the Profile: that is
- * read only by the collector, on demand, for the last 28 days.
+ * Two limits, and neither is a promise that the work fits. At most
+ * THRESHOLDS.linkedRefreshMax posts per account are attempted. And every
+ * post is started only if the deadline has not passed: the list call and
+ * each post's insights are checked against the clock one at a time, so a
+ * slow day stops the refresh instead of the request. Whatever was not
+ * reached is returned as `stale` and is first in line next run.
+ *
+ * Each post's metrics are written as that post is read, by the same code
+ * the normal sync uses, so nothing read is lost if a later post fails or
+ * the clock runs out. Nothing here can remove or roll back a row the sync
+ * above already wrote. It cannot refresh the Profile: that is read only by
+ * the collector, on demand, for the last 28 days.
  */
-async function refreshLinked(cfg: MetaConfig, since: Date, fb: PlatformReport, ig: PlatformReport): Promise<LinkedRefresh> {
+async function refreshLinked(cfg: MetaConfig, since: Date, deadline: number, fb: PlatformReport, ig: PlatformReport): Promise<LinkedRefresh> {
   if (!(await hasGroupTables())) return { skipped: 'no linked content yet' };
   const due = await sql(
     `SELECT p.platform, p.platform_post_id, p.published_at,
@@ -396,29 +415,50 @@ async function refreshLinked(cfg: MetaConfig, since: Date, fb: PlatformReport, i
      ORDER BY read_at ASC NULLS FIRST`,
     [since.toISOString(), THRESHOLDS.linkedRefreshDays]
   );
-  const out = { instagram: 0, facebook: 0, waiting: 0, errors: [] as { object: string; reason: string }[] };
+  const asStale = (d: Record<string, unknown>): StalePost => ({
+    platform: d.platform as string,
+    post: d.platform_post_id as string,
+    lastRead: d.read_at ? new Date(d.read_at as string).toISOString() : null,
+  });
+  if (Date.now() >= deadline) return { skipped: 'the sync used the time available', stale: due.map(asStale) };
+
+  const errors: { object: string; reason: string }[] = [];
+  const stale: StalePost[] = [];
+  let refreshed = 0;
+  let stoppedForTime = false;
   for (const platform of ['instagram', 'facebook'] as const) {
     const mine = due.filter((d) => d.platform === platform);
-    const now = mine.slice(0, THRESHOLDS.linkedRefreshMax);
-    out.waiting += mine.length - now.length;
-    if (now.length === 0) continue;
-    const wanted = new Set(now.map((d) => d.platform_post_id as string));
-    const from = new Date(Math.min(...now.map((d) => new Date(d.published_at as string).getTime())) - 60_000);
+    const attempt = mine.slice(0, THRESHOLDS.linkedRefreshMax);
+    stale.push(...mine.slice(THRESHOLDS.linkedRefreshMax).map(asStale));
+    if (attempt.length === 0) continue;
+    if (Date.now() >= deadline) {
+      stoppedForTime = true;
+      stale.push(...attempt.map(asStale));
+      continue;
+    }
+    const byPost = new Map(attempt.map((d) => [d.platform_post_id as string, d]));
+    const from = new Date(Math.min(...attempt.map((d) => new Date(d.published_at as string).getTime())) - 60_000);
     try {
-      if (platform === 'instagram') {
-        const media = (await fetchInstagramMedia(cfg, from)).filter((m) => wanted.has(m.id));
-        for (const item of media) await syncInstagramItem(cfg, item, ig);
-        out.instagram = media.length;
-      } else {
-        const posts = (await fetchFacebookPosts(cfg, from)).filter((x) => wanted.has(x.id));
-        for (const post of posts) await syncFacebookPost(cfg, post, fb);
-        out.facebook = posts.length;
-      }
+      // One list call over the longer window, then one post at a time.
+      const found: (InstagramMedia | FacebookPost)[] =
+        platform === 'instagram'
+          ? (await fetchInstagramMedia(cfg, from)).filter((m) => byPost.has(m.id))
+          : (await fetchFacebookPosts(cfg, from)).filter((x) => byPost.has(x.id));
+      const result = await withinBudget(found, deadline, async (item) => {
+        if (platform === 'instagram') await syncInstagramItem(cfg, item as InstagramMedia, ig);
+        else await syncFacebookPost(cfg, item as FacebookPost, fb);
+      });
+      refreshed += result.done.length;
+      stoppedForTime = stoppedForTime || result.stoppedForTime;
+      const reached = new Set(result.done.map((x) => x.id));
+      stale.push(...attempt.filter((d) => !reached.has(d.platform_post_id as string)).map(asStale));
+      for (const f of result.failed) errors.push({ object: f.item.id, reason: f.reason });
     } catch (e) {
-      out.errors.push({ object: `linked ${platform}`, reason: errText(e) });
+      errors.push({ object: `linked ${platform}`, reason: errText(e) });
+      stale.push(...attempt.map(asStale));
     }
   }
-  return out;
+  return { refreshed, stoppedForTime, stale, errors };
 }
 
 export async function GET(request: NextRequest) {
@@ -465,18 +505,22 @@ export async function GET(request: NextRequest) {
 
   const hardFailure = 'failed' in facebook || 'failed' in instagram;
 
-  // Linked content the window above did not reach, then matching. Both run
-  // only after a sync that worked, in this request, and neither can turn it
-  // into a failure.
+  // Optional work, after the sync and only if it worked. The metrics above
+  // are already written row by row, and nothing below can remove them: each
+  // step is caught, bounded by the clock, and reported in the response.
+  const started = startedAt.getTime();
   let linkedRefresh: LinkedRefresh = { skipped: 'the sync failed' };
   let matching: Awaited<ReturnType<typeof autoLinkAfterIngestion>> = { status: 'skipped: the sync failed' };
   if (!('failed' in facebook) && !('failed' in instagram)) {
     try {
-      linkedRefresh = await refreshLinked(cfg, since, facebook, instagram);
+      linkedRefresh = await refreshLinked(cfg, since, started + OPTIONAL_WORK_UNTIL_MS, facebook, instagram);
     } catch (e) {
       linkedRefresh = { skipped: `failed: ${errText(e)}` };
     }
-    matching = await autoLinkAfterIngestion();
+    matching =
+      Date.now() < started + MATCHING_UNTIL_MS
+        ? await autoLinkAfterIngestion()
+        : { status: 'skipped: the sync used the time available. Matching runs after the next ingestion' };
   }
 
   return NextResponse.json(

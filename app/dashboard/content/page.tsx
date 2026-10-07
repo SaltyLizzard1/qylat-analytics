@@ -188,7 +188,7 @@ export default async function ContentPage({
           </li>
           <li>
             <span style={{ color: C.text, fontWeight: 600 }}>Linked automatically</span> means the complete caption
-            is identical on each account, each account has exactly one post with it, and the copies were published
+            is identical on each account once emoji are ignored, each account has exactly one post with it, and the copies were published
             within {THRESHOLDS.autoLinkToleranceHours} hours of each other. Undo separates them and they are not
             linked again. A caption that only opens the same way stays a suggestion.
           </li>
