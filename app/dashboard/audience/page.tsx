@@ -1,12 +1,18 @@
 import Link from 'next/link';
 import { parsePeriod, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
+import { getLatestAudience, getWeeklyFollowerGains, getFollowerSignalStrength } from '@/lib/queries';
 import {
-  getLatestAudience,
-  getAudienceHistory,
-  getWeeklyFollowerGains,
-  getFollowerSignalStrength,
-} from '@/lib/queries';
+  affects,
+  getFollowerTotals,
+  getUncertainBaseline,
+  includesOpeningStep,
+  includesReading,
+  supportedTotals,
+  type Total,
+  type UncertainBaseline,
+} from '@/lib/baseline';
+import { BaselineNote, ReportedGainsNote } from '@/components/baseline';
 import {
   StatTile,
   TrendChart,
@@ -56,8 +62,9 @@ export default async function AudiencePage({
     getLatestAudience(),
     getFollowerSignalStrength(),
     ...TRACKED.flatMap((t) => [
-      getAudienceHistory(t.platform, period),
+      getFollowerTotals(t.platform, period),
       getWeeklyFollowerGains(t.platform, period),
+      getUncertainBaseline(t.platform),
     ]),
   ]);
 
@@ -110,11 +117,16 @@ export default async function AudiencePage({
       )}
 
       {TRACKED.map((t, i) => {
-        const history = series[i * 2] as Record<string, unknown>[];
-        const gains = series[i * 2 + 1] as Record<string, unknown>[];
-        const totalPoints = history.map((r) => ({
-          label: shortDate(r.recorded_on as string),
-          value: (r.followers as number) ?? 0,
+        const stored = series[i * 3] as Total[];
+        const gains = series[i * 3 + 1] as Record<string, unknown>[];
+        // The shared rule: an uncertain opening total is named and not drawn,
+        // and the platform's reported gains are labelled as reported.
+        const uncertain = series[i * 3 + 2] as UncertainBaseline | null;
+        const affected = affects(uncertain, period) ? uncertain : null;
+        const { points: totals, change } = supportedTotals(stored, affected);
+        const totalPoints = totals.map((r) => ({
+          label: shortDate(r.recorded_on),
+          value: r.followers,
         }));
         const gainPoints = gains.map((r) => ({
           label: shortDate(r.week as string),
@@ -129,6 +141,7 @@ export default async function AudiencePage({
               title={`${t.name} followers over time`}
               description="Total followers at each daily snapshot."
             >
+              {affected && <BaselineNote b={affected} change={change} readingInWindow={includesReading(affected, period)} />}
               <TrendChart
                 points={totalPoints}
                 color={platformColor(t.platform)}
@@ -138,7 +151,11 @@ export default async function AudiencePage({
               />
             </Panel>
 
-            <Panel title={`New ${t.name} followers per week`} description={t.gainsNote}>
+            <Panel
+              title={affected ? `New ${t.name} followers per week, as reported by Meta` : `New ${t.name} followers per week`}
+              description={t.gainsNote}
+            >
+              {includesOpeningStep(affected, period) && <ReportedGainsNote b={affected} />}
               <TrendChart
                 points={gainPoints}
                 color={platformColor(t.platform)}

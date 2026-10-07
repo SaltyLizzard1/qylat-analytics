@@ -4,8 +4,10 @@ import { parsePeriod, periodPhrase, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { Panel, PageHeader, Empty, Disclosure } from '@/components/charts';
 import { StatusBadge, StatusLegend } from '@/components/status';
-import { PostPicture } from '@/components/overview';
+import { BackLink, PostPicture } from '@/components/overview';
+import { parsePlatform, withFilters } from '@/lib/overview';
 import { Donut, type Slice } from '@/components/Donut';
+import { HashTarget } from '@/components/HashTarget';
 import { formatStatus, THRESHOLDS, PERFORMANCE_SHORT, PERFORMANCE_LABEL } from '@/lib/status';
 import { C, RADIUS, compact, shortDate, platformLabel, formatLabel, formatColor } from '@/lib/theme';
 
@@ -23,9 +25,10 @@ export const dynamic = 'force-dynamic';
 export default async function FormatsPage({
   searchParams,
 }: {
-  searchParams: Promise<PeriodParams>;
+  searchParams: Promise<PeriodParams & { back?: string; platform?: string }>;
 }) {
-  const period = parsePeriod(await searchParams);
+  const sp = await searchParams;
+  const period = parsePeriod(sp);
   const age = THRESHOLDS.formatAgeHours;
   const [benchmarks, posts, splits] = await Promise.all([
     getFormatBenchmarkAtAge(age, period),
@@ -44,6 +47,11 @@ export default async function FormatsPage({
 
   return (
     <div className="space-y-5">
+      <HashTarget />
+      {/* Opened from a format bar on the Overview: the way back keeps its period and account. */}
+      {sp.back === 'overview' && (
+        <BackLink href={withFilters('/dashboard', period, parsePlatform(sp.platform))}>Back to Overview</BackLink>
+      )}
       <PageHeader
         title="Format Comparison"
         meta={[
@@ -156,7 +164,7 @@ function PlatformPanel({
               : { label: 'No median', reason: `No post of this format is ${age} hours old with a snapshot that young` };
 
             return (
-              <div key={format}>
+              <div key={format} id={`format-${platform}-${format}`} style={{ borderRadius: RADIUS.md }}>
                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
                   <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: formatColor(format), flexShrink: 0 }} />
                   <span className="text-sm" style={{ fontWeight: 600, color: C.text }}>

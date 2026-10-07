@@ -67,6 +67,36 @@ export type Period = TimeWindow & {
 
 export type PeriodParams = { period?: string; compare?: string; from?: string; to?: string };
 
+/** Where the last chosen period is kept between visits. Written by the period control. */
+export const PERIOD_COOKIE = 'qylat_period';
+
+/** What the Overview opens on when neither the address nor a past choice names a period. */
+export const OVERVIEW_DEFAULT_DAYS = 30;
+
+/**
+ * The period for a page opened with none in its address: the last one chosen,
+ * read from the cookie, or the default. Everything goes back through
+ * parsePeriod, so a damaged cookie can only ever produce a valid period.
+ */
+export function rememberedPeriod(cookieValue: string | undefined, compare: string | undefined, fallbackDays: number): Period {
+  let saved = new URLSearchParams();
+  try {
+    saved = new URLSearchParams(decodeURIComponent(cookieValue ?? ''));
+  } catch {
+    // Not a value this app wrote. Fall through to the default.
+  }
+  const from = saved.get('from') ?? undefined;
+  const to = saved.get('to') ?? undefined;
+  const named = saved.get('period') ?? undefined;
+  return parsePeriod({
+    from,
+    to,
+    period: named ?? String(fallbackDays),
+    // A comparison setting in the address wins over the remembered one.
+    compare: compare ?? saved.get('compare') ?? undefined,
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Calendar arithmetic                                                 */
 /* ------------------------------------------------------------------ */

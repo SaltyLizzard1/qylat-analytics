@@ -1,19 +1,23 @@
-import { parsePeriod, type PeriodParams } from '@/lib/period';
+import { parsePeriod, withPeriod, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { PlatformFilter } from '@/components/PlatformFilter';
 import { getDetailPosts, parsePlatform, parseWeek, withFilters, type DetailPost } from '@/lib/overview';
+import { parseTheme } from '@/lib/themes';
+import { pillarLabel } from '@/lib/pillars';
 import { PageHeader, Disclosure, Empty } from '@/components/charts';
 import { BackLink, DateTile, FigureBar, FilterBar, PlatformChip, QuietChip, SampleChip } from '@/components/overview';
 import { PostThumb } from '@/components/PostThumb';
+import { HashTarget } from '@/components/HashTarget';
 import { THRESHOLDS } from '@/lib/status';
 import { C, CARD, EYEBROW, RADIUS, formatLabel, full, platformColor, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * The posts behind a mark on the Overview: one publish week, one account, or
- * the whole window. Opened by clicking a bar, a card or an account, and
- * carrying the same period and account filters back and forth.
+ * The posts behind a mark on the Overview or on Themes: one publish week, one
+ * account, one tag, or the whole window. Opened by clicking a bar, a card or
+ * an account, and carrying the same period and account filters back and
+ * forth. A mark that stands for one post lands on that post's row.
  *
  * Each row is recognisable before it is read: the thumbnail, then the first
  * line of the caption. Figures are each post's total to date. A post with no
@@ -94,14 +98,18 @@ function PostRow({ p, maxViews }: { p: DetailPost; maxViews: number }) {
           <PlatformChip platform={p.platform} />
           {p.format && <QuietChip>{formatLabel(p.format)}</QuietChip>}
           <span className="text-xs" style={{ color: C.muted }}>
-            {p.published_label ? `${p.published_label}, as Facebook displayed it` : shortDateTime(p.published_at)}
+            {p.published_label ? `Published ${p.published_label}, as Facebook displayed it` : `Published ${shortDateTime(p.published_at)}`}
           </span>
         </span>
       </span>
     </span>
   );
   return (
-    <li className="flex flex-wrap items-center gap-x-5 gap-y-3 p-3" style={{ ...CARD, borderRadius: RADIUS.md }}>
+    <li
+      id={`post-${p.platform}-${p.id}`}
+      className="flex flex-wrap items-center gap-x-5 gap-y-3 p-3"
+      style={{ ...CARD, borderRadius: RADIUS.md }}
+    >
       <div className="min-w-0" style={{ flex: '1 1 300px' }}>
         {p.permalink ? (
           <a href={p.permalink} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }} title="Open the post">
@@ -125,23 +133,24 @@ function PostRow({ p, maxViews }: { p: DetailPost; maxViews: number }) {
 export default async function PostsDetailPage({
   searchParams,
 }: {
-  searchParams: Promise<PeriodParams & { platform?: string; week?: string; origin?: string }>;
+  searchParams: Promise<PeriodParams & { platform?: string; week?: string; origin?: string; theme?: string; back?: string }>;
 }) {
   const sp = await searchParams;
   const period = parsePeriod(sp);
   const platform = parsePlatform(sp.platform);
   const week = parseWeek(sp.week);
-  const posts = await getDetailPosts(period, platform, week);
+  const theme = parseTheme(sp.theme);
+  const posts = await getDetailPosts(period, platform, week, theme);
+  const fromThemes = sp.back === 'themes';
   // Clicking a bar narrows this view to one account. The way back returns to
   // the Overview with the account filter it had before the click.
   const backPlatform = sp.origin === 'all' ? 'all' : platform;
 
   const account = platform === 'all' ? 'All accounts' : platformLabel(platform);
   const weekEnd = week ? new Date(new Date(`${week}T00:00:00Z`).getTime() + 6 * 86_400_000) : null;
-  const scope =
-    week && weekEnd
-      ? `published ${shortDate(week)} to ${shortDate(weekEnd)}`
-      : `published in ${period.label.toLowerCase()}`;
+  const scope = `${theme ? `tagged ${pillarLabel(theme)}, ` : ''}${
+    week && weekEnd ? `published ${shortDate(week)} to ${shortDate(weekEnd)}` : `published in ${period.label.toLowerCase()}`
+  }`;
   const reads = posts.map((p) => p.read_at).filter(Boolean) as string[];
   const lastRead = reads.length ? reads.reduce((a, b) => (a > b ? a : b)) : null;
   const withViews = posts.filter((p) => p.views !== null).length;
@@ -149,10 +158,32 @@ export default async function PostsDetailPage({
 
   return (
     <div className="space-y-4">
+      <HashTarget />
       <div className="flex flex-wrap items-center gap-2">
-        <BackLink href={withFilters('/dashboard', period, backPlatform)}>Back to Overview</BackLink>
+        {fromThemes ? (
+          <BackLink href={withPeriod('/dashboard/themes', period)}>Back to Themes</BackLink>
+        ) : (
+          <BackLink href={withFilters('/dashboard', period, backPlatform)}>Back to Overview</BackLink>
+        )}
+        {theme && (
+          <BackLink
+            href={withFilters('/dashboard/posts', period, platform, {
+              week: week ?? undefined,
+              origin: sp.origin === 'all' ? 'all' : undefined,
+              back: fromThemes ? 'themes' : undefined,
+            })}
+          >
+            Every tag
+          </BackLink>
+        )}
         {week && (
-          <BackLink href={withFilters('/dashboard/posts', period, platform, { origin: sp.origin === 'all' ? 'all' : undefined })}>
+          <BackLink
+            href={withFilters('/dashboard/posts', period, platform, {
+              origin: sp.origin === 'all' ? 'all' : undefined,
+              theme: theme ?? undefined,
+              back: fromThemes ? 'themes' : undefined,
+            })}
+          >
             All weeks in this window
           </BackLink>
         )}
@@ -170,6 +201,7 @@ export default async function PostsDetailPage({
           ...(week && weekEnd
             ? [{ label: 'Publish week shown', value: `${shortDate(week)} to ${shortDate(weekEnd)}` }]
             : []),
+          ...(theme ? [{ label: 'Tag', value: pillarLabel(theme) }] : []),
           { label: 'Posts', value: String(posts.length) },
           { label: 'With a views figure', value: `${withViews} of ${posts.length}` },
           { label: 'Figures read', value: lastRead ? shortDateTime(lastRead) : 'never' },
@@ -184,6 +216,12 @@ export default async function PostsDetailPage({
       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: C.muted }}>
         Views and engagement are each post&apos;s total to date, not activity inside the window. Highest views
         first.
+        {theme && (
+          <span style={{ color: C.text, fontWeight: 600 }}>
+            Posts of different ages are listed together, so this is not an age-matched comparison.
+            {platform === 'all' ? ' Instagram and the Facebook Page read views differently: compare within an account.' : ''}
+          </span>
+        )}
         {posts.length > 0 && posts.length < THRESHOLDS.minSamplePosts && <SampleChip>small sample</SampleChip>}
       </div>
 

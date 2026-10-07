@@ -1,4 +1,14 @@
 import { sql } from '@/lib/db';
+import {
+  affects,
+  baselineExplanation,
+  getFollowerTotals,
+  getUncertainBaseline,
+  includesOpeningStep,
+  supportedTotals,
+  type SupportedChange,
+  type UncertainBaseline,
+} from '@/lib/baseline';
 import { DASHBOARD_TZ, applyPeriod, windowExpr, windowDateExpr, type Period, type TimeWindow } from '@/lib/period';
 
 /**
@@ -72,6 +82,7 @@ async function hasProfileTables(): Promise<boolean> {
 function socialCte(includeProfile: boolean): string {
   const api = `
       SELECT p.id, p.platform, p.format, p.caption, p.thumbnail_url, p.permalink, p.published_at,
+             p.content_theme,
              NULL::text AS published_label,
              l.views::numeric AS views, l.engagement::numeric AS engagement, l.comments::numeric AS comments,
              l.recorded_on::timestamptz AS read_at
@@ -83,6 +94,7 @@ function socialCte(includeProfile: boolean): string {
   const profile = `
       UNION ALL
       SELECT p.id, p.platform, p.format, p.caption, p.thumbnail_url, p.permalink, p.published_at,
+             p.content_theme,
              pp.published_label,
              f.views, f.engagement, f.comments, f.read_at
       FROM posts p
@@ -206,16 +218,20 @@ export type DetailPost = {
 export async function getDetailPosts(
   period: TimeWindow,
   platform: PlatformFilter,
-  week: string | null
+  week: string | null,
+  /** A tag slug already checked by parseTheme in lib/themes.ts, or null for every post. */
+  theme: string | null = null
 ): Promise<DetailPost[]> {
   const weekClause = week ? `AND ${WEEK} = '${week}'` : '';
+  if (theme !== null && !/^[a-z0-9][a-z0-9-]{0,59}$/.test(theme)) throw new Error('Unsafe theme');
+  const themeClause = theme ? `AND content_theme = '${theme}'` : '';
   const rows = await sql(`
     ${socialCte(await hasProfileTables())}
     SELECT id, platform, format, caption, thumbnail_url, permalink, published_at, published_label,
            views::float8 AS views, engagement::float8 AS engagement, comments::float8 AS comments, read_at
     FROM social
     WHERE published_at IS NOT NULL AND ${windowExpr(period, 'published_at')}
-      ${platformClause(platform)} ${weekClause}
+      ${platformClause(platform)} ${weekClause} ${themeClause}
     ORDER BY views DESC NULLS LAST, published_at DESC
     LIMIT 200
   `);
@@ -239,6 +255,19 @@ export type FollowerSeries = {
    */
   gained: number | null;
   gainedHow: string;
+  /**
+   * Set when the window is affected by an uncertain opening total, by the
+   * rule in lib/baseline.ts. `points` then leaves that reading out, `gained`
+   * is the change between recorded totals, and `change` says what it runs
+   * from. `reported` is what the platform's own daily gains add up to in the
+   * window, kept apart and never used as the headline.
+   */
+  baseline: {
+    uncertain: UncertainBaseline;
+    change: SupportedChange | null;
+    reported: number | null;
+    explanation: string;
+  } | null;
 };
 
 /** Follower totals for the three accounts. Each account's figure names its own platform in the query. */
@@ -251,15 +280,28 @@ export async function getFollowerSeries(period: TimeWindow): Promise<FollowerSer
        WHERE platform = $1 AND followers IS NOT NULL ORDER BY recorded_on DESC LIMIT 1`,
       [platform]
     );
-    const points = await sql(
-      `SELECT recorded_on::text AS recorded_on, followers FROM audience_snapshots
-       WHERE platform = $1 AND followers IS NOT NULL AND ${inWindow} ORDER BY recorded_on`,
-      [platform]
-    );
+    const uncertain = await getUncertainBaseline(platform);
+    const affected = affects(uncertain, period);
+    const stored = await getFollowerTotals(platform, period);
+    const { points, change } = supportedTotals(stored, affected ? uncertain : null);
 
     let gained: number | null = null;
     let gainedHow = 'No gain figure for this window';
-    if (platform === 'facebook-personal') {
+    let reported: number | null = null;
+    if (affected) {
+      // The headline is the change between recorded totals. The platform's
+      // reported gains are read too, and only ever shown labelled as such.
+      const g = await sql(
+        `SELECT SUM(new_followers)::int AS gained, COUNT(new_followers)::int AS days FROM audience_snapshots
+         WHERE platform = $1 AND new_followers IS NOT NULL AND ${inWindow}`,
+        [platform]
+      );
+      if (Number(g[0]?.days) > 0) reported = Number(g[0].gained);
+      gained = change ? change.delta : null;
+      gainedHow = change
+        ? `change between the totals recorded on ${change.from.recorded_on} and ${change.to.recorded_on}`
+        : 'Not enough recorded totals after the uncertain first reading in this window';
+    } else if (platform === 'facebook-personal') {
       // No daily gains exist for the profile. Two totals inside the window
       // give the change between them, over however many days separate them.
       if (points.length >= 2) {
@@ -291,9 +333,23 @@ export async function getFollowerSeries(period: TimeWindow): Promise<FollowerSer
             source: latest[0].source as string,
           }
         : null,
-      points: points.map((p) => ({ recorded_on: p.recorded_on as string, followers: Number(p.followers) })),
+      points,
       gained,
       gainedHow,
+      baseline: affected
+        ? {
+            uncertain,
+            change,
+            reported,
+            explanation: `${baselineExplanation(uncertain)}${
+              reported !== null
+                ? ` In this window those reported daily figures add up to ${reported}${
+                    includesOpeningStep(uncertain, period) ? ', which includes that step' : ''
+                  }.`
+                : ''
+            }`,
+          }
+        : null,
     });
   }
   return out;
