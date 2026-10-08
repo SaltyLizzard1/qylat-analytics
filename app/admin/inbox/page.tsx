@@ -34,7 +34,7 @@ export default async function InboxPage() {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
         {STATUSES.map((s) => (
           <a key={s} href={`#${s}`} style={{ ...CARD, padding: '14px 16px', textDecoration: 'none', display: 'block' }}>
-            <div className="text-2xl" style={{ fontWeight: 700, color: STATUS_COLOR[s] }}>{by(s).length}</div>
+            <div className="text-2xl" style={{ fontWeight: 600, color: STATUS_COLOR[s] }}>{by(s).length}</div>
             <div className="text-xs" style={{ color: '#111111' }}>{STATUS_LABEL[s]}</div>
           </a>
         ))}
@@ -47,7 +47,7 @@ export default async function InboxPage() {
         if (rows.length === 0) return null;
         return (
           <section key={s} id={s} className="mb-8">
-            <h2 className="text-sm mb-2" style={{ fontWeight: 700, color: STATUS_COLOR[s] }}>
+            <h2 className="text-sm mb-2" style={{ fontWeight: 600, color: STATUS_COLOR[s] }}>
               {STATUS_LABEL[s]} ({rows.length})
             </h2>
             <div style={{ ...CARD, padding: 0, overflow: 'hidden' }}>

@@ -14,12 +14,42 @@
   box-sizing: border-box;
 }
 
+/*
+  Type scale. Inter everywhere, with the system font as the fallback while it
+  loads. The two small steps are raised so nothing meant to be read sits under
+  14px: `text-xs` is 14px for dates, chips, freshness labels and notes, and
+  `text-sm` is 16px for body and captions.
+*/
+@theme {
+  --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.5;
+}
+
 /* The same values as C.page and C.text in lib/theme.ts. */
 body {
   background-color: #F1F2F9;
   color: #13152B;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Controls inherit the page font instead of the browser's own. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* Figures line up in columns: every digit takes the same width. */
+.tabular-nums,
+dd {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Every link and control shows where the keyboard is. */

@@ -50,10 +50,13 @@ export function DataRows<T>({
           {columns.map((c) => (
             <span
               key={c.key}
-              className="text-xs uppercase whitespace-nowrap"
+              className="uppercase whitespace-nowrap"
               style={{
                 color: C.muted,
-                letterSpacing: '0.08em',
+                // Column headers stay at 12px: they sit over fixed-width figure
+                // columns, and at the 14px of running text they overrun them.
+                fontSize: '0.75rem',
+                letterSpacing: '0.03em',
                 textAlign: c.align ?? 'left',
               }}
             >

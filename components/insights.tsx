@@ -119,12 +119,12 @@ export function AudienceStrip({
                   </p>
                   <p className="text-xs mt-1" style={{ color: C.muted }}>
                     {a.baseline?.change ? (
-                      <span style={{ color: C.text, fontWeight: 700 }}>{changeLabel(a.baseline.change)}</span>
+                      <span style={{ color: C.text, fontWeight: 600 }}>{changeLabel(a.baseline.change)}</span>
                     ) : a.gained === null ? (
                       'Change in this window not known'
                     ) : (
                       <>
-                        <span className="tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
+                        <span className="tabular-nums" style={{ color: C.text, fontWeight: 600 }}>
                           {a.gained > 0 ? '+' : ''}
                           {full(a.gained)}
                         </span>{' '}
@@ -241,7 +241,7 @@ export function TopPosts({
                     <span className="text-xs truncate" style={{ color: C.text, fontWeight: 600 }}>
                       {oneLine(p.caption)}
                     </span>
-                    <span className="tabular-nums" style={{ color: C.text, fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.02em', flexShrink: 0 }}>
+                    <span className="tabular-nums" style={{ color: C.text, fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.02em', flexShrink: 0 }}>
                       {full(p.views)}
                     </span>
                   </span>
@@ -331,7 +331,7 @@ export function FormatBars({
                       </span>
                       {small && <SampleChip>small sample</SampleChip>}
                     </span>
-                    <span className="tabular-nums" style={{ color: C.text, fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.02em', flexShrink: 0 }}>
+                    <span className="tabular-nums" style={{ color: C.text, fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.02em', flexShrink: 0 }}>
                       {full(Math.round(r.medianViews))}
                     </span>
                   </span>

@@ -19,8 +19,12 @@ Neutrals only, all in `C` in `lib/theme.ts`. Use the tokens, never the hex.
 
 - Page background: `C.page` `#F1F2F9`, a soft cool tint
 - Card and panel surface: `C.card` `#FFFFFF`, with `SHADOW` and no outline
-- Header, selected controls, primary buttons: `C.ink` `#13152B`, text `C.onInk`
-- Primary text: `C.text` `#13152B`. Secondary text: `C.muted` `#555A72`
+- Header: `C.header` `#DDE1F3`, a pale periwinkle, with `C.text` on it and
+  `C.onHeaderMuted` for quieter items. The selected tab is a white pill
+- Selected controls, primary buttons, the summary card: `C.ink` `#34407A`, a
+  mid indigo, text `C.onInk`. Not near-black. Checked with the validator: 16.6
+  from Instagram's purple, the closest identity hue
+- Primary text: `C.text` `#13152B`. Secondary text: `C.muted` `#474C60`
 - Insets, tracks, quiet chips: `C.neutral` `#E9EBF5`
 - Hairlines and inputs only: `C.border` `#DADDEA`
 
@@ -135,10 +139,22 @@ a text label. Worth fixing if the palette is ever revisited.
 
 ## Typography
 
-No Cormorant Garamond. No Google Fonts. `system-ui` everywhere.
-Page titles are weight 800, headings and figures 700, with the negative
-letter-spacing in `TITLE` and `FIGURE` from `lib/theme.ts`. Small uppercase
-labels use `EYEBROW` and are never smaller than 0.68rem.
+Inter everywhere, loaded with `next/font` in `app/layout.tsx`: Next downloads
+it at build time and serves it from this site, so the browser makes no request
+to Google. `system-ui` is only the fallback while it loads. No Cormorant
+Garamond, and no font loaded from a Google stylesheet.
+
+- Body and captions are 16px (`text-sm` and `text-base`), regular weight,
+  line height 1.5. Dates, chips, freshness labels and notes are 14px
+  (`text-xs`). The scale is set in `@theme` in `app/globals.css`: `text-xs`
+  and `text-sm` are deliberately one step larger than Tailwind's defaults.
+- Nothing meant to be read is under 14px. The exceptions are small uppercase
+  labels (`EYEBROW`, 13px), table column headers (12px, because they sit over
+  fixed-width figure columns), and glyphs in a fixed box.
+- Weights: 400 for text, 500 for navigation, buttons and chips, 600 for
+  headings, totals and the selected tab. Nothing is 700 or heavier.
+- Figures use tabular numerals (`tabular-nums`, and every `dd`), so columns
+  of numbers line up.
 
 ## No em dashes
 

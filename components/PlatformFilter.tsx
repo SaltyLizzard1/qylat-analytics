@@ -56,7 +56,7 @@ export function PlatformFilter({ current }: { current: string }) {
                 borderRadius: RADIUS.sm,
                 background: active ? C.ink : 'transparent',
                 color: active ? C.onInk : C.text,
-                fontWeight: active ? 700 : 500,
+                fontWeight: active ? 600 : 500,
                 textDecoration: 'none',
               }}
             >

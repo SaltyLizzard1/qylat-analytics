@@ -175,7 +175,7 @@ function Segment({
         borderRadius: RADIUS.sm,
         background: active ? C.ink : 'transparent',
         color: active ? C.onInk : C.text,
-        fontWeight: active ? 700 : 500,
+        fontWeight: active ? 600 : 500,
         cursor: 'pointer',
       }}
     >
@@ -223,7 +223,7 @@ function DateInput({
         border: `1px solid ${C.border}`,
         borderRadius: RADIUS.sm,
         color: C.text,
-        fontSize: '0.8rem',
+        fontSize: '0.875rem',
         padding: '0.25rem 0.5rem',
       }}
     />

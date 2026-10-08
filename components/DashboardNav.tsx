@@ -47,13 +47,13 @@ export function DashboardNav({ items }: { items: { href: string; label: string }
             key={item.href}
             href={carry(item.href)}
             aria-current={active ? 'page' : undefined}
-            className="text-sm px-3 py-1.5 whitespace-nowrap transition-colors"
+            className="text-xs px-3 py-1.5 whitespace-nowrap transition-colors"
             style={{
               borderRadius: RADIUS.pill,
               textDecoration: 'none',
               background: active ? C.card : 'transparent',
               color: active ? C.text : C.onHeaderMuted,
-              fontWeight: active ? 700 : 500,
+              fontWeight: active ? 600 : 500,
             }}
           >
             {item.label}

@@ -25,7 +25,7 @@ const HEADER_BUTTON = {
   color: C.text,
   borderRadius: RADIUS.pill,
   textDecoration: 'none',
-  fontWeight: 600,
+  fontWeight: 500,
 } as const;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -40,10 +40,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className="flex items-baseline gap-2"
               style={{ color: C.text, textDecoration: 'none' }}
             >
-              <span style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '0.01em' }}>QYLAT</span>
+              <span style={{ fontWeight: 600, fontSize: '1.25rem', letterSpacing: '0.01em' }}>QYLAT</span>
               <span
                 className="uppercase hidden sm:inline"
-                style={{ color: C.onHeaderMuted, fontSize: '0.72rem', letterSpacing: '0.12em', fontWeight: 600 }}
+                style={{ color: C.onHeaderMuted, fontSize: '0.8125rem', letterSpacing: '0.12em', fontWeight: 600 }}
               >
                 Analytics
               </span>

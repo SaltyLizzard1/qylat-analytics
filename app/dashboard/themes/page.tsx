@@ -127,7 +127,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
             Views by tag
           </SectionHeading>
           <p className="text-sm px-4 py-3" style={{ ...CARD, color: C.text }}>
-            <span style={{ fontWeight: 700 }}>Not an age-matched comparison.</span>{' '}
+            <span style={{ fontWeight: 600 }}>Not an age-matched comparison.</span>{' '}
             <span style={{ color: C.muted }}>
               Each bar is the middle post&apos;s lifetime views as they stand today. A tag whose posts are older has
               had longer to collect views, so a longer bar does not show that a tag performs better. Open a bar to
@@ -200,7 +200,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
                 {pillarLabel(r.theme)}
               </dt>
               <dd className="text-sm tabular-nums" style={{ color: C.muted }}>
-                <span style={{ color: C.text, fontWeight: 800 }}>{full(r.clicks)}</span> click{r.clicks === 1 ? '' : 's'} on{' '}
+                <span style={{ color: C.text, fontWeight: 600 }}>{full(r.clicks)}</span> click{r.clicks === 1 ? '' : 's'} on{' '}
                 {full(r.links)} link{r.links === 1 ? '' : 's'}
               </dd>
             </div>
@@ -263,7 +263,7 @@ function NeedsTagging({
         <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
           <div>
             <p style={EYEBROW}>Need a tag · published {phrase}</p>
-            <p className="tabular-nums" style={{ ...TITLE, fontWeight: 800, fontSize: '2rem', lineHeight: 1.1 }}>
+            <p className="tabular-nums" style={{ ...TITLE, fontWeight: 600, fontSize: '2rem', lineHeight: 1.1 }}>
               {full(untagged)}{' '}
               <span className="text-sm" style={{ color: C.muted, fontWeight: 500, letterSpacing: 0 }}>
                 of {full(total)} post{total === 1 ? '' : 's'}
@@ -272,7 +272,7 @@ function NeedsTagging({
           </div>
           <div>
             <p style={EYEBROW}>Untagged backlog · all time</p>
-            <p className="tabular-nums" style={{ ...TITLE, fontWeight: 800, fontSize: '2rem', lineHeight: 1.1 }}>
+            <p className="tabular-nums" style={{ ...TITLE, fontWeight: 600, fontSize: '2rem', lineHeight: 1.1 }}>
               {full(backlog)}{' '}
               <span className="text-sm" style={{ color: C.muted, fontWeight: 500, letterSpacing: 0 }}>
                 {elsewhere > 0 ? `${full(elsewhere)} outside this window` : 'all in this window'}
@@ -284,7 +284,7 @@ function NeedsTagging({
           <Link
             href="/admin/posts"
             className="text-sm px-3.5 py-2"
-            style={{ background: C.ink, color: C.onInk, borderRadius: RADIUS.pill, fontWeight: 700, textDecoration: 'none' }}
+            style={{ background: C.ink, color: C.onInk, borderRadius: RADIUS.pill, fontWeight: 600, textDecoration: 'none' }}
           >
             Open the full backlog
           </Link>

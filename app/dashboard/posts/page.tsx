@@ -38,13 +38,13 @@ function shortCaption(p: DetailPost): string {
 function Figure({ label, value }: { label: string; value: number | null }) {
   return (
     <div>
-      <p style={{ ...EYEBROW, fontSize: '0.68rem' }}>{label}</p>
+      <p style={{ ...EYEBROW, fontSize: '0.8125rem' }}>{label}</p>
       <p
         className="tabular-nums"
         style={{
           color: value === null ? C.muted : C.text,
-          fontWeight: value === null ? 500 : 800,
-          fontSize: value === null ? '0.8rem' : '1.05rem',
+          fontWeight: value === null ? 500 : 600,
+          fontSize: value === null ? '0.875rem' : '1.05rem',
           letterSpacing: '-0.02em',
           lineHeight: 1.3,
         }}

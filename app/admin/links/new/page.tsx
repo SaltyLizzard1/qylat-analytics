@@ -221,7 +221,7 @@ function LinkForm({ onReset }: { onReset: () => void }) {
               placeholder={`auto: ${generateSlug(platform, format)}`}
               value={customSlug}
               onChange={(e) => setCustomSlug(e.target.value)}
-              style={{ ...FIELD, fontSize: '0.8rem', padding: '0.5rem 0.75rem' }}
+              style={{ ...FIELD, fontSize: '0.875rem', padding: '0.5rem 0.75rem' }}
             />
           </div>
         </div>

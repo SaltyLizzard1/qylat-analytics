@@ -157,7 +157,7 @@ export function BarList({
                 )}
                 <span
                   className="tabular-nums"
-                  style={{ fontWeight: 800, color: C.text, fontSize: '1.1rem', letterSpacing: '-0.02em' }}
+                  style={{ fontWeight: 600, color: C.text, fontSize: '1.1rem', letterSpacing: '-0.02em' }}
                 >
                   {compact(d.value)}
                 </span>
@@ -348,7 +348,7 @@ export function TrendChart({
                 y={y(p.value) - 11}
                 textAnchor={i === 0 ? 'start' : i === last ? 'end' : 'middle'}
                 fontSize="13"
-                fontWeight="700"
+                fontWeight="600"
                 fill={C.text}
               >
                 {say(p.value)}
@@ -557,7 +557,7 @@ export function PageHeader({
     <div>
       <h1
         className={meta?.length || lead ? 'mb-2' : ''}
-        style={{ ...TITLE, fontWeight: 800, fontSize: 'clamp(1.75rem, 5vw, 2.25rem)', lineHeight: 1.1 }}
+        style={{ ...TITLE, fontWeight: 600, fontSize: 'clamp(1.75rem, 5vw, 2.25rem)', lineHeight: 1.1 }}
       >
         {title}
       </h1>
@@ -572,7 +572,7 @@ export function PageHeader({
               <dt className="text-xs" style={{ color: C.muted }}>
                 {m.label}
               </dt>
-              <dd className="text-xs tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
+              <dd className="text-xs tabular-nums" style={{ color: C.text, fontWeight: 600 }}>
                 {m.value}
               </dd>
             </div>

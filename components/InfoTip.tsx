@@ -119,7 +119,7 @@ export function InfoTip({ text, about }: { text: string; about?: string }) {
               background: C.neutral,
               color: C.text,
               cursor: 'pointer',
-              fontSize: '0.85rem',
+              fontSize: '0.9375rem',
               lineHeight: 1,
             }}
           >
