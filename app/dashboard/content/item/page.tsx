@@ -20,10 +20,10 @@ export const dynamic = 'force-dynamic';
 function Figure({ label, value, missing }: { label: string; value: number | null; missing: string }) {
   return (
     <div>
-      <p style={{ ...EYEBROW, fontSize: '0.68rem' }}>{label}</p>
+      <p style={{ ...EYEBROW, fontSize: '0.8125rem' }}>{label}</p>
       <p
         className="tabular-nums"
-        style={{ color: value === null ? C.muted : C.text, fontWeight: value === null ? 500 : 800, fontSize: value === null ? '0.8rem' : '1.05rem', lineHeight: 1.3 }}
+        style={{ color: value === null ? C.muted : C.text, fontWeight: value === null ? 500 : 600, fontSize: value === null ? '0.875rem' : '1.05rem', lineHeight: 1.3 }}
       >
         {value === null ? missing : full(value)}
       </p>

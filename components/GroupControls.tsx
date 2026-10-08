@@ -7,7 +7,7 @@ import { C, RADIUS } from '@/lib/theme';
 
 const initial: GroupState = { status: 'idle' };
 
-const BUTTON = { borderRadius: RADIUS.pill, fontWeight: 700, cursor: 'pointer' } as const;
+const BUTTON = { borderRadius: RADIUS.pill, fontWeight: 500, cursor: 'pointer' } as const;
 
 /** Reads the page again once a change is saved, so the cards regroup and the totals follow. */
 function useRefreshOnDone(state: GroupState) {

@@ -44,16 +44,17 @@ export function DataRows<T>({
       <div style={{ minWidth: 'min-content' }}>
         {/* Header. Not a card, so the rows below read as the content. */}
         <div
-          className="grid gap-3 px-3 pb-2"
+          className="grid gap-3 px-3 pb-2 items-end"
           style={{ gridTemplateColumns: template, borderBottom: `1px solid ${C.border}` }}
         >
           {columns.map((c) => (
             <span
               key={c.key}
-              className="text-xs uppercase whitespace-nowrap"
+              // On the dashboard a header is 14px, sentence case, and wraps
+              // inside its column. See .table-head in globals.css.
+              className="text-xs uppercase whitespace-nowrap table-head"
               style={{
                 color: C.muted,
-                letterSpacing: '0.08em',
                 textAlign: c.align ?? 'left',
               }}
             >

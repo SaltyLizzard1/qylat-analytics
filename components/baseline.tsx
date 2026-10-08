@@ -46,7 +46,7 @@ export function BaselineNote({
       <BaselineChip b={b} />
       <span>
         {readingInWindow && <>The 0 recorded on {longDate(b.recorded_on)} is not drawn. </>}
-        <span style={{ color: C.text, fontWeight: 700 }}>
+        <span style={{ color: C.text, fontWeight: 600 }}>
           {change ? changeLabel(change) : 'Not enough recorded totals after it in this window to state a change'}
         </span>
         .

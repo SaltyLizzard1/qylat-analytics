@@ -114,7 +114,7 @@ export default async function LeaderboardPage({
               <HeadCell width="4.2rem" align="right">
                 Views
               </HeadCell>
-              <HeadCell width="5.2rem">Engagement</HeadCell>
+              <HeadCell width="5.8rem">Engagement</HeadCell>
             </div>
 
             <ol className="flex flex-col gap-2">
@@ -236,7 +236,7 @@ export default async function LeaderboardPage({
                     </p>
                   </div>
 
-                  <div className="flex-shrink-0" style={{ width: '5.2rem' }}>
+                  <div className="flex-shrink-0" style={{ width: '5.8rem' }}>
                     <StatusBadge status={status} compact empty={noBaseline} />
                     <p className="text-xs mt-0.5 tabular-nums" style={{ color: C.muted }}>
                       {pct(engagement, views)}
@@ -273,8 +273,8 @@ function HeadCell({
 }) {
   return (
     <span
-      className="text-xs uppercase flex-shrink-0 whitespace-nowrap"
-      style={{ color: C.muted, letterSpacing: '0.08em', width, textAlign: align }}
+      className="text-xs uppercase flex-shrink-0 whitespace-nowrap table-head"
+      style={{ color: C.muted, width, textAlign: align }}
     >
       {children}
     </span>

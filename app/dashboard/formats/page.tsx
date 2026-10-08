@@ -276,14 +276,14 @@ function Cell({
   return (
     <span className="min-w-0 sm:text-right">
       <span
-        className="block sm:hidden uppercase whitespace-nowrap"
-        style={{ color: C.muted, fontSize: '0.66rem', letterSpacing: '0.03em', fontWeight: 600 }}
+        className="block sm:hidden text-xs table-head"
+        style={{ color: C.muted }}
       >
         {label}
       </span>
       <span
         className="tabular-nums text-sm"
-        style={{ color: muted ? C.muted : C.text, fontWeight: strong ? 600 : 400, fontSize: muted ? '0.72rem' : undefined, borderRadius: RADIUS.sm }}
+        style={{ color: muted ? C.muted : C.text, fontWeight: strong ? 600 : 400, fontSize: muted ? '0.875rem' : undefined, borderRadius: RADIUS.sm }}
       >
         {children}
       </span>

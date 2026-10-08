@@ -278,7 +278,7 @@ export default async function DashboardPage({
         {profileShown && (
           <section className="p-4" style={CARD}>
             <PlatformChip platform="facebook-personal" />
-            <p className="text-sm mt-2" style={{ color: C.text, fontWeight: 700 }}>
+            <p className="text-sm mt-2" style={{ color: C.text, fontWeight: 600 }}>
               Not in this comparison
             </p>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: C.muted }}>
@@ -660,7 +660,7 @@ function AttentionRow({ item, href }: { item: AttentionItem; href: string }) {
       }}
     >
       <div className="flex items-start justify-between gap-3 mb-0.5">
-        <Link href={href} style={{ fontWeight: 700, color: C.text, textDecoration: 'none', fontSize: '0.95rem' }}>
+        <Link href={href} style={{ fontWeight: 600, color: C.text, textDecoration: 'none', fontSize: '0.95rem' }}>
           {item.title}
         </Link>
         <span className="flex items-center gap-1.5 flex-shrink-0">

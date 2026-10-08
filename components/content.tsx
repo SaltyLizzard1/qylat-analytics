@@ -96,7 +96,7 @@ export function TotalBlock({
       className="tabular-nums"
       style={{
         ...TITLE,
-        fontWeight: 800,
+        fontWeight: 600,
         fontSize: total.value === null ? '1.1rem' : size === 'large' ? '2rem' : '1.5rem',
         lineHeight: 1.1,
         color: total.value === null ? C.muted : C.text,
@@ -121,7 +121,7 @@ export function TotalBlock({
           className="inline-flex items-baseline gap-1.5"
         >
           {figure}
-          <span aria-hidden className="text-sm" style={{ color: C.muted, fontWeight: 700 }}>
+          <span aria-hidden className="text-sm" style={{ color: C.muted, fontWeight: 600 }}>
             →
           </span>
         </Link>
@@ -137,7 +137,7 @@ export function TotalBlock({
         {total.partial && (
           <span
             className="px-2 py-0.5"
-            style={{ background: C.ink, color: C.onInk, borderRadius: RADIUS.pill, fontWeight: 700 }}
+            style={{ background: C.ink, color: C.onInk, borderRadius: RADIUS.pill, fontWeight: 600 }}
             title={`No figure for ${names(total.missing)}, so the total is short of it`}
           >
             Partial
@@ -146,7 +146,7 @@ export function TotalBlock({
         {total.stale.length > 0 && (
           <span
             className="px-2 py-0.5"
-            style={{ background: C.neutral, color: C.text, borderRadius: RADIUS.pill, fontWeight: 700 }}
+            style={{ background: C.neutral, color: C.text, borderRadius: RADIUS.pill, fontWeight: 600 }}
             title={`${names(total.stale)} was read more than ${THRESHOLDS.staleReadHours} hours before the newest reading for this content`}
           >
             Stale reading: {names(total.stale)}
@@ -159,7 +159,7 @@ export function TotalBlock({
           <p key={c.id} className="flex flex-wrap items-center gap-1.5 text-xs mt-1" style={{ color: C.muted }}>
             <span>
               {platformLabel(c.platform)}:{' '}
-              <span className="tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
+              <span className="tabular-nums" style={{ color: C.text, fontWeight: 600 }}>
                 {c[metric] === null ? missingLabel(c) : full(c[metric] as number)}
               </span>
               {c[metric] === null ? '' : ` ${METRIC_NOUN[metric]}`}
@@ -214,7 +214,7 @@ export function AccountBars({ item, metric, detail = false }: { item: Item; metr
               </span>
               <span
                 className="tabular-nums"
-                style={{ color: v === null ? C.muted : C.text, fontWeight: v === null ? 500 : 800, fontSize: v === null ? '0.8rem' : '1rem', flexShrink: 0 }}
+                style={{ color: v === null ? C.muted : C.text, fontWeight: v === null ? 500 : 600, fontSize: v === null ? '0.875rem' : '1rem', flexShrink: 0 }}
               >
                 {v === null ? missingLabel(c) : full(v)}
               </span>

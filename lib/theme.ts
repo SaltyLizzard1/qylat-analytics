@@ -17,17 +17,27 @@ export const C = {
   /** Hairline for dividers and inputs. Not for outlining every card. */
   border: '#DADDEA',
   text: '#13152B',
-  muted: '#555A72',
+  /** Secondary text: a dark grey, 8.4 to 1 on a white card. */
+  muted: '#474C60',
   /** Insets, tracks and quiet chips. */
   neutral: '#E9EBF5',
-  /** The header, selected controls and primary buttons. */
-  ink: '#13152B',
-  /** A raised surface on ink: nav pills, header buttons. */
-  inkRaised: '#262A4A',
-  /** Text on ink. */
+  /**
+   * Selected controls, primary buttons and the summary card. A mid indigo,
+   * not near-black. Checked against the identity palette with the validator:
+   * 16.6 from Instagram's purple in normal vision, the closest hue, so a
+   * button is not mistaken for an account.
+   */
+  ink: '#34407A',
+  /** A raised surface on ink. */
+  inkRaised: '#465290',
+  /** Text on ink. 9.6 to 1. */
   onInk: '#FFFFFF',
-  /** Secondary text on ink. 7.6 to 1 on ink. */
-  onInkMuted: '#B9BDD8',
+  /** Secondary text on ink. 6.7 to 1 on ink. */
+  onInkMuted: '#D5D8EE',
+  /** The header: a pale periwinkle, a shade deeper than the page it frames. */
+  header: '#DDE1F3',
+  /** Secondary text on the header. 6.5 to 1. */
+  onHeaderMuted: '#454B66',
 } as const;
 
 /** Depth comes from this shadow and the tinted page, not from an outline. */
@@ -42,21 +52,21 @@ export const CARD = {
 } as const;
 
 export const HEADING = {
-  fontWeight: 700,
+  fontWeight: 600,
   color: C.text,
   letterSpacing: '-0.014em',
 } as const;
 
 /** Page title and figures. Tighter tracking at larger sizes stops them looking loose. */
 export const TITLE = {
-  fontWeight: 700,
+  fontWeight: 600,
   color: C.text,
   letterSpacing: '-0.024em',
 } as const;
 
 /** Small uppercase label over a figure or a chart. Never smaller than this. */
 export const EYEBROW = {
-  fontSize: '0.72rem',
+  fontSize: '0.8125rem',
   letterSpacing: '0.07em',
   textTransform: 'uppercase',
   fontWeight: 600,
@@ -363,8 +373,9 @@ export const FIGURE = {
     fontSize: 'clamp(2rem, 7vw, 3rem)',
     lineHeight: 1.02,
     letterSpacing: '-0.035em',
-    fontWeight: 700,
+    fontWeight: 600,
+    fontVariantNumeric: 'tabular-nums',
   },
-  standard: { fontSize: '1.9rem', lineHeight: 1.08, letterSpacing: '-0.026em', fontWeight: 700 },
-  inline: { fontSize: '1.0625rem', lineHeight: 1.2, letterSpacing: '-0.012em', fontWeight: 700 },
+  standard: { fontSize: '1.9rem', lineHeight: 1.08, letterSpacing: '-0.026em', fontWeight: 600 },
+  inline: { fontSize: '1.0625rem', lineHeight: 1.2, letterSpacing: '-0.012em', fontWeight: 600 },
 } as const;

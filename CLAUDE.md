@@ -19,8 +19,12 @@ Neutrals only, all in `C` in `lib/theme.ts`. Use the tokens, never the hex.
 
 - Page background: `C.page` `#F1F2F9`, a soft cool tint
 - Card and panel surface: `C.card` `#FFFFFF`, with `SHADOW` and no outline
-- Header, selected controls, primary buttons: `C.ink` `#13152B`, text `C.onInk`
-- Primary text: `C.text` `#13152B`. Secondary text: `C.muted` `#555A72`
+- Header: `C.header` `#DDE1F3`, a pale periwinkle, with `C.text` on it and
+  `C.onHeaderMuted` for quieter items. The selected tab is a white pill
+- Selected controls, primary buttons, the summary card: `C.ink` `#34407A`, a
+  mid indigo, text `C.onInk`. Not near-black. Checked with the validator: 16.6
+  from Instagram's purple, the closest identity hue
+- Primary text: `C.text` `#13152B`. Secondary text: `C.muted` `#474C60`
 - Insets, tracks, quiet chips: `C.neutral` `#E9EBF5`
 - Hairlines and inputs only: `C.border` `#DADDEA`
 
@@ -135,10 +139,26 @@ a text label. Worth fixing if the palette is ever revisited.
 
 ## Typography
 
-No Cormorant Garamond. No Google Fonts. `system-ui` everywhere.
-Page titles are weight 800, headings and figures 700, with the negative
-letter-spacing in `TITLE` and `FIGURE` from `lib/theme.ts`. Small uppercase
-labels use `EYEBROW` and are never smaller than 0.68rem.
+No Cormorant Garamond. No Google Fonts: nothing is fetched from Google, at
+build time or in the browser.
+
+The dashboard is set in Inter, from the two `woff2` files in `app/fonts`
+(SIL Open Font License, copied beside them), loaded with `next/font/local` in
+`app/dashboard/layout.tsx`. `system-ui` is the fallback while it loads, and is
+still the font of the admin screens and the login page.
+
+- The dashboard's type is scoped to `.dash` in `app/globals.css`. Inside it,
+  body and captions are 16px (`text-sm` and `text-base`), regular weight, line
+  height 1.5, and dates, chips, freshness labels, notes and table headers are
+  14px (`text-xs`): both steps are one larger than Tailwind's defaults.
+- Nothing meant to be read is under 14px. The exceptions are small uppercase
+  labels (`EYEBROW`, 13px), chart axis text, and glyphs in a fixed box.
+- Table headers use `.table-head`: on the dashboard, 14px sentence case that
+  wraps inside its column.
+- Weights: 400 for text, 500 for navigation, buttons and chips, 600 for
+  headings, totals and the selected tab. Nothing is 700 or heavier.
+- Figures use tabular numerals (`tabular-nums`, and every `dd`), so columns
+  of numbers line up.
 
 ## No em dashes
 
