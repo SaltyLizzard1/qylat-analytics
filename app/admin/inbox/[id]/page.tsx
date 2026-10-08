@@ -47,7 +47,7 @@ export default async function InboxThreadPage({ params }: { params: Promise<{ id
       </div>
 
       <div className="mb-6" style={{ ...CARD, padding: '16px 20px' }}>
-        <div className="text-sm" style={{ fontWeight: 600, color: STATUS_COLOR[t.status] }}>{STATUS_LABEL[t.status]}</div>
+        <div className="text-sm" style={{ fontWeight: 700, color: STATUS_COLOR[t.status] }}>{STATUS_LABEL[t.status]}</div>
         {t.status_reason && <p className="text-sm mt-1" style={{ color: '#111111' }}>{t.status_reason}</p>}
         <p className="text-xs mt-2" style={{ color: '#4B5563' }}>
           {t.category ? `Category: ${t.category.replace(/_/g, ' ')} · ` : ''}
@@ -56,7 +56,7 @@ export default async function InboxThreadPage({ params }: { params: Promise<{ id
         </p>
       </div>
 
-      <h2 className="text-sm mb-2" style={{ fontWeight: 600, color: '#111111' }}>Conversation and action history</h2>
+      <h2 className="text-sm mb-2" style={{ fontWeight: 700, color: '#111111' }}>Conversation and action history</h2>
       {events.length === 0 && <p className="text-sm" style={{ color: '#4B5563' }}>No history recorded.</p>}
       <ol className="space-y-3">
         {events.map((e) => (

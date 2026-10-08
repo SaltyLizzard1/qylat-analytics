@@ -62,7 +62,7 @@ const num = (key: string, label: string): Column<ProfilePost> => ({
   key,
   label,
   align: 'right',
-  width: '76px',
+  width: '92px',
   render: (p) => figure(p, key),
 });
 

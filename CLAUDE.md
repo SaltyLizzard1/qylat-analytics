@@ -139,18 +139,22 @@ a text label. Worth fixing if the palette is ever revisited.
 
 ## Typography
 
-Inter everywhere, loaded with `next/font` in `app/layout.tsx`: Next downloads
-it at build time and serves it from this site, so the browser makes no request
-to Google. `system-ui` is only the fallback while it loads. No Cormorant
-Garamond, and no font loaded from a Google stylesheet.
+No Cormorant Garamond. No Google Fonts: nothing is fetched from Google, at
+build time or in the browser.
 
-- Body and captions are 16px (`text-sm` and `text-base`), regular weight,
-  line height 1.5. Dates, chips, freshness labels and notes are 14px
-  (`text-xs`). The scale is set in `@theme` in `app/globals.css`: `text-xs`
-  and `text-sm` are deliberately one step larger than Tailwind's defaults.
+The dashboard is set in Inter, from the two `woff2` files in `app/fonts`
+(SIL Open Font License, copied beside them), loaded with `next/font/local` in
+`app/dashboard/layout.tsx`. `system-ui` is the fallback while it loads, and is
+still the font of the admin screens and the login page.
+
+- The dashboard's type is scoped to `.dash` in `app/globals.css`. Inside it,
+  body and captions are 16px (`text-sm` and `text-base`), regular weight, line
+  height 1.5, and dates, chips, freshness labels, notes and table headers are
+  14px (`text-xs`): both steps are one larger than Tailwind's defaults.
 - Nothing meant to be read is under 14px. The exceptions are small uppercase
-  labels (`EYEBROW`, 13px), table column headers (12px, because they sit over
-  fixed-width figure columns), and glyphs in a fixed box.
+  labels (`EYEBROW`, 13px), chart axis text, and glyphs in a fixed box.
+- Table headers use `.table-head`: on the dashboard, 14px sentence case that
+  wraps inside its column.
 - Weights: 400 for text, 500 for navigation, buttons and chips, 600 for
   headings, totals and the selected tab. Nothing is 700 or heavier.
 - Figures use tabular numerals (`tabular-nums`, and every `dd`), so columns

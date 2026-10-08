@@ -14,42 +14,61 @@
   box-sizing: border-box;
 }
 
+/* The same values as C.page and C.text in lib/theme.ts. */
+body {
+  background-color: #F1F2F9;
+  color: #13152B;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
 /*
-  Type scale. Inter everywhere, with the system font as the fallback while it
-  loads. The two small steps are raised so nothing meant to be read sits under
-  14px: `text-xs` is 14px for dates, chips, freshness labels and notes, and
-  `text-sm` is 16px for body and captions.
+  The dashboard's type, scoped to it with .dash on its layout so the admin
+  screens are left as they were. Inter comes from the files in app/fonts, with
+  the system font as the fallback while it loads. The two small steps are
+  raised so nothing meant to be read sits under 14px: `text-xs` is 14px for
+  dates, chips, freshness labels, notes and table headers, and `text-sm` is
+  16px for body and captions.
 */
-@theme {
-  --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+.dash {
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   --text-xs: 0.875rem;
   --text-xs--line-height: 1.45;
   --text-sm: 1rem;
   --text-sm--line-height: 1.5;
 }
 
-/* The same values as C.page and C.text in lib/theme.ts. */
-body {
-  background-color: #F1F2F9;
-  color: #13152B;
-  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Controls inherit the page font instead of the browser's own. */
-button,
-input,
-select,
-textarea {
+/* Controls inherit the dashboard font instead of the browser's own. */
+.dash button,
+.dash input,
+.dash select,
+.dash textarea {
   font-family: inherit;
 }
 
 /* Figures line up in columns: every digit takes the same width. */
-.tabular-nums,
-dd {
+.dash .tabular-nums,
+.dash dd {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+  Table column headers. Outside the dashboard they keep their small uppercase
+  form. On the dashboard they are 14px like other labels, in sentence case,
+  and wrap inside their column instead of running over the next one.
+*/
+.table-head {
+  letter-spacing: 0.08em;
+}
+.dash .table-head {
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: normal;
+  line-height: 1.25;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 /* Every link and control shows where the keyboard is. */

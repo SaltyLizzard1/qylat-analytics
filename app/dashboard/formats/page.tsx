@@ -276,8 +276,8 @@ function Cell({
   return (
     <span className="min-w-0 sm:text-right">
       <span
-        className="block sm:hidden uppercase whitespace-nowrap"
-        style={{ color: C.muted, fontSize: '0.75rem', letterSpacing: '0.03em', fontWeight: 600 }}
+        className="block sm:hidden text-xs table-head"
+        style={{ color: C.muted }}
       >
         {label}
       </span>

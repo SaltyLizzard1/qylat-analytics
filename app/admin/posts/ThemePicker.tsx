@@ -13,7 +13,7 @@ const FIELD = {
   color: C.text,
   borderRadius: RADIUS.sm,
   padding: '0.4rem 0.6rem',
-  fontSize: '0.875rem',
+  fontSize: '0.8rem',
   outline: 'none',
 } as const;
 

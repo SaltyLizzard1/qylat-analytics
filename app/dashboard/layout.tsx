@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import localFont from 'next/font/local';
 import { logout } from '@/app/login/actions';
 import { DashboardNav } from '@/components/DashboardNav';
 import { C, RADIUS } from '@/lib/theme';
@@ -28,9 +29,24 @@ const HEADER_BUTTON = {
   fontWeight: 500,
 } as const;
 
+/**
+ * Inter, from the two files in app/fonts. Nothing is fetched from Google,
+ * at build time or in the browser: next/font/local only reads the files
+ * here. `swap` shows the system font until it arrives. Scoped to the
+ * dashboard, so the admin screens keep the system font they had.
+ */
+const inter = localFont({
+  src: [
+    { path: '../fonts/inter-latin-wght-normal.woff2', weight: '100 900', style: 'normal' },
+    { path: '../fonts/inter-latin-ext-wght-normal.woff2', weight: '100 900', style: 'normal' },
+  ],
+  display: 'swap',
+  variable: '--font-inter',
+});
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', background: C.page }}>
+    <div className={`${inter.variable} dash`} style={{ minHeight: '100vh', background: C.page }}>
       {/* A pale periwinkle with dark text: the frame, a shade deeper than the page. */}
       <header className="sticky top-0 z-20" style={{ background: C.header, boxShadow: '0 1px 0 rgba(19, 21, 43, 0.08)' }}>
         <div className="max-w-6xl mx-auto">
