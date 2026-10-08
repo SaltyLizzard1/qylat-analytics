@@ -23,7 +23,7 @@ import {
   type FacebookPost,
 } from '@/lib/meta';
 import { autoLinkAfterIngestion } from '@/lib/autolink';
-import { withinBudget } from '@/lib/budget';
+import { buildQueue, queueKey, runQueue, type DuePost } from '@/lib/refresh-queue';
 import { hasGroupTables } from '@/lib/combined';
 import { THRESHOLDS } from '@/lib/status';
 
@@ -390,12 +390,20 @@ const MATCHING_UNTIL_MS = 50_000;
  * posts published within THRESHOLDS.linkedRefreshDays that fall outside the
  * window, least recently read first.
  *
+ * The posts are read as one queue across both accounts, strictly least
+ * recently read first (lib/refresh-queue.ts). Meta's own order, newest
+ * first, plays no part. The first version followed it, one account after
+ * the other, and on 8 Oct 2026 re-read the same four newest Page posts on
+ * two runs while six older ones, read last in September, were never
+ * reached before the clock ran out.
+ *
  * Two limits, and neither is a promise that the work fits. At most
  * THRESHOLDS.linkedRefreshMax posts per account are attempted. And every
- * post is started only if the deadline has not passed: the list call and
+ * post is started only if the deadline has not passed: each list call and
  * each post's insights are checked against the clock one at a time, so a
  * slow day stops the refresh instead of the request. Whatever was not
- * reached is returned as `stale` and is first in line next run.
+ * reached keeps its old read time, is returned as `stale`, and is at the
+ * front of the queue next run.
  *
  * Each post's metrics are written as that post is read, by the same code
  * the normal sync uses, so nothing read is lost if a later post fails or
@@ -422,43 +430,51 @@ async function refreshLinked(cfg: MetaConfig, since: Date, deadline: number, fb:
   });
   if (Date.now() >= deadline) return { skipped: 'the sync used the time available', stale: due.map(asStale) };
 
+  // One queue across both accounts, least recently read first. The cap is
+  // applied in that order, so it only ever drops an account's freshest posts.
+  const toDue = (d: Record<string, unknown>): DuePost => ({
+    platform: d.platform as string,
+    id: d.platform_post_id as string,
+    readAt: d.read_at ? new Date(d.read_at as string).toISOString() : null,
+  });
+  const published = new Map(due.map((d) => [queueKey(toDue(d)), new Date(d.published_at as string).getTime()]));
+  const { queue, overCap } = buildQueue(due.map(toDue), THRESHOLDS.linkedRefreshMax);
+  const staleOf = (x: DuePost): StalePost => ({ platform: x.platform, post: x.id, lastRead: x.readAt });
+
+  // What Meta returns for each account, keyed by id. Its order is not used:
+  // only the queue decides what is read next. A list call that fails, or
+  // that the clock leaves no time for, costs that account's posts this run
+  // and nothing else.
   const errors: { object: string; reason: string }[] = [];
-  const stale: StalePost[] = [];
-  let refreshed = 0;
-  let stoppedForTime = false;
+  const found = new Map<string, InstagramMedia | FacebookPost>();
   for (const platform of ['instagram', 'facebook'] as const) {
-    const mine = due.filter((d) => d.platform === platform);
-    const attempt = mine.slice(0, THRESHOLDS.linkedRefreshMax);
-    stale.push(...mine.slice(THRESHOLDS.linkedRefreshMax).map(asStale));
-    if (attempt.length === 0) continue;
-    if (Date.now() >= deadline) {
-      stoppedForTime = true;
-      stale.push(...attempt.map(asStale));
-      continue;
-    }
-    const byPost = new Map(attempt.map((d) => [d.platform_post_id as string, d]));
-    const from = new Date(Math.min(...attempt.map((d) => new Date(d.published_at as string).getTime())) - 60_000);
+    const mine = queue.filter((x) => x.platform === platform);
+    if (mine.length === 0 || Date.now() >= deadline) continue;
+    const from = new Date(Math.min(...mine.map((x) => published.get(queueKey(x)) as number)) - 60_000);
     try {
-      // One list call over the longer window, then one post at a time.
-      const found: (InstagramMedia | FacebookPost)[] =
-        platform === 'instagram'
-          ? (await fetchInstagramMedia(cfg, from)).filter((m) => byPost.has(m.id))
-          : (await fetchFacebookPosts(cfg, from)).filter((x) => byPost.has(x.id));
-      const result = await withinBudget(found, deadline, async (item) => {
-        if (platform === 'instagram') await syncInstagramItem(cfg, item as InstagramMedia, ig);
-        else await syncFacebookPost(cfg, item as FacebookPost, fb);
-      });
-      refreshed += result.done.length;
-      stoppedForTime = stoppedForTime || result.stoppedForTime;
-      const reached = new Set(result.done.map((x) => x.id));
-      stale.push(...attempt.filter((d) => !reached.has(d.platform_post_id as string)).map(asStale));
-      for (const f of result.failed) errors.push({ object: f.item.id, reason: f.reason });
+      const list: (InstagramMedia | FacebookPost)[] =
+        platform === 'instagram' ? await fetchInstagramMedia(cfg, from) : await fetchFacebookPosts(cfg, from);
+      for (const item of list) found.set(queueKey({ platform, id: item.id }), item);
     } catch (e) {
-      errors.push({ object: `linked ${platform}`, reason: errText(e) });
-      stale.push(...attempt.map(asStale));
+      errors.push({ object: `linked ${platform} list`, reason: errText(e) });
     }
   }
-  return { refreshed, stoppedForTime, stale, errors };
+
+  // Each post is written as it is read, by the code the normal sync uses.
+  // That code records its own failure and does not throw, so a post that
+  // stored nothing is turned into an error here for the queue to report.
+  const result = await runQueue(queue, found, deadline, async (post, object) => {
+    const report = post.platform === 'instagram' ? ig : fb;
+    const before = report.metricsWritten;
+    if (post.platform === 'instagram') await syncInstagramItem(cfg, object as InstagramMedia, report);
+    else await syncFacebookPost(cfg, object as FacebookPost, report);
+    if (report.metricsWritten === before) {
+      throw new Error(report.errors[report.errors.length - 1]?.reason ?? 'No reading was stored');
+    }
+  });
+  for (const f of result.failed) errors.push({ object: `${f.post.platform} ${f.post.id}`, reason: f.reason });
+  const stale = [...result.failed.map((f) => f.post), ...result.notReached, ...overCap].map(staleOf);
+  return { refreshed: result.refreshed.length, stoppedForTime: result.stoppedForTime, stale, errors };
 }
 
 export async function GET(request: NextRequest) {
