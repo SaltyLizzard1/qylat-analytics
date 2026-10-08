@@ -16,7 +16,7 @@ import { PeriodPicker } from '@/components/PeriodPicker';
 import { PlatformFilter } from '@/components/PlatformFilter';
 import { getAttentionItems, type AttentionItem } from '@/lib/attention';
 import {
-  SOCIAL_PLATFORMS,
+  getActivePlatforms,
   getDetailPosts,
   getFollowerSeries,
   getFreshness,
@@ -92,6 +92,8 @@ const TOP_INFO: Record<SocialPlatform, string> = {
     'The Facebook Page posts published in this window with the most views to date, from Meta’s API. An older post has had longer to collect views. Bars compare posts inside this account only.',
   'facebook-personal':
     'The Facebook Profile posts published in this window with the most views, as read from Facebook’s Content Library at the last collection. Whether that figure is a lifetime total is not confirmed. Bars compare posts inside this account only.',
+  youtube:
+    'The YouTube videos published in this window with the most views to date, from the YouTube Data API. A view of a Short is counted when it starts to play, with no minimum watch time. An older video has had longer to collect views. Bars compare videos inside this account only.',
 };
 
 export default async function DashboardPage({
@@ -112,7 +114,11 @@ export default async function DashboardPage({
   }
 
   const period = parsePeriod(sp);
-  const shown: SocialPlatform[] = platform === 'all' ? [...SOCIAL_PLATFORMS] : [platform];
+  // YouTube joins once it has data. Until then the page is the three accounts it has always shown.
+  const active = await getActivePlatforms();
+  const shown: SocialPlatform[] = platform === 'all' ? [...active] : [platform];
+  // Three accounts sit three across. Four sit two by two, then four across on a wide screen.
+  const across = shown.length === 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'lg:grid-cols-3';
   const single = shown.length === 1;
   const age = THRESHOLDS.formatAgeHours;
 
@@ -176,6 +182,7 @@ export default async function DashboardPage({
 
   const apiShown = shown.filter((p) => p !== 'facebook-personal');
   const accountNames = apiShown.map((p) => (p === 'facebook' ? 'the Facebook Page' : platformLabel(p)));
+  const listed = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' });
 
   /*
    * The summary. Facts only, each one already on the page below: how many
@@ -186,7 +193,7 @@ export default async function DashboardPage({
    */
   const sentences: string[] = [];
   if (apiShown.length > 0 && comparing) {
-    const names = accountNames.join(' and ');
+    const names = listed.format(accountNames);
     sentences.push(
       `${names.charAt(0).toUpperCase()}${names.slice(1)} published ${full(apiPosts)} post${apiPosts === 1 ? '' : 's'} ${periodPhrase(
         period
@@ -224,6 +231,7 @@ export default async function DashboardPage({
         meta={[
           { label: 'Instagram and Page synced', value: fresh.meta ? shortDateTime(fresh.meta) : 'never' },
           { label: 'Profile collected', value: fresh.profile ? shortDateTime(fresh.profile) : 'never' },
+          ...(active.includes('youtube') ? [{ label: 'YouTube read', value: fresh.youtube ? shortDateTime(fresh.youtube) : 'never' }] : []),
           { label: 'Website synced', value: website.gaLastSynced ? shortDateTime(website.gaLastSynced) : 'never' },
         ]}
       />
@@ -231,7 +239,7 @@ export default async function DashboardPage({
       {/* Filters first: everything below answers to them. */}
       <FilterBar>
         <PeriodPicker period={period} bare />
-        <PlatformFilter current={platform} />
+        <PlatformFilter current={platform} platforms={active} />
       </FilterBar>
 
       <Takeaway
@@ -247,7 +255,7 @@ export default async function DashboardPage({
       <SectionHeading note={`Views to date · ${published} · each account on its own scale`}>
         What worked: top posts
       </SectionHeading>
-      <div className={`grid grid-cols-1 ${single ? '' : 'lg:grid-cols-3'} gap-3`}>
+      <div className={`grid grid-cols-1 ${single ? '' : across} gap-3`}>
         {shown.map((p) => (
           <TopPosts
             key={p}
@@ -263,7 +271,7 @@ export default async function DashboardPage({
       <SectionHeading note={`Median views ${age} hours after publishing · ${published} · each account on its own scale`}>
         What worked: formats at the same age
       </SectionHeading>
-      <div className={`grid grid-cols-1 ${single ? '' : 'lg:grid-cols-3'} gap-3`}>
+      <div className={`grid grid-cols-1 ${single ? '' : across} gap-3`}>
         {apiShown.map((p) => (
           <FormatBars
             key={p}
@@ -541,7 +549,9 @@ export default async function DashboardPage({
             stories are on the Profile page.
           </li>
           <li>
-            <span style={{ color: C.text, fontWeight: 600 }}>TikTok and YouTube</span> have no integration. Their
+            <span style={{ color: C.text, fontWeight: 600 }}>YouTube</span> appears here once its first import
+            has run. It reports public counts only: views, likes, comments and subscribers. Watch time and
+            retention are not collected. <span style={{ color: C.text, fontWeight: 600 }}>TikTok</span> has no integration. Its
             links are tracked on the{' '}
             <Link href={link('/dashboard/funnel')} style={{ color: C.text, textDecoration: 'underline' }}>
               funnel
@@ -587,7 +597,7 @@ function WeekCharts({
   // filter the Overview had, so the way back returns to the same view.
   const origin = shown.length > 1 ? 'all' : undefined;
   return (
-    <div className={`grid grid-cols-1 ${shown.length > 1 ? 'md:grid-cols-3' : ''} gap-3`}>
+    <div className={`grid grid-cols-1 ${shown.length === 4 ? 'md:grid-cols-2 xl:grid-cols-4' : shown.length > 1 ? 'md:grid-cols-3' : ''} gap-3`}>
       {shown.map((p) => {
         const columns = weeks.map((week) => {
           const row = cell(p, week);

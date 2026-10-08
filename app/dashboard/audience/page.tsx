@@ -24,7 +24,7 @@ import {
 } from '@/components/charts';
 import { C, full, platformColor, platformLabel, shortDate } from '@/lib/theme';
 import { BackLink } from '@/components/overview';
-import { parsePlatform, withFilters } from '@/lib/overview';
+import { getActivePlatforms, parsePlatform, withFilters } from '@/lib/overview';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +46,12 @@ function sourceLabel(source: unknown): string {
  * Facebook Page is inspected the same way Instagram is rather than showing a
  * single current number with no history behind it.
  */
+const YOUTUBE = {
+  platform: 'youtube',
+  name: 'YouTube',
+  gainsNote: 'YouTube reports a subscriber total and no daily gains through this API, so there is nothing to draw here. The total above is rounded by YouTube to three figures once it passes 1,000.',
+} as const;
+
 const TRACKED = [
   { platform: 'instagram', name: 'Instagram', gainsNote: 'Daily gains reported by Instagram, grouped by week. Backfilled 30 days on first sync, which is as far back as the API goes.' },
   { platform: 'facebook', name: 'Facebook Page', gainsNote: 'Daily follows reported by the Page, grouped by week. Backfilled 30 days on first sync.' },
@@ -58,10 +64,12 @@ export default async function AudiencePage({
 }) {
   const sp = await searchParams;
   const period = parsePeriod(sp);
+  // YouTube gets its pair of charts once a subscriber total or a video is stored.
+  const tracked = (await getActivePlatforms()).includes('youtube') ? [...TRACKED, YOUTUBE] : [...TRACKED];
   const [latest, signal, ...series] = await Promise.all([
     getLatestAudience(),
     getFollowerSignalStrength(),
-    ...TRACKED.flatMap((t) => [
+    ...tracked.flatMap((t) => [
       getFollowerTotals(t.platform, period),
       getWeeklyFollowerGains(t.platform, period),
       getUncertainBaseline(t.platform),
@@ -116,7 +124,7 @@ export default async function AudiencePage({
         </div>
       )}
 
-      {TRACKED.map((t, i) => {
+      {tracked.map((t, i) => {
         const stored = series[i * 3] as Total[];
         const gains = series[i * 3 + 1] as Record<string, unknown>[];
         // The shared rule: an uncertain opening total is named and not drawn,

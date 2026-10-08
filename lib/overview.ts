@@ -35,7 +35,21 @@ import { DASHBOARD_TZ, applyPeriod, windowExpr, windowDateExpr, type Period, typ
  *     these are totals to date for posts of different ages.
  */
 
-export const SOCIAL_PLATFORMS = ['instagram', 'facebook', 'facebook-personal'] as const;
+export const SOCIAL_PLATFORMS = ['instagram', 'facebook', 'facebook-personal', 'youtube'] as const;
+
+/**
+ * The accounts that have anything stored: a post or a follower total. An
+ * account with nothing is left off the pages instead of being drawn as a row
+ * of empty charts, so YouTube appears the day its first import lands and not
+ * before. Instagram, the Page and the Profile are always shown.
+ */
+export async function getActivePlatforms(): Promise<SocialPlatform[]> {
+  const rows = await sql`
+    SELECT platform FROM posts WHERE platform = 'youtube'
+    UNION SELECT platform FROM audience_snapshots WHERE platform = 'youtube' AND followers IS NOT NULL`;
+  const youtube = rows.length > 0;
+  return SOCIAL_PLATFORMS.filter((p) => p !== 'youtube' || youtube);
+}
 export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
 export type PlatformFilter = SocialPlatform | 'all';
 
@@ -395,12 +409,13 @@ export async function getWebsiteTraffic(period: Period): Promise<WebsiteTraffic>
 }
 
 /** When each source was last read, for the freshness line. */
-export async function getFreshness(): Promise<{ meta: string | null; profile: string | null }> {
+export async function getFreshness(): Promise<{ meta: string | null; profile: string | null; youtube: string | null }> {
   const meta = await sql`SELECT MAX(last_synced_at) AS at FROM posts WHERE platform IN ('instagram', 'facebook')`;
   let profile: string | null = null;
   if (await hasProfileTables()) {
     const rows = await sql`SELECT MAX(collected_at) AS at FROM profile_collections`;
     profile = (rows[0]?.at as string) ?? null;
   }
-  return { meta: (meta[0]?.at as string) ?? null, profile };
+  const youtube = await sql`SELECT MAX(last_synced_at) AS at FROM posts WHERE platform = 'youtube'`;
+  return { meta: (meta[0]?.at as string) ?? null, profile, youtube: (youtube[0]?.at as string) ?? null };
 }

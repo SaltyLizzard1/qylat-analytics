@@ -109,7 +109,7 @@ export default async function ContentItemPage({
       </section>
 
       <ul className="flex flex-col gap-3">
-        {SOCIAL_PLATFORMS.map((p) => {
+        {item.accounts.map((p) => {
           const c = item.copies.find((x) => x.platform === p);
           return c ? (
             <CopyCard key={p} c={c} canUnlink={linking && grouped} stale={isStale(item, c)} />
@@ -124,7 +124,7 @@ export default async function ContentItemPage({
         })}
       </ul>
 
-      {linking && options.length > 0 && present.size < SOCIAL_PLATFORMS.length && (
+      {linking && options.length > 0 && present.size < item.accounts.length && (
         <>
           <SectionHeading note="For a copy published on another day, or one nothing suggested">Link a copy by hand</SectionHeading>
           <section className="p-4" style={CARD}>

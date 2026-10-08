@@ -21,9 +21,12 @@ const CHOICES = [
   { value: 'instagram', label: 'Instagram' },
   { value: 'facebook', label: 'Facebook Page' },
   { value: 'facebook-personal', label: 'Facebook Profile' },
+  { value: 'youtube', label: 'YouTube' },
 ] as const;
 
-export function PlatformFilter({ current }: { current: string }) {
+/** `platforms` names the accounts to offer. Without it, the three that always have data. */
+export function PlatformFilter({ current, platforms }: { current: string; platforms?: readonly string[] }) {
+  const offered = CHOICES.filter((c) => c.value === 'all' || (platforms ? platforms.includes(c.value) : c.value !== 'youtube'));
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -44,7 +47,7 @@ export function PlatformFilter({ current }: { current: string }) {
         aria-label="Account"
         style={{ background: C.neutral, borderRadius: RADIUS.md }}
       >
-        {CHOICES.map((c) => {
+        {offered.map((c) => {
           const active = current === c.value;
           return (
             <Link

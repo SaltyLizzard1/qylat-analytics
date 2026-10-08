@@ -86,7 +86,7 @@ export function AudienceStrip({
 }) {
   return (
     <section style={CARD} className="overflow-hidden" aria-label="Followers by account">
-      <div className={`grid grid-cols-1 ${accounts.length > 1 ? 'md:grid-cols-3' : ''}`}>
+      <div className={`grid grid-cols-1 ${accounts.length === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : accounts.length > 1 ? 'md:grid-cols-3' : ''}`}>
         {accounts.map((a, i) => {
           const color = platformColor(a.platform);
           const first = a.points[0];

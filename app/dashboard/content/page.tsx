@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { parsePeriod, periodPhrase, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { PlatformFilter } from '@/components/PlatformFilter';
-import { parsePlatform, withFilters } from '@/lib/overview';
+import { getActivePlatforms, parsePlatform, withFilters } from '@/lib/overview';
 import { getCombined, totalOf, type Item } from '@/lib/combined';
 import { describeEvidence } from '@/lib/automatch';
 import { PageHeader, SectionHeading, Disclosure } from '@/components/charts';
@@ -38,6 +38,7 @@ export default async function ContentPage({
   const period = parsePeriod(sp);
   const platform = parsePlatform(sp.platform);
   const { linking, items, suggestions } = await getCombined(period, platform);
+  const active = await getActivePlatforms();
 
   const groups = items.filter((i) => i.groupId !== null);
   const singles = items.filter((i) => i.groupId === null);
@@ -56,7 +57,7 @@ export default async function ContentPage({
 
       <FilterBar>
         <PeriodPicker period={period} bare />
-        <PlatformFilter current={platform} />
+        <PlatformFilter current={platform} platforms={active} />
       </FilterBar>
 
       {!linking && (

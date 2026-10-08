@@ -1,7 +1,7 @@
 import { parsePeriod, withPeriod, type PeriodParams } from '@/lib/period';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { PlatformFilter } from '@/components/PlatformFilter';
-import { getDetailPosts, parsePlatform, parseWeek, withFilters, type DetailPost } from '@/lib/overview';
+import { getActivePlatforms, getDetailPosts, parsePlatform, parseWeek, withFilters, type DetailPost } from '@/lib/overview';
 import { parseTheme } from '@/lib/themes';
 import { pillarLabel } from '@/lib/pillars';
 import { PageHeader, Disclosure, Empty } from '@/components/charts';
@@ -210,7 +210,7 @@ export default async function PostsDetailPage({
 
       <FilterBar>
         <PeriodPicker period={period} bare />
-        <PlatformFilter current={platform} />
+        <PlatformFilter current={platform} platforms={await getActivePlatforms()} />
       </FilterBar>
 
       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: C.muted }}>

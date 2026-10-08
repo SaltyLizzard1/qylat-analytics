@@ -63,6 +63,17 @@ import { THRESHOLDS } from '@/lib/status';
  *   kind. Different definitions, so they are shown per account under their
  *   own names and never added.
  *
+ *   YouTube. A video's viewCount from the YouTube Data API is its running
+ *   total, so it is added like Instagram's and the Page's. For a Short a
+ *   view is counted when it starts to play, with no minimum watch time,
+ *   which makes it a count of plays like the others and never a count of
+ *   people. Its comments are added. It reports no shares, which leaves that
+ *   total partial and says so. A YouTube video is never linked
+ *   automatically: its title is not a caption, and the matcher in
+ *   lib/automatch.ts only reads Instagram, the Page and the Profile. It is
+ *   suggested when its title opens the other post's caption, or when the two
+ *   went out within ten minutes of each other, and linked only by a click.
+ *
  *   Engagement, reach, viewers. Not combined at all. Each account defines
  *   engagement differently and unique people cannot be added.
  *
@@ -106,7 +117,7 @@ export type Copy = {
 };
 
 export function reactionsLabel(platform: string): string {
-  return platform === 'instagram' ? 'Likes' : 'Reactions';
+  return platform === 'instagram' || platform === 'youtube' ? 'Likes' : 'Reactions';
 }
 
 /** A timestamptz as an ISO string in UTC, so it sorts as text and parses anywhere. */
@@ -203,7 +214,18 @@ export type Item = {
   first_published: string;
   /** Whether the matcher linked every copy, some of them, or none. */
   auto: 'all' | 'some' | 'none';
+  /**
+   * The accounts a copy could be on: the three that always have data, and
+   * YouTube once any video is stored. An account outside this list is not
+   * reported as "No copy linked", since there is nothing there to link.
+   */
+  accounts: SocialPlatform[];
 };
+
+function accountsWith(all: Copy[]): SocialPlatform[] {
+  const youtube = all.some((c) => c.platform === 'youtube');
+  return SOCIAL_PLATFORMS.filter((p) => p !== 'youtube' || youtube);
+}
 
 function autoOf(copies: Copy[]): Item['auto'] {
   const n = copies.filter((c) => c.linked_by === 'auto').length;
@@ -251,6 +273,18 @@ function apart(ms: number): string {
 function suggest(a: Copy, b: Copy): string | null {
   if (a.platform === b.platform) return null;
   const gap = Math.abs(new Date(a.published_at).getTime() - new Date(b.published_at).getTime());
+  if (a.platform === 'youtube' || b.platform === 'youtube') {
+    // A title is not a caption. Two hints are offered, both for Liz to judge:
+    // the title is how the other post's caption begins, or the two were
+    // published within ten minutes of each other.
+    const [video, other] = a.platform === 'youtube' ? [a, b] : [b, a];
+    const title = normalise((video.caption ?? '').split('\n')[0]);
+    if (title.length >= 15 && normalise(other.caption).startsWith(title) && gap <= 3 * DAY) {
+      return `The YouTube title opens the ${other.platform === 'instagram' ? 'Instagram' : 'Facebook'} caption, published ${apart(gap)} apart`;
+    }
+    if (gap <= 10 * 60_000) return `Published ${apart(gap)} apart. The YouTube title and the caption differ`;
+    return null;
+  }
   const ca = normalise(a.caption);
   const cb = normalise(b.caption);
   if (ca.length >= 20 && cb.length >= 20) {
@@ -294,13 +328,14 @@ export async function getCombined(period: TimeWindow, platform: PlatformFilter):
   for (const [postId, groupId] of groupOf) groups.set(groupId, [...(groups.get(groupId) ?? []), byId.get(postId) as Copy]);
 
   const items: Item[] = [];
+  const accounts = accountsWith(all);
   const order = (copies: Copy[]) => [...copies].sort((x, y) => x.published_at.localeCompare(y.published_at));
   for (const [groupId, copies] of groups) {
     const sorted = order(copies);
-    items.push({ key: sorted[0].id, groupId, copies: sorted, first_published: sorted[0].published_at, auto: autoOf(sorted) });
+    items.push({ key: sorted[0].id, groupId, copies: sorted, first_published: sorted[0].published_at, auto: autoOf(sorted), accounts });
   }
   for (const c of all) {
-    if (!groupOf.has(c.id)) items.push({ key: c.id, groupId: null, copies: [c], first_published: c.published_at, auto: 'none' });
+    if (!groupOf.has(c.id)) items.push({ key: c.id, groupId: null, copies: [c], first_published: c.published_at, auto: 'none', accounts });
   }
 
   const shown = items
@@ -358,7 +393,7 @@ export async function getItemForPost(postId: number): Promise<{ linking: boolean
     }
   }
   copies.sort((x, y) => x.published_at.localeCompare(y.published_at));
-  return { linking, item: { key: copies[0].id, groupId, copies, first_published: copies[0].published_at, auto: autoOf(copies) }, all };
+  return { linking, item: { key: copies[0].id, groupId, copies, first_published: copies[0].published_at, auto: autoOf(copies), accounts: accountsWith(all) }, all };
 }
 
 export type Metric = 'views' | 'comments' | 'shares';
@@ -420,7 +455,7 @@ export function totalOf(item: Item, metric: Metric): Total {
     included: ordered(included),
     missing: ordered(missing),
     apart: ordered(apartFrom),
-    absent: SOCIAL_PLATFORMS.filter((p) => !present.has(p)),
+    absent: item.accounts.filter((p) => !present.has(p)),
     partial: missing.length > 0,
     readFrom: reads[0] ?? null,
     readTo: reads[reads.length - 1] ?? null,

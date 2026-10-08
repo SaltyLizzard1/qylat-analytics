@@ -160,8 +160,12 @@ export const PLATFORM_LABEL: Record<string, string> = {
  *   floor, so the two could be confused on the same screen.
  *   TikTok uses a darkened teal, not its brand cyan #69C9D0, which failed the
  *   lightness band and the chroma floor and read as grey on white.
- *   YouTube gets no hue. Its brand red would collide with status red, and
- *   there is no YouTube data to plot.
+ *   YouTube uses the palette's orange, not its brand red #FF0000, which
+ *   collides with status red. Orange was run through the validator beside
+ *   the other three account hues on 8 Oct 2026 and passes every check: the
+ *   closest pair on the set is still teal and blue at 17.2. Orange is also a
+ *   format hue, which is allowed for the reason any shared hue is: accounts
+ *   and formats never share a chart.
  *
  * Every coloured bar is also directly labelled, so identity never rests on
  * colour alone.
@@ -174,7 +178,7 @@ export const PLATFORM_COLOR: Record<string, string> = {
   // Page and Instagram do. No new hue was added, so nothing needed validating.
   'facebook-personal': '#1A9AA3',
   tiktok: '#1A9AA3',
-  youtube: C.muted,
+  youtube: '#E8710A',
 };
 
 export function platformColor(platform: string | null | undefined): string {
@@ -315,6 +319,7 @@ export const FORMAT_LABEL: Record<string, string> = {
   carousel: 'Carousel',
   story: 'Story',
   short: 'Short',
+  video: 'Video',
   bio: 'Bio link',
   other: 'Post',
 };
