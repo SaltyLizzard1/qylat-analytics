@@ -20,14 +20,23 @@ export const C = {
   muted: '#555A72',
   /** Insets, tracks and quiet chips. */
   neutral: '#E9EBF5',
-  /** The header, selected controls and primary buttons. */
-  ink: '#13152B',
-  /** A raised surface on ink: nav pills, header buttons. */
-  inkRaised: '#262A4A',
-  /** Text on ink. */
+  /**
+   * Selected controls, primary buttons and the summary card. A mid indigo,
+   * not near-black. Checked against the identity palette with the validator:
+   * 16.6 from Instagram's purple in normal vision, the closest hue, so a
+   * button is not mistaken for an account.
+   */
+  ink: '#34407A',
+  /** A raised surface on ink. */
+  inkRaised: '#465290',
+  /** Text on ink. 9.6 to 1. */
   onInk: '#FFFFFF',
-  /** Secondary text on ink. 7.6 to 1 on ink. */
-  onInkMuted: '#B9BDD8',
+  /** Secondary text on ink. 6.7 to 1 on ink. */
+  onInkMuted: '#D5D8EE',
+  /** The header: a pale periwinkle, a shade deeper than the page it frames. */
+  header: '#DDE1F3',
+  /** Secondary text on the header. 6.5 to 1. */
+  onHeaderMuted: '#454B66',
 } as const;
 
 /** Depth comes from this shadow and the tinted page, not from an outline. */

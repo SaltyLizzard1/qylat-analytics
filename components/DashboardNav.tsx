@@ -13,9 +13,9 @@ import { C, RADIUS } from '@/lib/theme';
 const PERIOD_PARAMS = ['period', 'from', 'to', 'compare', 'platform'] as const;
 
 /**
- * Client component purely so the current tab can be marked. On the ink header
- * the current tab is a white pill with ink text, the strongest contrast on the
- * bar, so where you are is the first thing read. It is also marked with
+ * Client component purely so the current tab can be marked. On the pale
+ * header the current tab is a white pill with dark, heavier text, so where
+ * you are is the first thing read. It is also marked with
  * aria-current, so it does not rest on the fill alone.
  */
 export function DashboardNav({ items }: { items: { href: string; label: string }[] }) {
@@ -51,8 +51,8 @@ export function DashboardNav({ items }: { items: { href: string; label: string }
             style={{
               borderRadius: RADIUS.pill,
               textDecoration: 'none',
-              background: active ? C.onInk : 'transparent',
-              color: active ? C.ink : C.onInkMuted,
+              background: active ? C.card : 'transparent',
+              color: active ? C.text : C.onHeaderMuted,
               fontWeight: active ? 700 : 500,
             }}
           >

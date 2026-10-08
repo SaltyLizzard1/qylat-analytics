@@ -21,8 +21,8 @@ const NAV = [
 
 /** A quiet control on the ink header. */
 const HEADER_BUTTON = {
-  background: C.inkRaised,
-  color: C.onInk,
+  background: C.card,
+  color: C.text,
   borderRadius: RADIUS.pill,
   textDecoration: 'none',
   fontWeight: 600,
@@ -31,19 +31,19 @@ const HEADER_BUTTON = {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: '100vh', background: C.page }}>
-      {/* Deep ink, so the header reads as the frame and the page as the work. */}
-      <header className="sticky top-0 z-20" style={{ background: C.ink }}>
+      {/* A pale periwinkle with dark text: the frame, a shade deeper than the page. */}
+      <header className="sticky top-0 z-20" style={{ background: C.header, boxShadow: '0 1px 0 rgba(19, 21, 43, 0.08)' }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2.5">
             <Link
               href="/dashboard"
               className="flex items-baseline gap-2"
-              style={{ color: C.onInk, textDecoration: 'none' }}
+              style={{ color: C.text, textDecoration: 'none' }}
             >
               <span style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '0.01em' }}>QYLAT</span>
               <span
                 className="uppercase hidden sm:inline"
-                style={{ color: C.onInkMuted, fontSize: '0.72rem', letterSpacing: '0.12em', fontWeight: 600 }}
+                style={{ color: C.onHeaderMuted, fontSize: '0.72rem', letterSpacing: '0.12em', fontWeight: 600 }}
               >
                 Analytics
               </span>
@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <button
                   type="submit"
                   className="text-xs px-2 py-1.5 whitespace-nowrap"
-                  style={{ background: 'transparent', color: C.onInkMuted, borderRadius: RADIUS.pill, cursor: 'pointer' }}
+                  style={{ background: 'transparent', color: C.onHeaderMuted, borderRadius: RADIUS.pill, cursor: 'pointer' }}
                 >
                   Sign out
                 </button>
