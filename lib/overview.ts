@@ -85,7 +85,7 @@ function socialCte(includeProfile: boolean): string {
              p.content_theme,
              NULL::text AS published_label,
              l.views::numeric AS views, l.engagement::numeric AS engagement, l.comments::numeric AS comments,
-             l.recorded_on::timestamptz AS read_at
+             l.recorded_at AS read_at
       FROM content_posts p JOIN latest l ON l.post_id = p.id
       -- Stories are left out for all three accounts. A story is read once, at
       -- whatever age it has that day, so its views are not comparable with a
@@ -103,7 +103,7 @@ function socialCte(includeProfile: boolean): string {
       WHERE p.platform = 'facebook-personal'`;
   return `
     WITH latest AS (
-      SELECT DISTINCT ON (m.post_id) m.post_id, m.views, m.engagement, m.comments, m.recorded_on
+      SELECT DISTINCT ON (m.post_id) m.post_id, m.views, m.engagement, m.comments, m.recorded_on, m.recorded_at
       FROM post_metrics m
       ORDER BY m.post_id, m.recorded_on DESC
     )${

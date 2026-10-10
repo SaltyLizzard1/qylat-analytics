@@ -6,6 +6,7 @@ import { PageHeader, SectionHeading, Empty } from '@/components/charts';
 import { BackLink, PlatformChip, PostPicture, QuietChip, SampleChip } from '@/components/overview';
 import { AccountBars, NO_COPY, TotalBlock, face, missingLabel, oneLine, publishedText } from '@/components/content';
 import { GroupButton, LinkPicker } from '@/components/GroupControls';
+import { ReadAge } from '@/components/freshness';
 import { C, CARD, EYEBROW, formatLabel, full, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -88,7 +89,7 @@ export default async function ContentItemPage({
           <span style={{ color: C.text, fontWeight: 600 }}>Last read</span>
           {SOCIAL_PLATFORMS.flatMap((p) => item.copies.filter((c) => c.platform === p)).map((c) => (
             <span key={c.id}>
-              {platformLabel(c.platform)}: {c.read_at ? shortDateTime(c.read_at) : 'not read yet'}
+              {platformLabel(c.platform)}: <ReadAge readAt={c.read_at} publishedAt={c.published_at} exact lower />
             </span>
           ))}
         </p>
@@ -176,7 +177,9 @@ function CopyCard({ c, canUnlink, stale }: { c: Copy; canUnlink: boolean; stale:
       </dl>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: C.muted }}>
-          <span>{c.read_at ? `Figures read ${shortDateTime(c.read_at)}` : 'Figures not read yet'}</span>
+          <span>
+            Figures <ReadAge readAt={c.read_at} publishedAt={c.published_at} exact lower />
+          </span>
           {c.scope.views !== 'lifetime' && <SampleChip>Views not included: recorded before the scope was confirmed</SampleChip>}
           {c.scope.comments !== 'lifetime' && <SampleChip>Comments and shares not included</SampleChip>}
           {stale && <SampleChip>Stale reading</SampleChip>}

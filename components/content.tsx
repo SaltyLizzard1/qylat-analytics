@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { InfoTip } from '@/components/InfoTip';
+import { ReadAge } from '@/components/freshness';
 import { PlatformChip, PostPicture, QuietChip, SampleChip } from '@/components/overview';
 import { SOCIAL_PLATFORMS } from '@/lib/overview';
 import { THRESHOLDS } from '@/lib/status';
@@ -187,9 +188,11 @@ export function missingLabel(c: Copy): string {
  * One metric by account, as bars in each account's colour on one scale. An
  * account with a copy and no figure says so in words and draws nothing. An
  * account with no copy says "No copy linked", which is a different thing. A
- * figure left out of the sum is marked. With `detail`, each account also
- * shows its share of the sum and the day it was read, with a stale reading
- * flagged: the figures are the latest recorded, not one moment.
+ * figure left out of the sum is marked. Every account says how long ago its
+ * own figure was read, and how soon after publishing when the post was still
+ * young, because the accounts are never read at the same moment. With
+ * `detail`, each also shows its share of the sum and the clock time of the
+ * read, with a stale reading flagged.
  */
 export function AccountBars({ item, metric, detail = false }: { item: Item; metric: Metric; detail?: boolean }) {
   const total = totalOf(item, metric);
@@ -209,7 +212,7 @@ export function AccountBars({ item, metric, detail = false }: { item: Item; metr
                 <PlatformChip platform={c.platform} />
                 {!counted && v !== null && <span>not included</span>}
                 {detail && share !== null && <span>{share}% of the total</span>}
-                {detail && <span>{c.read_at ? `read ${shortDate(c.read_at)}` : 'not read yet'}</span>}
+                <ReadAge readAt={c.read_at} publishedAt={c.published_at} exact={detail} lower />
                 {detail && isStale(item, c) && <SampleChip>Stale reading</SampleChip>}
               </span>
               <span

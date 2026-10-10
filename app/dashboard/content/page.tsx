@@ -9,6 +9,7 @@ import { PageHeader, SectionHeading, Disclosure } from '@/components/charts';
 import { FilterBar, PlatformChip, PostPicture, QuietChip } from '@/components/overview';
 import { AccountBars, CopyLine, TotalBlock, face, oneLine, publishedText } from '@/components/content';
 import { GroupButton } from '@/components/GroupControls';
+import { ReadAge } from '@/components/freshness';
 import { THRESHOLDS } from '@/lib/status';
 import { C, CARD, RADIUS, full, platformLabel } from '@/lib/theme';
 
@@ -142,6 +143,7 @@ export default async function ContentPage({
                     <span className="flex flex-wrap items-center gap-1.5 mt-1 text-xs" style={{ color: C.muted }}>
                       <PlatformChip platform={c.platform} />
                       <span>{publishedText(c)}</span>
+                      {c.read_at && <ReadAge readAt={c.read_at} publishedAt={c.published_at} lower />}
                     </span>
                   </span>
                   <span className="text-right" style={{ flexShrink: 0 }}>

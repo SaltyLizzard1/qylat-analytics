@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { InfoTip } from '@/components/InfoTip';
+import { ReadAge } from '@/components/freshness';
 import { BaselineChip } from '@/components/baseline';
 import { changeLabel } from '@/lib/baseline';
 import { ChartEmpty, PlatformChip, PostPicture, SampleChip } from '@/components/overview';
@@ -19,6 +20,7 @@ import {
   platformColor,
   platformLabel,
   shortDate,
+  shortDateTime,
 } from '@/lib/theme';
 
 /**
@@ -256,6 +258,9 @@ export function TopPosts({
                       }}
                     />
                   </span>
+                  <span className="block text-xs mt-1" style={{ color: C.muted }}>
+                    <ReadAge readAt={p.read_at} publishedAt={p.published_at} />
+                  </span>
                 </span>
               </Link>
             </li>
@@ -279,6 +284,7 @@ export function FormatBars({
   hrefFor,
   info,
   caveat,
+  empty,
 }: {
   platform: string;
   age: number;
@@ -288,6 +294,8 @@ export function FormatBars({
   info: string;
   /** A limit of this account's figures that must be read with the bars, not behind a button. */
   caveat?: string;
+  /** Why there is nothing to compare and when there could be, from sameAgeEmpty in lib/freshness.ts. */
+  empty?: { why: string; when: Date | null; never: boolean };
 }) {
   const sorted = [...rows].sort((a, b) => b.medianViews - a.medianViews);
   const max = Math.max(1, ...sorted.map((r) => r.medianViews));
@@ -307,7 +315,26 @@ export function FormatBars({
       </p>
       {sorted.length === 0 ? (
         <ChartEmpty>
-          No {platformLabel(platform)} post published in this window is {age} hours old with a reading that young.
+          {empty ? (
+            <>
+              {empty.why}
+              {empty.when && (
+                <>
+                  {' '}
+                  The first comparison is possible from{' '}
+                  <span style={{ color: C.text, fontWeight: 600 }}>{shortDateTime(empty.when)}</span>.
+                </>
+              )}
+              {empty.never && (
+                <>
+                  {' '}
+                  <span style={{ color: C.text, fontWeight: 600 }}>Choose 7d or longer.</span>
+                </>
+              )}
+            </>
+          ) : (
+            `No ${platformLabel(platform)} post published in this window is ${age} hours old with a reading that young.`
+          )}
         </ChartEmpty>
       ) : (
         <ul className="flex flex-col">

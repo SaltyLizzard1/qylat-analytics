@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { SyncButtons } from './SyncButtons';
 import { ProfileCollect } from './ProfileCollect';
+import { SyncScope } from './SyncScope';
 import { C, RADIUS, TITLE, shortDate, shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,23 @@ const FOLLOWER_HREF: Record<string, string> = {
 };
 
 export default async function SyncPage() {
+  // The two Meta API accounts and the Profile are read by different things at
+  // different times, so each gets its own card and its own time. Both times
+  // come from stored readings, not from a log of sync runs, and are named so.
+  const api = await sql`
+    SELECT COUNT(*) FILTER (WHERE p.page_update IS NULL)::int AS posts,
+           (SELECT MAX(m.recorded_at) FROM post_metrics m JOIN posts q ON q.id = m.post_id
+             WHERE q.platform IN ('instagram', 'facebook')) AS at
+    FROM posts p WHERE p.platform IN ('instagram', 'facebook')
+  `;
+  const profilePosts = await sql`SELECT COUNT(*)::int AS posts FROM posts WHERE platform = 'facebook-personal'`;
+  let profileAt: unknown = null;
+  try {
+    profileAt = (await sql`SELECT MAX(collected_at) AS at FROM profile_collections`)[0]?.at ?? null;
+  } catch {
+    // No profile tables on this database: the card says never collected.
+  }
+
   // Posts and Page updates are counted apart, so the number on the card is
   // the number of rows on the page it opens.
   const meta = await sql`
@@ -51,13 +69,14 @@ export default async function SyncPage() {
         <div className="mt-5 pt-5" style={{ borderTop: `1px solid ${C.border}` }}>
           <ProfileCollect />
         </div>
+        <SyncScope />
       </div>
 
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
         <Card
-          label="Meta"
-          value={`${meta[0]?.posts ?? 0} posts`}
-          sub={`last synced ${when(meta[0]?.at)}`}
+          label="Instagram and Facebook Page"
+          value={`${api[0]?.posts ?? 0} posts`}
+          sub={`latest reading ${when(api[0]?.at)}`}
           href="/admin/posts?filter=all"
           linkText="View posts"
           extra={
@@ -72,9 +91,16 @@ export default async function SyncPage() {
           }
         />
         <Card
+          label="Facebook Profile"
+          value={`${profilePosts[0]?.posts ?? 0} posts and stories`}
+          sub={profileAt ? `latest collection ${when(profileAt)}` : 'never collected'}
+          href="/dashboard/profile"
+          linkText="View profile"
+        />
+        <Card
           label="Google Analytics"
           value={`${ga[0]?.rows ?? 0} session rows`}
-          sub={`last synced ${when(ga[0]?.at)}`}
+          sub={`latest reading ${when(ga[0]?.at)}`}
           href="/dashboard/funnel?period=14"
           linkText="View traffic"
         />
