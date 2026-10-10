@@ -49,12 +49,14 @@ export function SampleChip({ children }: { children: React.ReactNode }) {
  * dot of it, and the account's name in ink. The name is always there, so the
  * colour is never the only thing saying which account this is.
  */
-export function PlatformChip({ platform, children }: { platform: string; children?: React.ReactNode }) {
+export function PlatformChip({ platform, children, wrap = false }: { platform: string; children?: React.ReactNode; wrap?: boolean }) {
   const color = platformColor(platform);
+  // A chip carrying a long label, such as a date as Facebook displayed it,
+  // wraps inside its card rather than pushing the page wider than the screen.
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 whitespace-nowrap"
-      style={{ background: tint(color), color: C.text, borderRadius: RADIUS.pill, fontWeight: 500 }}
+      className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 ${wrap ? 'min-w-0' : 'whitespace-nowrap'}`}
+      style={{ background: tint(color), color: C.text, borderRadius: wrap ? RADIUS.md : RADIUS.pill, fontWeight: 500, overflowWrap: wrap ? 'anywhere' : undefined }}
     >
       <span aria-hidden style={{ width: 7, height: 7, borderRadius: RADIUS.pill, background: color, flexShrink: 0 }} />
       {children ?? platformLabel(platform)}

@@ -219,7 +219,7 @@ function GroupCard({ item, href, linking }: { item: Item; href: string; linking:
           </p>
           <p className="flex flex-wrap items-center gap-1.5 mt-1.5 text-xs" style={{ color: C.muted }}>
             {item.copies.map((c) => (
-              <PlatformChip key={c.id} platform={c.platform}>
+              <PlatformChip key={c.id} platform={c.platform} wrap>
                 {platformLabel(c.platform)} · {publishedText(c)}
               </PlatformChip>
             ))}
