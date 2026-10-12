@@ -294,6 +294,23 @@ These are not derivable from the code and have each caused a real failure.
   comparison. A cross posted carousel's insights screen in the app shows one
   combined Facebook plus Instagram figure (1,234 views, 53 reactions) that no
   API call returns either.
+- **Instagram's insights screen adds the Facebook copy's views to a cross
+  posted post, and the API does not.** Reconciled on 2026-10-12 for the
+  carousel published 11 Oct ("What would you do if you sold everything and
+  then couldn't go?"). The app showed 1,086 views, 47 likes and 15 comments.
+  Meta's API returned 206 views, 15 likes and 0 comments for the Instagram
+  media, read at 15:20 and again at 15:49 that day. The linked Facebook
+  Profile copy, collected at 15:24, held 880 views, 32 reactions and 15
+  comments. 206 + 880 = 1,086, 15 + 32 = 47 and 0 + 15 = 15: exact
+  arithmetic, which is what is verified. The app's own per-account breakdown
+  was not observed, so that the app adds exactly these two figures is
+  inferred from the sums, not seen. The app's Viewers figure, 74, equals the
+  API's Instagram reach, 74. The screen's note that its graph shows only
+  Instagram views is about the graph and does not establish the scope of
+  Viewers. So an Instagram figure shown by itself is labelled Instagram-only
+  wherever the post is linked to a Facebook copy, with the combined views from
+  `totalOf` in `lib/combined.ts` beside it. Views are the only figure
+  combined. Likes, reactions, comments and interactions stay per account.
 - **Instagram Stories live only on `/{ig-user-id}/stories`** and never
   appear in `/media`. The edge returns what is live right now, so the daily
   sync sees each story once, at whatever age it has then. Meta withholds

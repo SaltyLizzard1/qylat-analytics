@@ -1,6 +1,8 @@
 import { getSplits } from '@/lib/queries';
 import { getFormatBenchmarkAtAge, getFormatPosts, type FormatAtAge, type FormatPost } from '@/lib/cohort';
-import { parsePeriod, periodPhrase, type PeriodParams } from '@/lib/period';
+import { parsePeriod, periodPhrase, withPeriod, type PeriodParams } from '@/lib/period';
+import { getFacebookLinks, type Item } from '@/lib/combined';
+import { InstagramScope } from '@/components/content';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { Panel, PageHeader, Empty, Disclosure } from '@/components/charts';
 import { StatusBadge, StatusLegend } from '@/components/status';
@@ -30,11 +32,13 @@ export default async function FormatsPage({
   const sp = await searchParams;
   const period = parsePeriod(sp);
   const age = THRESHOLDS.formatAgeHours;
-  const [benchmarks, posts, splits] = await Promise.all([
+  const [benchmarks, posts, splits, facebookLinks] = await Promise.all([
     getFormatBenchmarkAtAge(age, period),
     getFormatPosts(period, age),
     getSplits(period),
+    getFacebookLinks(),
   ]);
+  const linkedHref = (id: number) => withPeriod(`/dashboard/content/item?post=${id}`, period);
 
   const formatSlices: Slice[] = splits.byFormat.map((r) => ({
     key: r.key as string,
@@ -94,6 +98,8 @@ export default async function FormatsPage({
           windowPhrase={periodPhrase(period)}
           benchmarks={benchmarks.filter((b) => b.platform === platform)}
           posts={posts.filter((p) => p.platform === platform)}
+          facebookLinks={facebookLinks}
+          linkedHref={linkedHref}
         />
       ))}
 
@@ -121,6 +127,8 @@ function PlatformPanel({
   windowPhrase,
   benchmarks,
   posts,
+  facebookLinks,
+  linkedHref,
 }: {
   platform: string;
   age: number;
@@ -128,6 +136,9 @@ function PlatformPanel({
   windowPhrase: string;
   benchmarks: FormatAtAge[];
   posts: FormatPost[];
+  /** Instagram posts linked to a Facebook copy, so their figures can say they are Instagram's alone. */
+  facebookLinks: Map<number, Item>;
+  linkedHref: (id: number) => string;
 }) {
   const platformMedian = benchmarks[0]?.platformMedian ?? null;
   const platformPosts = benchmarks[0]?.platformPosts ?? 0;
@@ -191,7 +202,13 @@ function PlatformPanel({
 
                 <ol className="flex flex-col">
                   {rows.map((p) => (
-                    <PostRow key={p.id} post={p} age={age} />
+                    <PostRow
+                      key={p.id}
+                      post={p}
+                      age={age}
+                      linked={p.platform === 'instagram' ? facebookLinks.get(p.id) : undefined}
+                      linkedHref={linkedHref(p.id)}
+                    />
                   ))}
                 </ol>
               </div>
@@ -213,7 +230,7 @@ const WIDE_COLUMNS = 'sm:grid-cols-[minmax(0,1fr)_5rem_5rem_4.5rem_5.5rem]';
 /** Three equal columns and one sized to its label, so "Engagement" is never broken mid-word. */
 const NARROW_COLUMNS = 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_max-content]';
 
-function PostRow({ post, age }: { post: FormatPost; age: number }) {
+function PostRow({ post, age, linked, linkedHref }: { post: FormatPost; age: number; linked?: Item; linkedHref?: string }) {
   const caption = (post.caption ?? '').replace(/\s+/g, ' ').trim() || 'Untitled post';
   const atAge =
     post.views_at_age !== null
@@ -257,6 +274,11 @@ function PostRow({ post, age }: { post: FormatPost; age: number }) {
       <Cell label="Lifetime">{compact(post.views)}</Cell>
       <Cell label="Reach">{post.reach === null || post.reach === 0 ? '·' : compact(post.reach)}</Cell>
       <Cell label="Engagement">{compact(post.engagement)}</Cell>
+      {linked && linkedHref && (
+        <div className="col-span-4 sm:col-span-5">
+          <InstagramScope item={linked} href={linkedHref} views={post.views} />
+        </div>
+      )}
     </li>
   );
 }

@@ -361,6 +361,37 @@ export async function getItemForPost(postId: number): Promise<{ linking: boolean
   return { linking, item: { key: copies[0].id, groupId, copies, first_published: copies[0].published_at, auto: autoOf(copies) }, all };
 }
 
+/**
+ * Every Instagram post that is linked to a copy on Facebook, the Page or the
+ * Profile, with the content it belongs to. For a row that shows an Instagram
+ * figure by itself: Instagram's own insights screen shows a cross posted
+ * post's views with Facebook's added in, so the Instagram-only figure needs
+ * to say that it is one, and where the combined figure is.
+ *
+ * Nothing is added here. The caller takes the sum from totalOf, which is the
+ * only place that decides what may be added.
+ */
+export async function getFacebookLinks(): Promise<Map<number, Item>> {
+  const out = new Map<number, Item>();
+  if (!(await hasGroupTables())) return out;
+  const byId = new Map((await getCopies()).map((c) => [c.id, c]));
+  const groups = new Map<number, Copy[]>();
+  for (const r of await sql(MEMBERS)) {
+    const c = byId.get(r.post_id as number);
+    if (!c) continue;
+    c.linked_by = r.linked_by as Copy['linked_by'];
+    c.evidence = (r.evidence as Evidence | null) ?? null;
+    groups.set(r.group_id as number, [...(groups.get(r.group_id as number) ?? []), c]);
+  }
+  for (const [groupId, copies] of groups) {
+    if (!copies.some((c) => c.platform === 'facebook' || c.platform === 'facebook-personal')) continue;
+    const sorted = [...copies].sort((x, y) => x.published_at.localeCompare(y.published_at));
+    const item: Item = { key: sorted[0].id, groupId, copies: sorted, first_published: sorted[0].published_at, auto: autoOf(sorted) };
+    for (const c of copies) if (c.platform === 'instagram') out.set(c.id, item);
+  }
+  return out;
+}
+
 export type Metric = 'views' | 'comments' | 'shares';
 
 export type Total = {

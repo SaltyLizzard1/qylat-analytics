@@ -5,6 +5,7 @@ import { PlatformChip, PostPicture, QuietChip, SampleChip } from '@/components/o
 import { SOCIAL_PLATFORMS } from '@/lib/overview';
 import { THRESHOLDS } from '@/lib/status';
 import { isStale, totalOf, type Copy, type Item, type Metric, type Total } from '@/lib/combined';
+import { scopeNote } from '@/lib/scope';
 import { C, EYEBROW, RADIUS, TITLE, formatLabel, full, platformColor, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
 
 /**
@@ -169,6 +170,53 @@ export function TotalBlock({
           </p>
         ))}
     </div>
+  );
+}
+
+/**
+ * Beside an Instagram figure shown by itself, for a post linked to a
+ * Facebook copy: that the figure is Instagram's alone, and the combined
+ * reported views with the accounts in them, as a link to the breakdown.
+ *
+ * Instagram's own insights screen reports a cross posted post's views with
+ * Facebook's added in, so the two numbers differ for a reason that is not an
+ * error. The sum comes from totalOf and is only called combined when every
+ * linked copy's figure is in it. When one is missing or cannot be added, it
+ * says which and why, and is named partial. Each account keeps its own read
+ * time. Views only: likes, reactions, comments and interactions are never
+ * folded in.
+ */
+export function InstagramScope({ item, href, views }: { item: Item; href: string; views: number | null }) {
+  const note = scopeNote(totalOf(item, 'views'));
+  const others = SOCIAL_PLATFORMS.filter((p) => p !== 'instagram' && item.copies.some((c) => c.platform === p));
+  const gaps = note.gaps.map((g) =>
+    g.reason === 'no-figure'
+      ? `${platformLabel(g.platform)} has no views figure yet`
+      : `${platformLabel(g.platform)} views were recorded before their scope was confirmed and are not added`
+  );
+  const label =
+    note.kind === 'none'
+      ? `Linked to ${names(others)}. No combined total yet`
+      : `${note.kind === 'combined' ? 'Combined reported views' : 'Partial combined views'}: ${full(note.value)} · ${names(note.included)}`;
+  const reads = SOCIAL_PLATFORMS.flatMap((p) => item.copies.filter((c) => c.platform === p));
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: C.muted }}>
+      <span>
+        <span style={{ color: C.text, fontWeight: 600 }}>Instagram-only views</span>
+        {views === null ? '' : `: ${full(views)}`}
+      </span>
+      <Link href={href} style={{ color: C.text, fontWeight: 600, textDecoration: 'underline' }} title="Open the account breakdown">
+        {label} <span aria-hidden>→</span>
+      </Link>
+      {gaps.map((g) => (
+        <span key={g}>{g}</span>
+      ))}
+      {reads.map((c) => (
+        <span key={c.id}>
+          {platformLabel(c.platform)} <ReadAge readAt={c.read_at} publishedAt={c.published_at} lower />
+        </span>
+      ))}
+    </p>
   );
 }
 
