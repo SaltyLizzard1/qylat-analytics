@@ -313,6 +313,7 @@ export const TAG_COLOR: Record<string, string> = {
   mechanics: IDENTITY.orange,
   inspirational: IDENTITY.purple,
   promotional: IDENTITY.lime,
+  nostalgia: IDENTITY.teal,
 };
 
 export function tagColor(tag: string | null | undefined): string {
