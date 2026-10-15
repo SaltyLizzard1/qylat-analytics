@@ -92,7 +92,11 @@ export default async function LeaderboardPage({
         {rows.length === 0 ? (
           <Empty message="No posts synced yet. Run the Meta sync first." />
         ) : (
-          <>
+          // On a phone the fixed columns would leave the post column no room,
+          // so the table keeps a minimum width and scrolls sideways inside its
+          // own box, the same contained scroll DataRows uses.
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: '36rem' }}>
             {/*
               Header row. Widths mirror the row below exactly, so the labels sit
               over the columns they describe. The badge column says
@@ -114,7 +118,7 @@ export default async function LeaderboardPage({
               <HeadCell width="4.2rem" align="right">
                 Views
               </HeadCell>
-              <HeadCell width="5.8rem">Engagement</HeadCell>
+              <HeadCell width="6.2rem">Engagement</HeadCell>
             </div>
 
             <ol className="flex flex-col gap-2">
@@ -236,7 +240,7 @@ export default async function LeaderboardPage({
                     </p>
                   </div>
 
-                  <div className="flex-shrink-0" style={{ width: '5.8rem' }}>
+                  <div className="flex-shrink-0" style={{ width: '6.2rem' }}>
                     <StatusBadge status={status} compact empty={noBaseline} />
                     <p className="text-xs mt-0.5 tabular-nums" style={{ color: C.muted }}>
                       {pct(engagement, views)}
@@ -246,7 +250,8 @@ export default async function LeaderboardPage({
               );
               })}
             </ol>
-          </>
+            </div>
+          </div>
         )}
 
         <Disclosure summary="The thresholds behind High, Medium and Low, and what No baseline means">
@@ -284,7 +289,7 @@ function HeadCell({
 function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="text-xs px-1.5 py-0.5"
+      className="text-xs px-1.5 py-0.5 whitespace-nowrap"
       style={{ background: C.neutral, color: C.muted, borderRadius: RADIUS.sm }}
     >
       {children}
