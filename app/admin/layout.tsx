@@ -72,6 +72,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               I2P Inbox
             </Link>
+            <Link
+              href="/admin/youtube"
+              className="text-xs px-2 py-1.5 hidden sm:block"
+              style={{ color: '#111111', textDecoration: 'underline' }}
+            >
+              YouTube
+            </Link>
           </nav>
         </div>
 

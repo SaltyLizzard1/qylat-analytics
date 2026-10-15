@@ -25,6 +25,8 @@ import {
 import { C, full, platformColor, platformLabel, shortDate } from '@/lib/theme';
 import { BackLink } from '@/components/overview';
 import { getActivePlatforms, parsePlatform, withFilters } from '@/lib/overview';
+import { getWindowAnalytics } from '@/lib/ytanalytics-store';
+import { YouTubeAnalytics } from '@/components/YouTubeAnalytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,7 +51,7 @@ function sourceLabel(source: unknown): string {
 const YOUTUBE = {
   platform: 'youtube',
   name: 'YouTube',
-  gainsNote: 'YouTube reports a subscriber total and no daily gains through this API, so there is nothing to draw here. The total above is rounded by YouTube to three figures once it passes 1,000.',
+  gainsNote: 'The public YouTube counts give a subscriber total and no daily gains, so there is nothing to draw here. Daily gains and losses come from YouTube Analytics, below. The total above is rounded by YouTube to three figures once it passes 1,000.',
 } as const;
 
 const TRACKED = [
@@ -66,6 +68,7 @@ export default async function AudiencePage({
   const period = parsePeriod(sp);
   // YouTube gets its pair of charts once a subscriber total or a video is stored.
   const tracked = (await getActivePlatforms()).includes('youtube') ? [...TRACKED, YOUTUBE] : [...TRACKED];
+  const ytAnalytics = tracked.some((t) => t.platform === 'youtube') ? await getWindowAnalytics(period) : null;
   const [latest, signal, ...series] = await Promise.all([
     getLatestAudience(),
     getFollowerSignalStrength(),
@@ -171,6 +174,8 @@ export default async function AudiencePage({
                 emptyMessage="No follower gain history in this window yet."
               />
             </Panel>
+
+            {t.platform === 'youtube' && <YouTubeAnalytics data={ytAnalytics} period={period} />}
           </div>
         );
       })}
