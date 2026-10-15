@@ -7,6 +7,10 @@
     {
       "path": "/api/sync/ga?days=14",
       "schedule": "30 8 * * *"
+    },
+    {
+      "path": "/api/sync/youtube?days=3650",
+      "schedule": "0 9 * * *"
     }
   ]
 }

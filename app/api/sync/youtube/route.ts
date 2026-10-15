@@ -21,7 +21,16 @@ export const maxDuration = 60;
  * Its figures are one row per day in post_metrics, replaced by a later run
  * on the same day, exactly as the Meta sync does. Nothing here deletes.
  *
- * Guarded by CRON_SECRET as a bearer token. It is not on a schedule.
+ * Guarded by CRON_SECRET as a bearer token, which Vercel's cron sends.
+ *
+ * Scheduled once a day in vercel.json as ?days=3650 at 09:00 UTC (16:00 in
+ * Chiang Mai; Hobby runs it any time in that hour). The whole channel is in
+ * the window, so every video is re-read every day, old ones included, and a
+ * figure is never more than a day stale. At six videos that is five quota
+ * units of 10,000. It is its own invocation, after the Meta sync at 08:00
+ * and GA at 08:30, so it never spends their time or delays their queue.
+ * The window stops covering everything past 1,000 uploads, the page cap in
+ * lib/youtube.ts; linked older videos are still re-read by id.
  */
 
 const DEFAULT_DAYS = 30;
