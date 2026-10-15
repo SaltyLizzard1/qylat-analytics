@@ -19,8 +19,12 @@ Neutrals only, all in `C` in `lib/theme.ts`. Use the tokens, never the hex.
 
 - Page background: `C.page` `#F1F2F9`, a soft cool tint
 - Card and panel surface: `C.card` `#FFFFFF`, with `SHADOW` and no outline
-- Header, selected controls, primary buttons: `C.ink` `#13152B`, text `C.onInk`
-- Primary text: `C.text` `#13152B`. Secondary text: `C.muted` `#555A72`
+- Header: `C.header` `#DDE1F3`, a pale periwinkle, with `C.text` on it and
+  `C.onHeaderMuted` for quieter items. The selected tab is a white pill
+- Selected controls, primary buttons, the summary card: `C.ink` `#34407A`, a
+  mid indigo, text `C.onInk`. Not near-black. Checked with the validator: 16.6
+  from Instagram's purple, the closest identity hue
+- Primary text: `C.text` `#13152B`. Secondary text: `C.muted` `#474C60`
 - Insets, tracks, quiet chips: `C.neutral` `#E9EBF5`
 - Hairlines and inputs only: `C.border` `#DADDEA`
 
@@ -135,10 +139,26 @@ a text label. Worth fixing if the palette is ever revisited.
 
 ## Typography
 
-No Cormorant Garamond. No Google Fonts. `system-ui` everywhere.
-Page titles are weight 800, headings and figures 700, with the negative
-letter-spacing in `TITLE` and `FIGURE` from `lib/theme.ts`. Small uppercase
-labels use `EYEBROW` and are never smaller than 0.68rem.
+No Cormorant Garamond. No Google Fonts: nothing is fetched from Google, at
+build time or in the browser.
+
+The dashboard is set in Inter, from the two `woff2` files in `app/fonts`
+(SIL Open Font License, copied beside them), loaded with `next/font/local` in
+`app/dashboard/layout.tsx`. `system-ui` is the fallback while it loads, and is
+still the font of the admin screens and the login page.
+
+- The dashboard's type is scoped to `.dash` in `app/globals.css`. Inside it,
+  body and captions are 16px (`text-sm` and `text-base`), regular weight, line
+  height 1.5, and dates, chips, freshness labels, notes and table headers are
+  14px (`text-xs`): both steps are one larger than Tailwind's defaults.
+- Nothing meant to be read is under 14px. The exceptions are small uppercase
+  labels (`EYEBROW`, 13px), chart axis text, and glyphs in a fixed box.
+- Table headers use `.table-head`: on the dashboard, 14px sentence case that
+  wraps inside its column.
+- Weights: 400 for text, 500 for navigation, buttons and chips, 600 for
+  headings, totals and the selected tab. Nothing is 700 or heavier.
+- Figures use tabular numerals (`tabular-nums`, and every `dd`), so columns
+  of numbers line up.
 
 ## No em dashes
 
@@ -274,6 +294,23 @@ These are not derivable from the code and have each caused a real failure.
   comparison. A cross posted carousel's insights screen in the app shows one
   combined Facebook plus Instagram figure (1,234 views, 53 reactions) that no
   API call returns either.
+- **Instagram's insights screen adds the Facebook copy's views to a cross
+  posted post, and the API does not.** Reconciled on 2026-10-12 for the
+  carousel published 11 Oct ("What would you do if you sold everything and
+  then couldn't go?"). The app showed 1,086 views, 47 likes and 15 comments.
+  Meta's API returned 206 views, 15 likes and 0 comments for the Instagram
+  media, read at 15:20 and again at 15:49 that day. The linked Facebook
+  Profile copy, collected at 15:24, held 880 views, 32 reactions and 15
+  comments. 206 + 880 = 1,086, 15 + 32 = 47 and 0 + 15 = 15: exact
+  arithmetic, which is what is verified. The app's own per-account breakdown
+  was not observed, so that the app adds exactly these two figures is
+  inferred from the sums, not seen. The app's Viewers figure, 74, equals the
+  API's Instagram reach, 74. The screen's note that its graph shows only
+  Instagram views is about the graph and does not establish the scope of
+  Viewers. So an Instagram figure shown by itself is labelled Instagram-only
+  wherever the post is linked to a Facebook copy, with the combined views from
+  `totalOf` in `lib/combined.ts` beside it. Views are the only figure
+  combined. Likes, reactions, comments and interactions stay per account.
 - **Instagram Stories live only on `/{ig-user-id}/stories`** and never
   appear in `/media`. The edge returns what is live right now, so the daily
   sync sees each story once, at whatever age it has then. Meta withholds

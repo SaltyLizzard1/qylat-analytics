@@ -3,7 +3,7 @@
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { PERIOD_CHOICES, PERIOD_COOKIE, applyPeriod, type Period, type PeriodKind } from '@/lib/period';
-import { C, CARD, EYEBROW, RADIUS } from '@/lib/theme';
+import { C, CARD, EYEBROW, RADIUS, shortDateTime } from '@/lib/theme';
 
 /**
  * The comparison window, in the URL.
@@ -118,6 +118,7 @@ export function PeriodPicker({ period, bare = false }: { period: Period; bare?: 
       <span className="text-xs" style={{ color: C.muted }}>
         <span style={{ color: C.text, fontWeight: 600 }}>{period.label}</span>
         {comparing ? ` against ${period.compareLabel}` : ', no comparison'}
+        {period.kind === 'rolling' && ` · rolling ${period.days * 24} hours, from ${shortDateTime(period.start)}`}
       </span>
 
       <button
@@ -175,7 +176,7 @@ function Segment({
         borderRadius: RADIUS.sm,
         background: active ? C.ink : 'transparent',
         color: active ? C.onInk : C.text,
-        fontWeight: active ? 700 : 500,
+        fontWeight: active ? 600 : 500,
         cursor: 'pointer',
       }}
     >
@@ -223,7 +224,7 @@ function DateInput({
         border: `1px solid ${C.border}`,
         borderRadius: RADIUS.sm,
         color: C.text,
-        fontSize: '0.8rem',
+        fontSize: '0.875rem',
         padding: '0.25rem 0.5rem',
       }}
     />

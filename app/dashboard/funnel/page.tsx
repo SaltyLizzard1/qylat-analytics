@@ -168,7 +168,7 @@ export default async function FunnelPage({
       <PeriodPicker period={period} />
       <StatusLegend />
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatTile size="hero" label="Clicks" value={full(totalClicks)} sub="your redirect log" />
         <StatTile size="hero" label="Sessions" value={full(totalSessions)} sub="Google Analytics" />
         <StatTile

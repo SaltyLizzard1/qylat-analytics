@@ -37,7 +37,7 @@ export function SampleChip({ children }: { children: React.ReactNode }) {
   return (
     <span
       className="text-xs px-2 py-0.5 whitespace-nowrap"
-      style={{ background: C.neutral, color: C.muted, borderRadius: RADIUS.pill, fontWeight: 600 }}
+      style={{ background: C.neutral, color: C.muted, borderRadius: RADIUS.pill, fontWeight: 500 }}
     >
       {children}
     </span>
@@ -49,12 +49,14 @@ export function SampleChip({ children }: { children: React.ReactNode }) {
  * dot of it, and the account's name in ink. The name is always there, so the
  * colour is never the only thing saying which account this is.
  */
-export function PlatformChip({ platform, children }: { platform: string; children?: React.ReactNode }) {
+export function PlatformChip({ platform, children, wrap = false }: { platform: string; children?: React.ReactNode; wrap?: boolean }) {
   const color = platformColor(platform);
+  // A chip carrying a long label, such as a date as Facebook displayed it,
+  // wraps inside its card rather than pushing the page wider than the screen.
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 whitespace-nowrap"
-      style={{ background: tint(color), color: C.text, borderRadius: RADIUS.pill, fontWeight: 600 }}
+      className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 ${wrap ? 'min-w-0' : 'whitespace-nowrap'}`}
+      style={{ background: tint(color), color: C.text, borderRadius: wrap ? RADIUS.md : RADIUS.pill, fontWeight: 500, overflowWrap: wrap ? 'anywhere' : undefined }}
     >
       <span aria-hidden style={{ width: 7, height: 7, borderRadius: RADIUS.pill, background: color, flexShrink: 0 }} />
       {children ?? platformLabel(platform)}
@@ -121,7 +123,7 @@ export function CompareBars({
           </span>
           <span
             className="text-xs tabular-nums"
-            style={{ color: r.strong ? C.text : C.muted, fontWeight: r.strong ? 700 : 500, textAlign: 'right' }}
+            style={{ color: r.strong ? C.text : C.muted, fontWeight: r.strong ? 600 : 500, textAlign: 'right' }}
           >
             {format(r.value)}
           </span>
@@ -307,7 +309,7 @@ export function ColumnChart({
               y={(c.value === null ? padT + innerH : top) - 6}
               textAnchor="middle"
               fontSize={c.value === null ? '10' : '12.5'}
-              fontWeight={c.value === null ? '500' : '700'}
+              fontWeight={c.value === null ? '500' : '600'}
               fill={c.value === null ? C.muted : C.text}
             >
               {c.value === null ? (c.nullLabel ?? 'no figure') : compact(c.value)}
@@ -360,7 +362,7 @@ export function ChartCard({
   const heading = (
     <span className="flex items-center gap-2 min-w-0">
       {swatch && <span aria-hidden style={{ width: 12, height: 12, borderRadius: 4, background: swatch, flexShrink: 0 }} />}
-      <span className="truncate" style={{ fontWeight: 700, color: C.text, fontSize: '1rem', letterSpacing: '-0.012em' }}>
+      <span className="truncate" style={{ fontWeight: 600, color: C.text, fontSize: '1rem', letterSpacing: '-0.012em' }}>
         {title}
       </span>
     </span>
@@ -375,7 +377,7 @@ export function ChartCard({
               <span
                 aria-hidden
                 className="text-xs px-1.5"
-                style={{ color: C.text, background: C.neutral, borderRadius: RADIUS.pill, fontWeight: 700, lineHeight: '1.25rem' }}
+                style={{ color: C.text, background: C.neutral, borderRadius: RADIUS.pill, fontWeight: 600, lineHeight: '1.25rem' }}
               >
                 →
               </span>
@@ -408,7 +410,7 @@ export function BackLink({ href, children }: { href: string; children: React.Rea
         background: C.card,
         boxShadow: CARD.boxShadow,
         textDecoration: 'none',
-        fontWeight: 700,
+        fontWeight: 600,
       }}
     >
       <span aria-hidden>←</span> {children}
@@ -501,7 +503,7 @@ export function MiniTrend({
                 y={y(p.value) - 10}
                 textAnchor={i === 0 ? 'start' : i === last ? 'end' : 'middle'}
                 fontSize="12.5"
-                fontWeight="700"
+                fontWeight="600"
                 fill={C.text}
               >
                 {p.value.toLocaleString()}
@@ -584,12 +586,12 @@ export function DateTile({
         overflow: 'hidden',
       }}
     >
-      <span className="tabular-nums" style={{ fontSize: `${Math.max(1, size / 44)}rem`, fontWeight: 800, color: C.text }}>
+      <span className="tabular-nums" style={{ fontSize: `${Math.max(1, size / 44)}rem`, fontWeight: 600, color: C.text }}>
         {day}
       </span>
       <span
         className="uppercase"
-        style={{ fontSize: `${Math.max(0.62, size / 96)}rem`, letterSpacing: '0.06em', color: C.muted, marginTop: 3, fontWeight: 600 }}
+        style={{ fontSize: `${Math.max(0.6875, size / 88)}rem`, letterSpacing: '0.06em', color: C.muted, marginTop: 3, fontWeight: 600 }}
       >
         {month}
       </span>
@@ -668,13 +670,13 @@ export function FigureBar({
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">
-        <span style={{ ...EYEBROW, fontSize: '0.68rem' }}>{label}</span>
+        <span style={{ ...EYEBROW, fontSize: '0.8125rem' }}>{label}</span>
         <span
           className="tabular-nums"
           style={{
             color: value === null ? C.muted : C.text,
-            fontWeight: value === null ? 500 : 800,
-            fontSize: value === null ? '0.8rem' : emphasis ? '1.35rem' : '1.05rem',
+            fontWeight: value === null ? 500 : 600,
+            fontSize: value === null ? '0.875rem' : emphasis ? '1.35rem' : '1.05rem',
             letterSpacing: '-0.02em',
             lineHeight: 1.1,
           }}

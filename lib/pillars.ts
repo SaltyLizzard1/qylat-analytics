@@ -57,6 +57,12 @@ export const PILLARS: Pillar[] = [
     label: 'Promotional',
     covers: 'The quiz, the Leap Log, the Leap Kit, IdeaToPlan. Anything asking for a click.',
   },
+  {
+    // Added by Liz on 2026-10-14 for the two rotary phone reels of 2 Oct.
+    slug: 'nostalgia',
+    label: 'Nostalgia',
+    covers: 'Looking back at how things used to be: the rotary phone, the childhood phone number.',
+  },
 ];
 
 export const PILLAR_SLUGS = PILLARS.map((p) => p.slug);

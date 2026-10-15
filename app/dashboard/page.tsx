@@ -47,6 +47,7 @@ import { InfoTip } from '@/components/InfoTip';
 import { StatusBadge } from '@/components/status';
 import { severityGood, severityWarning, severityBad } from '@/lib/severity';
 import { THRESHOLDS, type Level } from '@/lib/status';
+import { sameAgeEmpty } from '@/lib/freshness';
 import { C, CARD, RADIUS, SERIES, formatLabel, full, platformColor, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -252,7 +253,7 @@ export default async function DashboardPage({
         hrefFor={(p) => link(p === 'facebook-personal' ? '/dashboard/profile' : '/dashboard/audience', { back: 'overview' })}
       />
 
-      <SectionHeading note={`Views to date · ${published} · each account on its own scale`}>
+      <SectionHeading note={`Views to date, each as of its own last read · ${published} · each account on its own scale`}>
         What worked: top posts
       </SectionHeading>
       <div className={`grid grid-cols-1 ${single ? '' : across} gap-3`}>
@@ -278,6 +279,11 @@ export default async function DashboardPage({
             platform={p}
             age={age}
             rows={formats.filter((f) => f.platform === p)}
+            empty={sameAgeEmpty(
+              age,
+              period.kind === 'rolling' ? period.days * 24 : null,
+              detail.filter((d) => d.platform === p).map((d) => d.published_at)
+            )}
             hrefFor={(format) => `${link('/dashboard/formats', { back: 'overview' })}#format-${p}-${format}`}
             caveat={p === 'instagram' ? 'The API under-counts images and carousels against the app, so this favours reels.' : undefined}
             info={`Each format’s middle post, measured ${age} hours after it was published, so a new post is not compared with an old one. Only posts at least ${age} hours old with a reading that young count. A format with fewer than ${THRESHOLDS.minSamplePosts} such posts is marked small sample and is not judged. Instagram’s API reports fewer views for images and carousels than the app does.`}
@@ -286,7 +292,7 @@ export default async function DashboardPage({
         {profileShown && (
           <section className="p-4" style={CARD}>
             <PlatformChip platform="facebook-personal" />
-            <p className="text-sm mt-2" style={{ color: C.text, fontWeight: 700 }}>
+            <p className="text-sm mt-2" style={{ color: C.text, fontWeight: 600 }}>
               Not in this comparison
             </p>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: C.muted }}>
@@ -670,7 +676,7 @@ function AttentionRow({ item, href }: { item: AttentionItem; href: string }) {
       }}
     >
       <div className="flex items-start justify-between gap-3 mb-0.5">
-        <Link href={href} style={{ fontWeight: 700, color: C.text, textDecoration: 'none', fontSize: '0.95rem' }}>
+        <Link href={href} style={{ fontWeight: 600, color: C.text, textDecoration: 'none', fontSize: '0.95rem' }}>
           {item.title}
         </Link>
         <span className="flex items-center gap-1.5 flex-shrink-0">

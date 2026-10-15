@@ -9,6 +9,7 @@ import { PageHeader, SectionHeading, Disclosure } from '@/components/charts';
 import { FilterBar, PlatformChip, PostPicture, QuietChip } from '@/components/overview';
 import { AccountBars, CopyLine, TotalBlock, face, oneLine, publishedText } from '@/components/content';
 import { GroupButton } from '@/components/GroupControls';
+import { ReadAge } from '@/components/freshness';
 import { THRESHOLDS } from '@/lib/status';
 import { C, CARD, RADIUS, full, platformLabel } from '@/lib/theme';
 
@@ -62,7 +63,7 @@ export default async function ContentPage({
 
       {!linking && (
         <p className="text-sm px-4 py-3" style={{ ...CARD, color: C.text }}>
-          <span style={{ fontWeight: 700 }}>Linking is off.</span>{' '}
+          <span style={{ fontWeight: 600 }}>Linking is off.</span>{' '}
           <span style={{ color: C.muted }}>
             Migration 012 has not been applied to this database, so nothing can be confirmed, linked or unlinked yet.
             Possible matches are still shown.
@@ -143,10 +144,11 @@ export default async function ContentPage({
                     <span className="flex flex-wrap items-center gap-1.5 mt-1 text-xs" style={{ color: C.muted }}>
                       <PlatformChip platform={c.platform} />
                       <span>{publishedText(c)}</span>
+                      {c.read_at && <ReadAge readAt={c.read_at} publishedAt={c.published_at} lower />}
                     </span>
                   </span>
                   <span className="text-right" style={{ flexShrink: 0 }}>
-                    <span className="block tabular-nums" style={{ color: c.views === null ? C.muted : C.text, fontWeight: c.views === null ? 500 : 800, fontSize: c.views === null ? '0.8rem' : '1rem' }}>
+                    <span className="block tabular-nums" style={{ color: c.views === null ? C.muted : C.text, fontWeight: c.views === null ? 500 : 600, fontSize: c.views === null ? '0.875rem' : '1rem' }}>
                       {c.views === null ? (c.read_at === null ? 'Not read yet' : 'No figure') : full(c.views)}
                     </span>
                     <span className="block text-xs" style={{ color: C.muted }}>
@@ -215,12 +217,12 @@ function GroupCard({ item, href, linking }: { item: Item; href: string; linking:
       <div className="flex items-start gap-3 min-w-0">
         <PostPicture id={f.id} platform={f.platform} src={f.thumbnail_url} publishedAt={f.published_at} label={platformLabel(f.platform)} size={64} />
         <div className="min-w-0">
-          <p className="text-sm" style={{ color: C.text, fontWeight: 700, overflowWrap: 'anywhere', lineHeight: 1.35 }}>
+          <p className="text-sm" style={{ color: C.text, fontWeight: 600, overflowWrap: 'anywhere', lineHeight: 1.35 }}>
             {oneLine(f.caption, 110)}
           </p>
           <p className="flex flex-wrap items-center gap-1.5 mt-1.5 text-xs" style={{ color: C.muted }}>
             {item.copies.map((c) => (
-              <PlatformChip key={c.id} platform={c.platform}>
+              <PlatformChip key={c.id} platform={c.platform} wrap>
                 {platformLabel(c.platform)} · {publishedText(c)}
               </PlatformChip>
             ))}

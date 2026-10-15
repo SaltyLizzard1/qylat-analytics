@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { InfoTip } from '@/components/InfoTip';
+import { ReadAge } from '@/components/freshness';
 import { PlatformChip, PostPicture, QuietChip, SampleChip } from '@/components/overview';
 import { SOCIAL_PLATFORMS } from '@/lib/overview';
 import { THRESHOLDS } from '@/lib/status';
 import { isStale, totalOf, type Copy, type Item, type Metric, type Total } from '@/lib/combined';
+import { scopeNote } from '@/lib/scope';
 import { C, EYEBROW, RADIUS, TITLE, formatLabel, full, platformColor, platformLabel, shortDate, shortDateTime } from '@/lib/theme';
 
 /**
@@ -96,7 +98,7 @@ export function TotalBlock({
       className="tabular-nums"
       style={{
         ...TITLE,
-        fontWeight: 800,
+        fontWeight: 600,
         fontSize: total.value === null ? '1.1rem' : size === 'large' ? '2rem' : '1.5rem',
         lineHeight: 1.1,
         color: total.value === null ? C.muted : C.text,
@@ -121,7 +123,7 @@ export function TotalBlock({
           className="inline-flex items-baseline gap-1.5"
         >
           {figure}
-          <span aria-hidden className="text-sm" style={{ color: C.muted, fontWeight: 700 }}>
+          <span aria-hidden className="text-sm" style={{ color: C.muted, fontWeight: 600 }}>
             →
           </span>
         </Link>
@@ -137,7 +139,7 @@ export function TotalBlock({
         {total.partial && (
           <span
             className="px-2 py-0.5"
-            style={{ background: C.ink, color: C.onInk, borderRadius: RADIUS.pill, fontWeight: 700 }}
+            style={{ background: C.ink, color: C.onInk, borderRadius: RADIUS.pill, fontWeight: 600 }}
             title={`No figure for ${names(total.missing)}, so the total is short of it`}
           >
             Partial
@@ -146,7 +148,7 @@ export function TotalBlock({
         {total.stale.length > 0 && (
           <span
             className="px-2 py-0.5"
-            style={{ background: C.neutral, color: C.text, borderRadius: RADIUS.pill, fontWeight: 700 }}
+            style={{ background: C.neutral, color: C.text, borderRadius: RADIUS.pill, fontWeight: 600 }}
             title={`${names(total.stale)} was read more than ${THRESHOLDS.staleReadHours} hours before the newest reading for this content`}
           >
             Stale reading: {names(total.stale)}
@@ -159,7 +161,7 @@ export function TotalBlock({
           <p key={c.id} className="flex flex-wrap items-center gap-1.5 text-xs mt-1" style={{ color: C.muted }}>
             <span>
               {platformLabel(c.platform)}:{' '}
-              <span className="tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
+              <span className="tabular-nums" style={{ color: C.text, fontWeight: 600 }}>
                 {c[metric] === null ? missingLabel(c) : full(c[metric] as number)}
               </span>
               {c[metric] === null ? '' : ` ${METRIC_NOUN[metric]}`}
@@ -168,6 +170,53 @@ export function TotalBlock({
           </p>
         ))}
     </div>
+  );
+}
+
+/**
+ * Beside an Instagram figure shown by itself, for a post linked to a
+ * Facebook copy: that the figure is Instagram's alone, and the combined
+ * reported views with the accounts in them, as a link to the breakdown.
+ *
+ * Instagram's own insights screen reports a cross posted post's views with
+ * Facebook's added in, so the two numbers differ for a reason that is not an
+ * error. The sum comes from totalOf and is only called combined when every
+ * linked copy's figure is in it. When one is missing or cannot be added, it
+ * says which and why, and is named partial. Each account keeps its own read
+ * time. Views only: likes, reactions, comments and interactions are never
+ * folded in.
+ */
+export function InstagramScope({ item, href, views }: { item: Item; href: string; views: number | null }) {
+  const note = scopeNote(totalOf(item, 'views'));
+  const others = SOCIAL_PLATFORMS.filter((p) => p !== 'instagram' && item.copies.some((c) => c.platform === p));
+  const gaps = note.gaps.map((g) =>
+    g.reason === 'no-figure'
+      ? `${platformLabel(g.platform)} has no views figure yet`
+      : `${platformLabel(g.platform)} views were recorded before their scope was confirmed and are not added`
+  );
+  const label =
+    note.kind === 'none'
+      ? `Linked to ${names(others)}. No combined total yet`
+      : `${note.kind === 'combined' ? 'Combined reported views' : 'Partial combined views'}: ${full(note.value)} · ${names(note.included)}`;
+  const reads = SOCIAL_PLATFORMS.flatMap((p) => item.copies.filter((c) => c.platform === p));
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: C.muted }}>
+      <span>
+        <span style={{ color: C.text, fontWeight: 600 }}>Instagram-only views</span>
+        {views === null ? '' : `: ${full(views)}`}
+      </span>
+      <Link href={href} style={{ color: C.text, fontWeight: 600, textDecoration: 'underline' }} title="Open the account breakdown">
+        {label} <span aria-hidden>→</span>
+      </Link>
+      {gaps.map((g) => (
+        <span key={g}>{g}</span>
+      ))}
+      {reads.map((c) => (
+        <span key={c.id}>
+          {platformLabel(c.platform)} <ReadAge readAt={c.read_at} publishedAt={c.published_at} lower />
+        </span>
+      ))}
+    </p>
   );
 }
 
@@ -187,9 +236,11 @@ export function missingLabel(c: Copy): string {
  * One metric by account, as bars in each account's colour on one scale. An
  * account with a copy and no figure says so in words and draws nothing. An
  * account with no copy says "No copy linked", which is a different thing. A
- * figure left out of the sum is marked. With `detail`, each account also
- * shows its share of the sum and the day it was read, with a stale reading
- * flagged: the figures are the latest recorded, not one moment.
+ * figure left out of the sum is marked. Every account says how long ago its
+ * own figure was read, and how soon after publishing when the post was still
+ * young, because the accounts are never read at the same moment. With
+ * `detail`, each also shows its share of the sum and the clock time of the
+ * read, with a stale reading flagged.
  */
 export function AccountBars({ item, metric, detail = false }: { item: Item; metric: Metric; detail?: boolean }) {
   const total = totalOf(item, metric);
@@ -209,12 +260,12 @@ export function AccountBars({ item, metric, detail = false }: { item: Item; metr
                 <PlatformChip platform={c.platform} />
                 {!counted && v !== null && <span>not included</span>}
                 {detail && share !== null && <span>{share}% of the total</span>}
-                {detail && <span>{c.read_at ? `read ${shortDate(c.read_at)}` : 'not read yet'}</span>}
+                <ReadAge readAt={c.read_at} publishedAt={c.published_at} exact={detail} lower />
                 {detail && isStale(item, c) && <SampleChip>Stale reading</SampleChip>}
               </span>
               <span
                 className="tabular-nums"
-                style={{ color: v === null ? C.muted : C.text, fontWeight: v === null ? 500 : 800, fontSize: v === null ? '0.8rem' : '1rem', flexShrink: 0 }}
+                style={{ color: v === null ? C.muted : C.text, fontWeight: v === null ? 500 : 600, fontSize: v === null ? '0.875rem' : '1rem', flexShrink: 0 }}
               >
                 {v === null ? missingLabel(c) : full(v)}
               </span>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { InfoTip } from '@/components/InfoTip';
+import { ReadAge } from '@/components/freshness';
 import { BaselineChip } from '@/components/baseline';
 import { changeLabel } from '@/lib/baseline';
 import { ChartEmpty, PlatformChip, PostPicture, SampleChip } from '@/components/overview';
@@ -19,6 +20,7 @@ import {
   platformColor,
   platformLabel,
   shortDate,
+  shortDateTime,
 } from '@/lib/theme';
 
 /**
@@ -119,12 +121,12 @@ export function AudienceStrip({
                   </p>
                   <p className="text-xs mt-1" style={{ color: C.muted }}>
                     {a.baseline?.change ? (
-                      <span style={{ color: C.text, fontWeight: 700 }}>{changeLabel(a.baseline.change)}</span>
+                      <span style={{ color: C.text, fontWeight: 600 }}>{changeLabel(a.baseline.change)}</span>
                     ) : a.gained === null ? (
                       'Change in this window not known'
                     ) : (
                       <>
-                        <span className="tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
+                        <span className="tabular-nums" style={{ color: C.text, fontWeight: 600 }}>
                           {a.gained > 0 ? '+' : ''}
                           {full(a.gained)}
                         </span>{' '}
@@ -241,7 +243,7 @@ export function TopPosts({
                     <span className="text-xs truncate" style={{ color: C.text, fontWeight: 600 }}>
                       {oneLine(p.caption)}
                     </span>
-                    <span className="tabular-nums" style={{ color: C.text, fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.02em', flexShrink: 0 }}>
+                    <span className="tabular-nums" style={{ color: C.text, fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.02em', flexShrink: 0 }}>
                       {full(p.views)}
                     </span>
                   </span>
@@ -255,6 +257,9 @@ export function TopPosts({
                         borderRadius: RADIUS.pill,
                       }}
                     />
+                  </span>
+                  <span className="block text-xs mt-1" style={{ color: C.muted }}>
+                    <ReadAge readAt={p.read_at} publishedAt={p.published_at} />
                   </span>
                 </span>
               </Link>
@@ -279,6 +284,7 @@ export function FormatBars({
   hrefFor,
   info,
   caveat,
+  empty,
 }: {
   platform: string;
   age: number;
@@ -288,6 +294,8 @@ export function FormatBars({
   info: string;
   /** A limit of this account's figures that must be read with the bars, not behind a button. */
   caveat?: string;
+  /** Why there is nothing to compare and when there could be, from sameAgeEmpty in lib/freshness.ts. */
+  empty?: { why: string; when: Date | null; never: boolean };
 }) {
   const sorted = [...rows].sort((a, b) => b.medianViews - a.medianViews);
   const max = Math.max(1, ...sorted.map((r) => r.medianViews));
@@ -307,7 +315,26 @@ export function FormatBars({
       </p>
       {sorted.length === 0 ? (
         <ChartEmpty>
-          No {platformLabel(platform)} post published in this window is {age} hours old with a reading that young.
+          {empty ? (
+            <>
+              {empty.why}
+              {empty.when && (
+                <>
+                  {' '}
+                  The first comparison is possible from{' '}
+                  <span style={{ color: C.text, fontWeight: 600 }}>{shortDateTime(empty.when)}</span>.
+                </>
+              )}
+              {empty.never && (
+                <>
+                  {' '}
+                  <span style={{ color: C.text, fontWeight: 600 }}>Choose 7d or longer.</span>
+                </>
+              )}
+            </>
+          ) : (
+            `No ${platformLabel(platform)} post published in this window is ${age} hours old with a reading that young.`
+          )}
         </ChartEmpty>
       ) : (
         <ul className="flex flex-col">
@@ -331,7 +358,7 @@ export function FormatBars({
                       </span>
                       {small && <SampleChip>small sample</SampleChip>}
                     </span>
-                    <span className="tabular-nums" style={{ color: C.text, fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.02em', flexShrink: 0 }}>
+                    <span className="tabular-nums" style={{ color: C.text, fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.02em', flexShrink: 0 }}>
                       {full(Math.round(r.medianViews))}
                     </span>
                   </span>

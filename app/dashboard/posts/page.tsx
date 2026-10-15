@@ -3,6 +3,8 @@ import { PeriodPicker } from '@/components/PeriodPicker';
 import { PlatformFilter } from '@/components/PlatformFilter';
 import { getActivePlatforms, getDetailPosts, parsePlatform, parseWeek, withFilters, type DetailPost } from '@/lib/overview';
 import { parseTheme } from '@/lib/themes';
+import { getFacebookLinks, type Item } from '@/lib/combined';
+import { InstagramScope } from '@/components/content';
 import { pillarLabel } from '@/lib/pillars';
 import { PageHeader, Disclosure, Empty } from '@/components/charts';
 import { BackLink, DateTile, FigureBar, FilterBar, PlatformChip, QuietChip, SampleChip } from '@/components/overview';
@@ -38,13 +40,13 @@ function shortCaption(p: DetailPost): string {
 function Figure({ label, value }: { label: string; value: number | null }) {
   return (
     <div>
-      <p style={{ ...EYEBROW, fontSize: '0.68rem' }}>{label}</p>
+      <p style={{ ...EYEBROW, fontSize: '0.8125rem' }}>{label}</p>
       <p
         className="tabular-nums"
         style={{
           color: value === null ? C.muted : C.text,
-          fontWeight: value === null ? 500 : 800,
-          fontSize: value === null ? '0.8rem' : '1.05rem',
+          fontWeight: value === null ? 500 : 600,
+          fontSize: value === null ? '0.875rem' : '1.05rem',
           letterSpacing: '-0.02em',
           lineHeight: 1.3,
         }}
@@ -61,7 +63,7 @@ function Figure({ label, value }: { label: string; value: number | null }) {
  * where a table would put them. The views bar is drawn on one scale down the
  * list, which is already ordered by views to date, and its label says to date.
  */
-function PostRow({ p, maxViews }: { p: DetailPost; maxViews: number }) {
+function PostRow({ p, maxViews, linked, linkedHref }: { p: DetailPost; maxViews: number; linked?: Item; linkedHref?: string }) {
   // "23 Sept", in the dashboard's timezone, for the tile that stands in for a
   // missing image.
   const [day, month = ''] = shortDate(p.published_at).split(' ');
@@ -121,11 +123,16 @@ function PostRow({ p, maxViews }: { p: DetailPost; maxViews: number }) {
       </div>
       <dl className="grid grid-cols-2 gap-x-5 gap-y-2 items-end" style={{ flex: '1 1 280px' }}>
         <div className="col-span-2">
-          <FigureBar label="Views to date" value={p.views} max={maxViews} color={color} emphasis />
+          <FigureBar label={linked ? 'Instagram-only views to date' : 'Views to date'} value={p.views} max={maxViews} color={color} emphasis />
         </div>
         <Figure label="Engagement" value={p.engagement} />
         <Figure label="Comments" value={p.comments} />
       </dl>
+      {linked && linkedHref && (
+        <div style={{ flex: '1 1 100%' }}>
+          <InstagramScope item={linked} href={linkedHref} views={p.views} />
+        </div>
+      )}
     </li>
   );
 }
@@ -141,6 +148,7 @@ export default async function PostsDetailPage({
   const week = parseWeek(sp.week);
   const theme = parseTheme(sp.theme);
   const posts = await getDetailPosts(period, platform, week, theme);
+  const facebookLinks = await getFacebookLinks();
   const fromThemes = sp.back === 'themes';
   // Clicking a bar narrows this view to one account. The way back returns to
   // the Overview with the account filter it had before the click.
@@ -230,7 +238,13 @@ export default async function PostsDetailPage({
       ) : (
         <ul className="flex flex-col gap-2.5">
           {posts.map((p) => (
-            <PostRow key={`${p.platform}-${p.id}`} p={p} maxViews={maxViews} />
+            <PostRow
+              key={`${p.platform}-${p.id}`}
+              p={p}
+              maxViews={maxViews}
+              linked={p.platform === 'instagram' ? facebookLinks.get(p.id) : undefined}
+              linkedHref={withPeriod(`/dashboard/content/item?post=${p.id}`, period)}
+            />
           ))}
         </ul>
       )}

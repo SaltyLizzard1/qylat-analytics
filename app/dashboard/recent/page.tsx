@@ -80,7 +80,7 @@ function CohortTile({
         <div className="mt-3">
           <CompareBars current={current} previous={previous} currentLabel="This period" previousLabel="Previous" format={format} />
           {change && (
-            <p className="text-xs mt-1.5 tabular-nums" style={{ color: C.text, fontWeight: 700 }}>
+            <p className="text-xs mt-1.5 tabular-nums" style={{ color: C.text, fontWeight: 600 }}>
               {change}{' '}
               <span style={{ color: C.muted, fontWeight: 400 }}>against the previous period</span>
             </p>
@@ -102,13 +102,13 @@ function AtAgeFigure({ value, reached, label }: { value: number | null; reached:
   const real = reached && value !== null;
   return (
     <div title={!reached ? `Not yet ${label} old` : value === null ? `No snapshot within ${label} of publishing` : undefined}>
-      <p style={{ ...EYEBROW, fontSize: '0.68rem' }}>At {label}</p>
+      <p style={{ ...EYEBROW, fontSize: '0.8125rem' }}>At {label}</p>
       <p
         className="tabular-nums"
         style={{
           color: real ? C.text : C.muted,
-          fontWeight: real ? 800 : 500,
-          fontSize: real ? '1.05rem' : '0.8rem',
+          fontWeight: real ? 600 : 500,
+          fontSize: real ? '1.05rem' : '0.875rem',
           letterSpacing: '-0.02em',
           lineHeight: 1.3,
         }}
@@ -123,8 +123,8 @@ function AtAgeFigure({ value, reached, label }: { value: number | null; reached:
 function Small({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
     <div title={title}>
-      <p style={{ ...EYEBROW, fontSize: '0.68rem' }}>{label}</p>
-      <p className="tabular-nums" style={{ color: C.text, fontWeight: 700, fontSize: '1.05rem', letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+      <p style={{ ...EYEBROW, fontSize: '0.8125rem' }}>{label}</p>
+      <p className="tabular-nums" style={{ color: C.text, fontWeight: 600, fontSize: '1.05rem', letterSpacing: '-0.02em', lineHeight: 1.3 }}>
         {value}
       </p>
     </div>
@@ -212,7 +212,7 @@ function RecentRow({ p, max24 }: { p: RecentPost; max24: number }) {
                   : 'No snapshot was taken within 24 hours of this post being published.'
               }
             >
-              <p style={{ ...EYEBROW, fontSize: '0.68rem' }}>Views at 24h</p>
+              <p style={{ ...EYEBROW, fontSize: '0.8125rem' }}>Views at 24h</p>
               <p className="text-sm" style={{ color: C.muted }}>
                 {!reached24 ? 'Not yet 24 hours old' : 'No snapshot within 24 hours'}
               </p>
@@ -231,7 +231,7 @@ function RecentRow({ p, max24 }: { p: RecentPost; max24: number }) {
       <div className="flex items-center justify-between gap-4" style={{ flex: '0 1 220px' }}>
         <Small label="Saves" value={p.saves === null ? '--' : String(p.saves)} />
         <div style={{ textAlign: 'right' }}>
-          <p style={{ ...EYEBROW, fontSize: '0.68rem' }} className="mb-1">
+          <p style={{ ...EYEBROW, fontSize: '0.8125rem' }} className="mb-1">
             Versus peers
           </p>
           {verdict ? (
@@ -318,7 +318,7 @@ export default async function RecentPage({
                     textDecoration: 'none',
                     background: active ? C.ink : 'transparent',
                     color: active ? C.onInk : C.text,
-                    fontWeight: active ? 700 : 500,
+                    fontWeight: active ? 600 : 500,
                   }}
                 >
                   {a.label}
