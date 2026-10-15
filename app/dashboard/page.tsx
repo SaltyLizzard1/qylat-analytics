@@ -148,7 +148,7 @@ export default async function DashboardPage({
   // The profile is only collected for the last 28 days, so how many posts it
   // had in the window before is not known. Comparing against zero would
   // report growth that is only the collector starting. The comparison is made
-  // on the two accounts whose history exists, and says so.
+  // on the accounts whose history exists, and names them.
   const api = mine.filter((t) => t.platform !== 'facebook-personal');
   const apiPosts = api.reduce((n, t) => n + t.posts, 0);
   const apiPrevPosts = api.reduce((n, t) => n + t.prev_posts, 0);
@@ -315,7 +315,11 @@ export default async function DashboardPage({
           <CardLine>{period.label}. Stories not counted</CardLine>
           {comparing && api.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              {profileShown && <CardLine>Instagram and Page: {full(apiPosts)}</CardLine>}
+              {profileShown && (
+                <CardLine>
+                  {listed.format(apiShown.map((p) => (p === 'facebook' ? 'Page' : platformLabel(p))))}: {full(apiPosts)}
+                </CardLine>
+              )}
               <Change
                 current={apiPosts}
                 previous={apiPrevPosts}
